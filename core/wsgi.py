@@ -11,6 +11,10 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.dev')
+from dotenv import load_dotenv
+
+
+load_dotenv()  # Load environment variables from .env file
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', os.getenv('DJANGO_SETTINGS_MODULE', 'core.settings.prod.py'))
 
 application = get_wsgi_application()

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
 
-# Danh sách Django Apps & Third-party Packages
+# # ============================================= Danh sách Django Apps & Third-party Packages # ============================================= 
 INSTALLED_APPS = [
     # Django core apps
     'django.contrib.admin',
@@ -66,11 +66,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
-
-# Cấu hình Custom User Model (bắt buộc chỉ định ngay từ đầu)
 AUTH_USER_MODEL = 'authentication.User'
 
-# Password validation
+# ============================================= Password validation=============================================
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -78,13 +76,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Internationalization
+#============================================= Internationalization =============================================
 LANGUAGE_CODE = 'vi-vn'
 TIME_ZONE = 'Asia/Ho_Chi_Minh'
 USE_I18N = True
 USE_TZ = True
 
-# Static & Media files (Upload ảnh đại diện, ảnh công việc)
+# ============================================= Static & Media files =============================================
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
@@ -93,7 +91,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Cấu hình Django REST Framework (DRF)
+# =============================================Cấu hình Django REST Framework (DRF)============================================= 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -102,9 +100,18 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    
+    # !! Bọc khi API gặp LỖI
+    'EXCEPTION_HANDLER': 'apps.common.exceptions.custom_exception_handler',
+    
+    # !! Bọc khi API THÀNH CÔNG (Trả data hợp lệ)
+    'DEFAULT_RENDERER_CLASSES': (
+        'apps.common.renderers.CustomJSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer', # Giữ lại giao diện DRF Web
+    ),
 }
 
-# Cấu hình Simple JWT
+# ============================================= Cấu hình Simple JWT=============================================
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -112,9 +119,8 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Cấu hình Swagger API Documentation
+# ============================================= Cấu hình Swagger API Documentation=============================================
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'CleanAI Backend API',
-    'DESCRIPTION': 'Hệ thống quản lý dịch vụ vệ sinh tích hợp AI',
+    'TITLE': 'CleanWiseApp Backend API',
     'VERSION': '1.0.0',
 }
