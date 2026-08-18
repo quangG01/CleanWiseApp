@@ -1,0 +1,19 @@
+# Django Framework & DRF
+Django
+djangorestframework
+djangorestframework-simplejwt
+
+# Security & CORS 
+django-cors-headers
+
+# Environment Management
+django-environ
+
+# Database Driver 
+psycopg2-binary
+
+# Swagger API Doc 
+drf-spectacular
+
+#env
+python-dotevn
