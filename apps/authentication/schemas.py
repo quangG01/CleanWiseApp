@@ -1,5 +1,5 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
-from .serializers import TokenResponseSerializer, UserSerializer
+from .serializers import RegisterSerializer, TokenResponseSerializer, UserSerializer
 
 # Khai báo sẵn các schema
 USER_LIST_SCHEMA = extend_schema_view(
@@ -24,5 +24,18 @@ LOGIN_SCHEMA = extend_schema_view(
         description="Xác thực Username/Password và cấp JWT Token.",
         tags=["1. Authentication & Users"],
         responses={200: TokenResponseSerializer}
+    )
+)
+
+REGISTER_SCHEMA = extend_schema_view(
+    post=extend_schema(
+        summary="Đăng ký tài khoản",
+        description=""" Tạo tài khoản khách hàng hoặc nhân viên và cấp JWT Token sau khi đăng ký thành công, lưu ý:
+        + Không cần truyền role, mặc định là CUSTOMER. 
+        + Không thể đăng ký trực tiếp ADMIN. 
+        """,
+        tags=["1. Authentication & Users"],
+        request=RegisterSerializer,
+        responses={201: TokenResponseSerializer}
     )
 )

@@ -2,11 +2,23 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from django.contrib.auth import get_user_model
-from .schemas import USER_LIST_SCHEMA, LOGIN_SCHEMA
-from .serializers import UserSerializer, LoginSerializer
+from .schemas import USER_LIST_SCHEMA, LOGIN_SCHEMA, REGISTER_SCHEMA
+from .serializers import UserSerializer, LoginSerializer, RegisterSerializer
+from apps.common.permissions import IsAdminRole
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
+
+
+def build_token_response(user):
+    refresh = RefreshToken.for_user(user)
+    refresh['role'] = getattr(user, 'role', 'USER')
+
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "user": UserSerializer(user).data
+    }
 
 @USER_LIST_SCHEMA
 class UserListView(generics.ListAPIView):
@@ -19,7 +31,7 @@ class UserListView(generics.ListAPIView):
     3. Luôn gắn decorator @extend_schema để sinh tài liệu Swagger tự động.
     """
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsIsAdminUser] if hasattr(permissions, 'IsIsAdminUser') else [permissions.IsAdminUser]
+    permission_classes = [IsAdminRole]
 
     def get_queryset(self):
         """Tùy chỉnh Queryset (Filter theo query parameter cần lấy )."""
@@ -68,19 +80,30 @@ class LoginView(generics.GenericAPIView):
         
         user = serializer.validated_data['user']
         
-        
-        refresh = RefreshToken.for_user(user)
-        
-        # Có thể nhúng thêm claim 'role' trực tiếp vào Token payload nếu cần
-        refresh['role'] = getattr(user, 'role', 'USER')  # Mặc định là 'USER' nếu không có role
-
-        data = {
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "user": UserSerializer(user).data
-        }
+        data = build_token_response(user)
 
         return Response({
             "message": "Đăng nhập thành công.",
             "data": data
         }, status=status.HTTP_200_OK)
+
+
+@REGISTER_SCHEMA
+class RegisterView(generics.CreateAPIView):
+    """
+    POST /api/auth/register/
+    API đăng ký tài khoản khách hàng hoặc nhân viên.
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = RegisterSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        data = build_token_response(user)
+
+        return Response({
+            "message": "Đăng ký tài khoản thành công.",
+            "data": data
+        }, status=status.HTTP_201_CREATED)

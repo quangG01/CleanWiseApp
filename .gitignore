@@ -17,6 +17,3 @@ __pycache__/
 media/
 staticfiles/
 
-# Bỏ qua các file migration sinh ra tự động
-**/migrations/*.py
-!**/migrations/__init__.py
