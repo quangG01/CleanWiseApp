@@ -44,6 +44,7 @@ class GoogleLoginSerializer(serializers.Serializer):
                 attrs["id_token"],
                 google_requests.Request(),
                 settings.GOOGLE_CLIENT_ID,
+                clock_skew_in_seconds=7,
             )
         except ValueError:
             raise serializers.ValidationError({
