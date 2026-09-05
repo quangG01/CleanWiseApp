@@ -104,24 +104,33 @@ class GoogleLoginSerializer(serializers.Serializer):
         return attrs
 
 class LoginSerializer(serializers.Serializer):
-    """Serializer nhận dữ liệu đầu vào khi Đăng nhập."""
-    username = serializers.CharField(required=True, write_only=True)
+    """Serializer nhận dữ liệu đầu vào khi đăng nhập bằng số điện thoại hoặc username."""
+    phone = serializers.CharField(required=False, write_only=True)
+    username = serializers.CharField(required=False, write_only=True)
     password = serializers.CharField(required=True, write_only=True, style={'input_type': 'password'})
 
     def validate(self, attrs):
+        phone = attrs.get('phone')
         username = attrs.get('username')
         password = attrs.get('password')
 
-        user = authenticate(username=username, password=password)
+        if not phone and not username:
+            raise serializers.ValidationError({
+                "phone": "Vui lòng nhập số điện thoại hoặc username."
+            })
+
+        user = User.objects.filter(phone_number=phone).first() if phone else None
+        auth_username = user.username if user else username
+
+        user = authenticate(username=auth_username, password=password)
         if not user:
-            raise serializers.ValidationError("Tên đăng nhập hoặc mật khẩu không chính xác.")
+            raise serializers.ValidationError("Số điện thoại/username hoặc mật khẩu không chính xác.")
         
         if not user.is_active:
             raise serializers.ValidationError("Tài khoản của bạn đã bị khóa.")
 
         attrs['user'] = user
         return attrs
-
 
 class RegisterSerializer(serializers.ModelSerializer):
     """
@@ -202,3 +211,5 @@ class TokenResponseSerializer(serializers.Serializer):
     refresh = serializers.CharField()
     user = serializers.DictField()
     is_new_user = serializers.BooleanField(required=False)
+
+

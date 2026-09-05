@@ -21,7 +21,7 @@ USER_LIST_SCHEMA = extend_schema_view(
 LOGIN_SCHEMA = extend_schema_view(
     post=extend_schema(
         summary="Đăng nhập hệ thống",
-        description="Xác thực Username/Password và cấp JWT Token.",
+        description="Xác thực bằng số điện thoại hoặc username kèm mật khẩu và cấp JWT Token.",
         tags=["1. Authentication & Users"],
         responses={200: TokenResponseSerializer}
     )
@@ -53,3 +53,5 @@ GOOGLE_LOGIN_SCHEMA = extend_schema_view(
         responses={200: TokenResponseSerializer}
     )
 )
+
+
