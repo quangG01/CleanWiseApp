@@ -1,5 +1,5 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
-from .serializers import RegisterSerializer, TokenResponseSerializer, UserSerializer
+from .serializers import GoogleLoginSerializer, RegisterSerializer, TokenResponseSerializer, UserSerializer
 
 # Khai báo sẵn các schema
 USER_LIST_SCHEMA = extend_schema_view(
@@ -37,5 +37,19 @@ REGISTER_SCHEMA = extend_schema_view(
         tags=["1. Authentication & Users"],
         request=RegisterSerializer,
         responses={201: TokenResponseSerializer}
+    )
+)
+
+GOOGLE_LOGIN_SCHEMA = extend_schema_view(
+    post=extend_schema(
+        summary="Đăng nhập / đăng ký bằng Google",
+        description="""
+        Nhận Google ID token từ frontend.
+        Nếu email chưa tồn tại, hệ thống tự tạo tài khoản CUSTOMER và CustomerProfile.
+        Nếu email đã tồn tại, hệ thống đăng nhập vào tài khoản đó.
+        """,
+        tags=["1. Authentication & Users"],
+        request=GoogleLoginSerializer,
+        responses={200: TokenResponseSerializer}
     )
 )
