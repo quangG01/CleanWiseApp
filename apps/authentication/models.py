@@ -92,3 +92,30 @@ class WorkerProfile(models.Model):
 
     def __str__(self):
         return f"Hồ sơ nhân viên: {self.user}"
+
+
+class WorkerVerificationDocument(models.Model):
+    class DocumentType(models.TextChoices):
+        IDENTITY_FRONT = 'IDENTITY_FRONT', 'CCCD/CMND mặt trước'
+        IDENTITY_BACK = 'IDENTITY_BACK', 'CCCD/CMND mặt sau'
+        CERTIFICATE = 'CERTIFICATE', 'Chứng chỉ'
+        BACKGROUND_CHECK = 'BACKGROUND_CHECK', 'Xác minh lý lịch'
+        OTHER = 'OTHER', 'Khác'
+
+    class FileType(models.TextChoices):
+        IMAGE = 'IMAGE', 'Hình ảnh'
+        PDF = 'PDF', 'PDF'
+        OTHER = 'OTHER', 'Khác'
+
+    worker = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name='verification_documents')
+    document_type = models.CharField(max_length=30, choices=DocumentType.choices, default=DocumentType.OTHER)
+    file = models.CharField(max_length=255)
+    file_type = models.CharField(max_length=30, choices=FileType.choices, default=FileType.OTHER)
+    note = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'worker_verification_documents'
+
+    def __str__(self):
+        return f"{self.worker} - {self.document_type}"

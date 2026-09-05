@@ -1,3 +1,40 @@
 from django.contrib import admin
+from .models import (
+    Area,
+    Booking,
+    BookingAssignment,
+    BookingSchedule,
+    BookingScheduleImage,
+    BookingVoucher,
+    ChatConversation,
+    ChatMessage,
+    Complaint,
+    ComplaintAttachment,
+    CustomerAddress,
+    Notification,
+    Payment,
+    Review,
+    ReviewImage,
+    Voucher,
+    WorkerAvailability,
+    WorkerWorkingArea,
+)
 
-# Register your models here.
+admin.site.register(Area)
+admin.site.register(CustomerAddress)
+admin.site.register(WorkerWorkingArea)
+admin.site.register(WorkerAvailability)
+admin.site.register(Booking)
+admin.site.register(BookingAssignment)
+admin.site.register(BookingSchedule)
+admin.site.register(BookingScheduleImage)
+admin.site.register(Voucher)
+admin.site.register(BookingVoucher)
+admin.site.register(Payment)
+admin.site.register(Review)
+admin.site.register(ReviewImage)
+admin.site.register(Complaint)
+admin.site.register(ComplaintAttachment)
+admin.site.register(Notification)
+admin.site.register(ChatConversation)
+admin.site.register(ChatMessage)

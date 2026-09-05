@@ -10,6 +10,7 @@ import sys
 sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 
 # # ============================================= Danh sách Django Apps & Third-party Packages # ============================================= 
 INSTALLED_APPS = [

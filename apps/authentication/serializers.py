@@ -1,3 +1,6 @@
+from django.conf import settings
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from rest_framework import serializers
 from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -25,6 +28,80 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'date_joined']
 
+
+class GoogleLoginSerializer(serializers.Serializer):
+    """Serializer nhận Google ID token từ frontend và xác thực với Google."""
+    id_token = serializers.CharField(required=True, write_only=True)
+
+    def validate(self, attrs):
+        if not settings.GOOGLE_CLIENT_ID:
+            raise serializers.ValidationError({
+                "google": "Backend chưa cấu hình GOOGLE_CLIENT_ID."
+            })
+
+        try:
+            payload = google_id_token.verify_oauth2_token(
+                attrs["id_token"],
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except ValueError:
+            raise serializers.ValidationError({
+                "id_token": "Google ID token không hợp lệ."
+            })
+
+        email = payload.get("email")
+        email_verified = payload.get("email_verified")
+
+        if not email:
+            raise serializers.ValidationError({
+                "email": "Google token không chứa email."
+            })
+
+        if not email_verified:
+            raise serializers.ValidationError({
+                "email": "Email Google chưa được xác minh."
+            })
+
+        first_name = payload.get("given_name") or ""
+        last_name = payload.get("family_name") or ""
+        picture = payload.get("picture")
+
+        user = User.objects.filter(email__iexact=email).first()
+        created = False
+
+        if not user:
+            user = User.objects.create(
+                username=email,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                role=User.Role.CUSTOMER,
+            )
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+            CustomerProfile.objects.create(user=user, avatar=picture)
+            created = True
+        else:
+            if not user.is_active:
+                raise serializers.ValidationError("Tài khoản của bạn đã bị khóa.")
+
+            changed_fields = []
+            if first_name and not user.first_name:
+                user.first_name = first_name
+                changed_fields.append("first_name")
+            if last_name and not user.last_name:
+                user.last_name = last_name
+                changed_fields.append("last_name")
+            if changed_fields:
+                user.save(update_fields=changed_fields)
+
+            if user.role == User.Role.CUSTOMER and not hasattr(user, "customer_profile"):
+                CustomerProfile.objects.create(user=user, avatar=picture)
+
+        attrs["user"] = user
+        attrs["created"] = created
+        return attrs
 
 class LoginSerializer(serializers.Serializer):
     """Serializer nhận dữ liệu đầu vào khi Đăng nhập."""
@@ -124,3 +201,4 @@ class TokenResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
     refresh = serializers.CharField()
     user = serializers.DictField()
+    is_new_user = serializers.BooleanField(required=False)

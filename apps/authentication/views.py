@@ -2,8 +2,8 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from django.contrib.auth import get_user_model
-from .schemas import USER_LIST_SCHEMA, LOGIN_SCHEMA, REGISTER_SCHEMA
-from .serializers import UserSerializer, LoginSerializer, RegisterSerializer
+from .schemas import USER_LIST_SCHEMA, LOGIN_SCHEMA, REGISTER_SCHEMA, GOOGLE_LOGIN_SCHEMA
+from .serializers import UserSerializer, LoginSerializer, RegisterSerializer, GoogleLoginSerializer
 from apps.common.permissions import IsAdminRole
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -107,3 +107,33 @@ class RegisterView(generics.CreateAPIView):
             "message": "Đăng ký tài khoản thành công.",
             "data": data
         }, status=status.HTTP_201_CREATED)
+
+@GOOGLE_LOGIN_SCHEMA
+class GoogleLoginView(generics.GenericAPIView):
+    """
+    POST /api/auth/login-google/
+    API đăng nhập / đăng ký bằng Google.
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = GoogleLoginSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data["user"]
+        created = serializer.validated_data.get("created", False)
+        data = build_token_response(user)
+        data["is_new_user"] = created
+
+        message = (
+            "Đăng ký bằng Google thành công."
+            if created
+            else "Đăng nhập bằng Google thành công."
+        )
+
+        return Response({
+            "message": message,
+            "data": data
+        }, status=status.HTTP_200_OK)
+

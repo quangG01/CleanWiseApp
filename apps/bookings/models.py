@@ -220,6 +220,32 @@ class BookingSchedule(models.Model):
         return f"{self.booking} - {self.scheduled_start}"
 
 
+class BookingScheduleImage(models.Model):
+    class ImageType(models.TextChoices):
+        BEFORE = 'BEFORE', 'Trước khi làm'
+        AFTER = 'AFTER', 'Sau khi làm'
+        ISSUE = 'ISSUE', 'Vấn đề phát sinh'
+        OTHER = 'OTHER', 'Khác'
+
+    schedule = models.ForeignKey(BookingSchedule, on_delete=models.DO_NOTHING, related_name='images')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='uploaded_schedule_images')
+    image_type = models.CharField(max_length=20, choices=ImageType.choices, default=ImageType.OTHER)
+    image = models.CharField(max_length=255)
+    note = models.TextField(blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'booking_schedule_images'
+        constraints = [
+            models.CheckConstraint(condition=models.Q(sort_order__gte=0), name='booking_schedule_images_sort_order_check'),
+        ]
+        ordering = ['schedule_id', 'sort_order', 'created_at', 'id']
+
+    def __str__(self):
+        return f"{self.schedule} - {self.image_type}"
+
+
 class Voucher(models.Model):
     class DiscountType(models.TextChoices):
         PERCENT = 'PERCENT', 'Phần trăm'
@@ -340,6 +366,20 @@ class Review(models.Model):
         return f"{self.booking} - {self.rating}"
 
 
+class ReviewImage(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.DO_NOTHING, related_name='images')
+    image = models.CharField(max_length=255)
+    caption = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'review_images'
+        ordering = ['created_at', 'id']
+
+    def __str__(self):
+        return f"{self.review} - {self.image}"
+
+
 class Complaint(models.Model):
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Chờ xử lý'
@@ -363,6 +403,7 @@ class Complaint(models.Model):
     resolution_note = models.TextField(blank=True, null=True)
     resolved_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'complaints'
