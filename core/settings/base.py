@@ -11,6 +11,10 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+FRONTEND_RESET_PASSWORD_URL = os.environ.get(
+    "FRONTEND_RESET_PASSWORD_URL",
+    "http://localhost:3000/reset-password"
+)
 
 # # ============================================= Danh sách Django Apps & Third-party Packages # ============================================= 
 INSTALLED_APPS = [
@@ -87,10 +91,30 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+CUSTOMER_AVATAR_UPLOAD_DIR = os.environ.get(
+    "CUSTOMER_AVATAR_UPLOAD_DIR",
+    "customer_avatars"
+)
+CUSTOMER_AVATAR_MAX_SIZE = int(os.environ.get("CUSTOMER_AVATAR_MAX_SIZE", 5 * 1024 * 1024))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================================= Email =============================================
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER or "no-reply@cleanwise.local"
+)
 
 # =============================================Cấu hình Django REST Framework (DRF)============================================= 
 REST_FRAMEWORK = {
