@@ -14,6 +14,7 @@ from .serializers import (
     ResetPasswordSerializer,
     TokenResponseSerializer,
     UserSerializer,
+    VerifyPasswordResetOTPSerializer,
 )
 
 # Khai báo sẵn các schema
@@ -110,15 +111,16 @@ GOOGLE_LOGIN_SCHEMA = extend_schema_view(
 
 FORGOT_PASSWORD_SCHEMA = extend_schema_view(
     post=extend_schema(
-        summary="Gửi email khôi phục mật khẩu",
+        summary="Gửi mã xác thực khôi phục mật khẩu",
         description="""
-        Nhận email người dùng và gửi liên kết đặt lại mật khẩu nếu email tồn tại.
+        Nhận email người dùng và gửi mã xác thực khôi phục mật khẩu nếu email tồn tại.
 
-        Backend sẽ tạo uid và token khôi phục mật khẩu, sau đó gắn vào link gửi qua email:
-        FRONTEND_RESET_PASSWORD_URL?uid=...&token=...
+        Backend sẽ tạo mã OTP gồm 6 chữ số, lưu bản hash của mã kèm thời gian hết hạn,
+        rồi gửi mã OTP đó về email cho người dùng.
 
-        Frontend mở màn hình đặt lại mật khẩu từ link trong email, lấy uid và token trên URL,
-        rồi gọi API POST /api/auth/reset-password/ cùng mật khẩu mới để hoàn tất khôi phục.
+        Frontend hiển thị màn hình nhập mã xác thực. Sau khi người dùng nhập mã,
+        frontend gọi API POST /api/auth/verify-reset-otp/ với email và code.
+        Nếu mã hợp lệ, frontend mới chuyển sang màn hình nhập mật khẩu mới.
 
         API luôn trả về thông báo chung để tránh lộ email đã đăng ký trong hệ thống.
         """,
@@ -128,14 +130,32 @@ FORGOT_PASSWORD_SCHEMA = extend_schema_view(
     )
 )
 
+VERIFY_PASSWORD_RESET_OTP_SCHEMA = extend_schema_view(
+    post=extend_schema(
+        summary="Xác minh mã OTP khôi phục mật khẩu",
+        description="""
+        Nhận email và mã OTP mà người dùng nhập từ email.
+
+        Nếu mã OTP hợp lệ, chưa hết hạn, chưa được sử dụng và chưa vượt quá số lần nhập sai,
+        backend sẽ đánh dấu mã này là đã xác minh. Sau bước này frontend có thể hiển thị
+        form nhập mật khẩu mới.
+        """,
+        tags=["1. Authentication & Users"],
+        request=VerifyPasswordResetOTPSerializer,
+        responses={200: OpenApiResponse(description="Mã xác thực hợp lệ.")}
+    )
+)
+
 RESET_PASSWORD_SCHEMA = extend_schema_view(
     post=extend_schema(
         summary="Đặt lại mật khẩu mới",
         description="""
-        Nhận uid và token mà frontend lấy từ link khôi phục mật khẩu trong email,
+        Nhận email, mã xác thực OTP mà người dùng nhập từ email,
         kèm mật khẩu mới và xác nhận mật khẩu mới.
 
-        Nếu uid và token hợp lệ, backend sẽ cập nhật mật khẩu mới cho tài khoản.
+        API này chỉ đổi mật khẩu nếu mã OTP đã được xác minh thành công qua
+        POST /api/auth/verify-reset-otp/ trước đó. Backend vẫn kiểm tra lại email,
+        mã OTP, hạn dùng và trạng thái sử dụng trước khi cập nhật mật khẩu.
         """,
         tags=["1. Authentication & Users"],
         request=ResetPasswordSerializer,

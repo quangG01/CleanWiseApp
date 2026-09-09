@@ -1,16 +1,13 @@
 from django.conf import settings
-from django.contrib.auth.tokens import default_token_generator
 from django.core.files.storage import default_storage
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from rest_framework import serializers
 from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.password_validation import validate_password
-from django.utils.encoding import force_str
-from django.utils.http import urlsafe_base64_decode
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
-from .models import CustomerProfile, WorkerProfile
+from .models import CustomerProfile, PasswordResetOTP, WorkerProfile
 from pathlib import Path
 from uuid import uuid4
 
@@ -355,10 +352,68 @@ class ForgotPasswordSerializer(serializers.Serializer):
         return User.objects.filter(email__iexact=email, is_active=True).first()
 
 
+class VerifyPasswordResetOTPSerializer(serializers.Serializer):
+    """Serializer kiểm tra mã OTP trước khi cho phép nhập mật khẩu mới."""
+    email = serializers.EmailField(required=True, write_only=True)
+    code = serializers.RegexField(
+        regex=r"^\d{6}$",
+        required=True,
+        write_only=True,
+        error_messages={
+            "invalid": "Mã xác thực phải gồm 6 chữ số."
+        }
+    )
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+    def validate(self, attrs):
+        user = User.objects.filter(email__iexact=attrs["email"], is_active=True).first()
+        if not user:
+            raise serializers.ValidationError({
+                "code": "Mã xác thực không hợp lệ hoặc đã hết hạn."
+            })
+
+        otp = (
+            PasswordResetOTP.objects
+            .filter(user=user, used_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not otp or otp.is_expired or otp.attempts >= settings.PASSWORD_RESET_OTP_MAX_ATTEMPTS:
+            raise serializers.ValidationError({
+                "code": "Mã xác thực không hợp lệ hoặc đã hết hạn."
+            })
+
+        if not otp.check_code(attrs["code"]):
+            otp.attempts += 1
+            otp.save(update_fields=["attempts"])
+            raise serializers.ValidationError({
+                "code": "Mã xác thực không hợp lệ hoặc đã hết hạn."
+            })
+
+        attrs["otp"] = otp
+        return attrs
+
+    def save(self, **kwargs):
+        otp = self.validated_data["otp"]
+        if not otp.is_verified:
+            otp.mark_verified()
+        return otp
+
+
 class ResetPasswordSerializer(serializers.Serializer):
-    """Serializer kiểm tra token và đặt lại mật khẩu mới."""
-    uid = serializers.CharField(required=True, write_only=True)
-    token = serializers.CharField(required=True, write_only=True)
+    """Serializer kiểm tra mã OTP và đặt lại mật khẩu mới."""
+    email = serializers.EmailField(required=True, write_only=True)
+    code = serializers.RegexField(
+        regex=r"^\d{6}$",
+        required=True,
+        write_only=True,
+        error_messages={
+            "invalid": "Mã xác thực phải gồm 6 chữ số."
+        }
+    )
     new_password = serializers.CharField(
         required=True,
         write_only=True,
@@ -371,32 +426,54 @@ class ResetPasswordSerializer(serializers.Serializer):
         style={'input_type': 'password'}
     )
 
+    def validate_email(self, value):
+        return value.strip().lower()
+
     def validate(self, attrs):
         if attrs["new_password"] != attrs["new_password_confirm"]:
             raise serializers.ValidationError({
                 "new_password_confirm": "Mật khẩu xác nhận không khớp."
             })
 
-        try:
-            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
-            user = User.objects.get(pk=user_id, is_active=True)
-        except (TypeError, ValueError, OverflowError, UnicodeDecodeError, User.DoesNotExist):
+        user = User.objects.filter(email__iexact=attrs["email"], is_active=True).first()
+        if not user:
             raise serializers.ValidationError({
-                "token": "Liên kết khôi phục mật khẩu không hợp lệ hoặc đã hết hạn."
+                "code": "Mã xác thực không hợp lệ hoặc đã hết hạn."
             })
 
-        if not default_token_generator.check_token(user, attrs["token"]):
+        otp = (
+            PasswordResetOTP.objects
+            .filter(user=user, used_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if (
+            not otp
+            or otp.is_expired
+            or not otp.is_verified
+            or otp.attempts >= settings.PASSWORD_RESET_OTP_MAX_ATTEMPTS
+        ):
             raise serializers.ValidationError({
-                "token": "Liên kết khôi phục mật khẩu không hợp lệ hoặc đã hết hạn."
+                "code": "Vui lòng xác minh mã OTP trước khi đặt lại mật khẩu."
+            })
+
+        if not otp.check_code(attrs["code"]):
+            otp.attempts += 1
+            otp.save(update_fields=["attempts"])
+            raise serializers.ValidationError({
+                "code": "Mã xác thực không hợp lệ hoặc đã hết hạn."
             })
 
         attrs["user"] = user
+        attrs["otp"] = otp
         return attrs
 
     def save(self, **kwargs):
         user = self.validated_data["user"]
         user.set_password(self.validated_data["new_password"])
         user.save(update_fields=["password"])
+        self.validated_data["otp"].mark_used()
         return user
 
 

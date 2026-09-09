@@ -4,16 +4,17 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
-from django.utils.http import urlsafe_base64_encode
-from django.utils.encoding import force_bytes
+from django.utils import timezone
+from datetime import timedelta
+import secrets
 from .schemas import (
     USER_LIST_SCHEMA,
     LOGIN_SCHEMA,
     REGISTER_SCHEMA,
     GOOGLE_LOGIN_SCHEMA,
     FORGOT_PASSWORD_SCHEMA,
+    VERIFY_PASSWORD_RESET_OTP_SCHEMA,
     RESET_PASSWORD_SCHEMA,
     CUSTOMER_PROFILE_SCHEMA,
 )
@@ -24,8 +25,10 @@ from .serializers import (
     RegisterSerializer,
     GoogleLoginSerializer,
     ForgotPasswordSerializer,
+    VerifyPasswordResetOTPSerializer,
     ResetPasswordSerializer,
 )
+from .models import PasswordResetOTP
 from apps.common.permissions import IsAdminRole, IsCustomerRole
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -218,15 +221,23 @@ class ForgotPasswordView(generics.GenericAPIView):
 
         user = serializer.get_user()
         if user:
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            token = default_token_generator.make_token(user)
-            reset_url = f"{settings.FRONTEND_RESET_PASSWORD_URL}?uid={uid}&token={token}"
+            code = f"{secrets.randbelow(1000000):06d}"
+            PasswordResetOTP.objects.filter(
+                user=user,
+                used_at__isnull=True,
+            ).update(used_at=timezone.now())
+            PasswordResetOTP.objects.create(
+                user=user,
+                code_hash=PasswordResetOTP.make_code_hash(code),
+                expires_at=timezone.now() + timedelta(minutes=settings.PASSWORD_RESET_OTP_TTL_MINUTES),
+            )
 
             send_mail(
                 subject="Khôi phục mật khẩu CleanWise",
                 message=(
                     "Bạn vừa yêu cầu đặt lại mật khẩu CleanWise.\n\n"
-                    f"Vui lòng mở liên kết sau để đặt mật khẩu mới:\n{reset_url}\n\n"
+                    f"Mã xác thực của bạn là: {code}\n"
+                    f"Mã này có hiệu lực trong {settings.PASSWORD_RESET_OTP_TTL_MINUTES} phút.\n\n"
                     "Nếu bạn không yêu cầu thao tác này, vui lòng bỏ qua email này."
                 ),
                 from_email=settings.DEFAULT_FROM_EMAIL,
@@ -235,15 +246,35 @@ class ForgotPasswordView(generics.GenericAPIView):
             )
 
         return Response({
-            "message": "Nếu email tồn tại, hệ thống đã gửi hướng dẫn khôi phục mật khẩu."
+            "message": "Nếu email tồn tại, hệ thống đã gửi mã xác thực khôi phục mật khẩu."
         }, status=status.HTTP_200_OK)
+
+#========================================================================================================================
+@VERIFY_PASSWORD_RESET_OTP_SCHEMA
+class VerifyPasswordResetOTPView(generics.GenericAPIView):
+    """
+    POST /api/auth/verify-reset-otp/
+    API xác minh mã OTP trước khi đặt lại mật khẩu.
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = VerifyPasswordResetOTPSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "message": "Mã xác thực hợp lệ. Bạn có thể đặt lại mật khẩu mới."
+        }, status=status.HTTP_200_OK)
+
 
 #========================================================================================================================
 @RESET_PASSWORD_SCHEMA
 class ResetPasswordView(generics.GenericAPIView):
     """
     POST /api/auth/reset-password/
-    API đặt lại mật khẩu mới bằng uid và token từ email.
+    API đặt lại mật khẩu mới bằng email và mã xác thực.
     """
     permission_classes = [permissions.AllowAny]
     serializer_class = ResetPasswordSerializer
