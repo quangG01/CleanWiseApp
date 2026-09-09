@@ -4,7 +4,8 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import timedelta
 import secrets
@@ -29,7 +30,7 @@ from .serializers import (
     ResetPasswordSerializer,
 )
 from .models import PasswordResetOTP
-from apps.common.permissions import IsAdminRole, IsCustomerRole
+from apps.common.permissions import IsAdminRole, IsCustomerRole, IsAdminOrCustomerRole
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
@@ -97,7 +98,7 @@ class CustomerProfileView(generics.GenericAPIView):
     PATCH /api/auth/customer/profile/
     API xem và cập nhật hồ sơ khách hàng đang đăng nhập.
     """
-    permission_classes = [IsCustomerRole]
+    permission_classes = [IsAdminOrCustomerRole]
     serializer_class = CustomerProfileSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
@@ -231,19 +232,30 @@ class ForgotPasswordView(generics.GenericAPIView):
                 code_hash=PasswordResetOTP.make_code_hash(code),
                 expires_at=timezone.now() + timedelta(minutes=settings.PASSWORD_RESET_OTP_TTL_MINUTES),
             )
-
-            send_mail(
-                subject="Khôi phục mật khẩu CleanWise",
-                message=(
-                    "Bạn vừa yêu cầu đặt lại mật khẩu CleanWise.\n\n"
-                    f"Mã xác thực của bạn là: {code}\n"
-                    f"Mã này có hiệu lực trong {settings.PASSWORD_RESET_OTP_TTL_MINUTES} phút.\n\n"
-                    "Nếu bạn không yêu cầu thao tác này, vui lòng bỏ qua email này."
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
+            display_name = user.get_full_name() or user.username
+            text_message = (
+                "Bạn vừa yêu cầu đặt lại mật khẩu CleanWise.\n\n"
+                f"Mã xác thực của bạn là: {code}\n"
+                f"Mã này có hiệu lực trong {settings.PASSWORD_RESET_OTP_TTL_MINUTES} phút.\n\n"
+                "Nếu bạn không yêu cầu thao tác này, vui lòng bỏ qua email này."
             )
+            html_message = render_to_string(
+                "emails/password_reset_otp.html",
+                {
+                    "code": code,
+                    "ttl_minutes": settings.PASSWORD_RESET_OTP_TTL_MINUTES,
+                    "display_name": display_name,
+                }
+            )
+
+            email = EmailMultiAlternatives(
+                subject="Khôi phục mật khẩu CleanWise",
+                body=text_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[user.email],
+            )
+            email.attach_alternative(html_message, "text/html")
+            email.send(fail_silently=False)
 
         return Response({
             "message": "Nếu email tồn tại, hệ thống đã gửi mã xác thực khôi phục mật khẩu."

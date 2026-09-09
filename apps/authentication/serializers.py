@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.core.files.storage import default_storage
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from rest_framework import serializers
@@ -7,9 +6,9 @@ from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.password_validation import validate_password
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
+from apps.common.cloudinary_storage import upload_image
 from .models import CustomerProfile, PasswordResetOTP, WorkerProfile
 from pathlib import Path
-from uuid import uuid4
 
 User = get_user_model()
 
@@ -47,11 +46,14 @@ class AvatarField(serializers.Field):
 
 
 def save_customer_avatar(user, avatar_file):
-    extension = Path(avatar_file.name).suffix.lower()
-    filename = f"avatar_{uuid4().hex}{extension}"
-    upload_path = f"{settings.CUSTOMER_AVATAR_UPLOAD_DIR}/user_{user.id}/{filename}"
-    saved_path = default_storage.save(upload_path, avatar_file)
-    return default_storage.url(saved_path)
+    folder = f"{settings.CLOUDINARY_CUSTOMER_AVATAR_FOLDER}/user_{user.id}"
+    uploaded_image = upload_image(
+        avatar_file,
+        folder=folder,
+        public_id_prefix="avatar",
+        field_name="avatar",
+    )
+    return uploaded_image["url"]
 
 
 class UserSerializer(serializers.ModelSerializer):
