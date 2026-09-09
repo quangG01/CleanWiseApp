@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.crypto import constant_time_compare, salted_hmac
 from django.utils import timezone
 
 
@@ -44,6 +45,47 @@ class CustomerProfile(models.Model):
 
     def __str__(self):
         return f"Hồ sơ khách hàng: {self.user}"
+
+
+class PasswordResetOTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_otps')
+    code_hash = models.CharField(max_length=128)
+    expires_at = models.DateTimeField()
+    verified_at = models.DateTimeField(blank=True, null=True)
+    used_at = models.DateTimeField(blank=True, null=True)
+    attempts = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'password_reset_otps'
+        ordering = ['-created_at']
+
+    @staticmethod
+    def make_code_hash(code):
+        return salted_hmac('authentication.password_reset_otp', code).hexdigest()
+
+    def check_code(self, code):
+        return constant_time_compare(self.code_hash, self.make_code_hash(code))
+
+    @property
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_used(self):
+        return self.used_at is not None
+
+    @property
+    def is_verified(self):
+        return self.verified_at is not None
+
+    def mark_verified(self):
+        self.verified_at = timezone.now()
+        self.save(update_fields=['verified_at'])
+
+    def mark_used(self):
+        self.used_at = timezone.now()
+        self.save(update_fields=['used_at'])
 
 
 class WorkerProfile(models.Model):

@@ -6,6 +6,7 @@ from .views import (
     RegisterView,
     GoogleLoginView,
     ForgotPasswordView,
+    VerifyPasswordResetOTPView,
     ResetPasswordView,
 )
 
@@ -16,5 +17,6 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path("login-google/", GoogleLoginView.as_view(), name="google-login"),
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
+    path("verify-reset-otp/", VerifyPasswordResetOTPView.as_view(), name="verify-reset-otp"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
 ]
