@@ -1,10 +1,8 @@
-from rest_framework import serializers
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
     extend_schema,
     extend_schema_view,
-    inline_serializer,
 )
 from .serializers import (
     CustomerProfileSerializer,
@@ -49,25 +47,27 @@ CUSTOMER_PROFILE_SCHEMA = extend_schema_view(
         gender, birth_date, avatar.
 
         Nếu cập nhật avatar, frontend gửi request dạng multipart/form-data,
-        trong đó field avatar là file ảnh JPG, PNG hoặc WEBP. Backend lưu file vào local storage
-        dưới thư mục media/customer_avatars/user_<id>/ và lưu URL của ảnh vào database.
+        trong đó field avatar là file ảnh JPG, PNG hoặc WEBP. Backend upload file lên Cloudinary
+        dưới folder CLOUDINARY_CUSTOMER_AVATAR_FOLDER/user_<id>/ và lưu secure_url của ảnh vào database.
         """,
         tags=["1. Authentication & Users"],
-        request=inline_serializer(
-            name="CustomerProfileUpdateRequest",
-            fields={
-                "first_name": serializers.CharField(required=False),
-                "last_name": serializers.CharField(required=False),
-                "email": serializers.EmailField(required=False),
-                "phone_number": serializers.CharField(required=False, allow_blank=True),
-                "gender": serializers.ChoiceField(
-                    choices=["MALE", "FEMALE", "OTHER"],
-                    required=False
-                ),
-                "birth_date": serializers.DateField(required=False),
-                "avatar": serializers.FileField(required=False),
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "first_name": {"type": "string"},
+                    "last_name": {"type": "string"},
+                    "email": {"type": "string", "format": "email"},
+                    "phone_number": {"type": "string"},
+                    "gender": {
+                        "type": "string",
+                        "enum": ["MALE", "FEMALE", "OTHER"],
+                    },
+                    "birth_date": {"type": "string", "format": "date"},
+                    "avatar": {"type": "string", "format": "binary"},
+                },
             }
-        ),
+        },
         responses={200: CustomerProfileSerializer}
     )
 )
