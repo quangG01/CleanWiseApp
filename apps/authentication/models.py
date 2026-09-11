@@ -89,18 +89,42 @@ class PasswordResetOTP(models.Model):
 
 
 class WorkerProfile(models.Model):
+    class Gender(models.TextChoices):
+        MALE = 'MALE', 'Nam'
+        FEMALE = 'FEMALE', 'Nữ'
+        OTHER = 'OTHER', 'Khác'
+
     class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Đang hoàn thiện hồ sơ'
         PENDING = 'PENDING', 'Chờ duyệt'
         ACTIVE = 'ACTIVE', 'Đang hoạt động'
         REJECTED = 'REJECTED', 'Bị từ chối'
         SUSPENDED = 'SUSPENDED', 'Tạm khóa'
 
     user = models.OneToOneField(User, on_delete=models.DO_NOTHING, related_name='worker_profile')
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    full_name = models.CharField(max_length=150, blank=True, null=True)
+    gender = models.CharField(max_length=20, choices=Gender.choices, blank=True, null=True)
+    birth_date = models.DateField(blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     experience_years = models.IntegerField(default=0)
     identity_number = models.CharField(max_length=30, unique=True, blank=True, null=True)
+    identity_issued_date = models.DateField(blank=True, null=True)
+    identity_issued_place = models.CharField(max_length=255, blank=True, null=True)
     avatar = models.CharField(max_length=255, blank=True, null=True)
+    province = models.CharField(max_length=100, blank=True, null=True)
+    ward = models.CharField(max_length=100, blank=True, null=True)
+    address_line = models.TextField(blank=True, null=True)
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    certificate_number = models.CharField(max_length=100, blank=True, null=True)
+    certificate_expiry_date = models.DateField(blank=True, null=True)
+    bank_code = models.CharField(max_length=50, blank=True, null=True)
+    bank_account_number_encrypted = models.TextField(blank=True, null=True)
+    bank_account_last4 = models.CharField(max_length=4, blank=True, null=True)
+    bank_account_holder = models.CharField(max_length=150, blank=True, null=True)
+    terms_accepted_at = models.DateTimeField(blank=True, null=True)
+    submitted_at = models.DateTimeField(blank=True, null=True)
     approved_by = models.ForeignKey(
         User,
         on_delete=models.DO_NOTHING,

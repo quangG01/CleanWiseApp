@@ -36,6 +36,8 @@ urlpatterns = [
 ### ======================================= URL API API AUTHENTICATION & USERS  =======================================
 urlauthpatterns = [
     path('api/auth/', include('apps.authentication.urls')),
+    path('api/customer/', include('apps.bookings.urls')),
+    path('api/admin/', include('apps.bookings.admin_urls')),
 ]
 
 

@@ -13,6 +13,10 @@ from .serializers import (
     TokenResponseSerializer,
     UserSerializer,
     VerifyPasswordResetOTPSerializer,
+    WorkerRegisterResponseSerializer,
+    WorkerRegisterSerializer,
+    WorkerProfileUpdateSerializer,
+    AdminWorkerStatusUpdateSerializer,
 )
 
 # Khai báo sẵn các schema
@@ -91,6 +95,135 @@ REGISTER_SCHEMA = extend_schema_view(
         tags=["1. Authentication & Users"],
         request=RegisterSerializer,
         responses={201: TokenResponseSerializer}
+    )
+)
+
+WORKER_REGISTER_SCHEMA = extend_schema_view(
+    post=extend_schema(
+        summary="Đăng ký tài khoản nhân viên",
+        description="""
+        Tạo tài khoản dành riêng cho ứng dụng nhân viên và cấp JWT Token.
+        Backend luôn gán role là WORKER và tạo WorkerProfile với trạng thái DRAFT;
+        frontend không cần và không thể lựa chọn role hoặc trạng thái hồ sơ.
+        """,
+        tags=["1. Authentication & Users"],
+        request=WorkerRegisterSerializer,
+        responses={201: WorkerRegisterResponseSerializer}
+    )
+)
+
+WORKER_PROFILE_SCHEMA = extend_schema_view(
+    patch=extend_schema(
+        summary="Cập nhật hồ sơ nhân viên",
+        description="""
+        Cập nhật từng phần hồ sơ của nhân viên đang đăng nhập. Vì đây là PATCH,
+        frontend chỉ cần gửi các field muốn thay đổi; những field không gửi sẽ được giữ nguyên.
+
+        **Nhóm thông tin cá nhân**
+
+        - `full_name`: Họ tên đầy đủ theo giấy tờ tùy thân.
+        - `phone_number`: Số điện thoại duy nhất trong hệ thống.
+        - `gender`: `MALE`, `FEMALE` hoặc `OTHER`.
+        - `birth_date`: Ngày sinh dạng `YYYY-MM-DD`; nhân viên phải đủ 18 tuổi.
+        - `portrait`: Ảnh chân dung JPG, PNG hoặc WEBP, tối đa 5 MB.
+
+        **Nhóm CCCD/CMND**
+
+        - `identity_number`: Gồm 9 hoặc 12 chữ số và không được trùng.
+        - `identity_issued_date`: Ngày cấp dạng `YYYY-MM-DD`, không được ở tương lai.
+        - `identity_issued_place`: Cơ quan hoặc nơi cấp.
+        - `identity_front`, `identity_back`: Ảnh hai mặt CCCD/CMND.
+
+        Khi cập nhật ảnh CCCD/CMND, bắt buộc gửi `identity_front` và `identity_back`
+        đồng thời trong cùng một request. Gửi thiếu một mặt sẽ nhận lỗi HTTP 400.
+
+        **Nhóm địa chỉ hiện tại**
+
+        - `province`: Tỉnh/thành phố.
+        - `ward`: Phường/xã.
+        - `address_line`: Số nhà, tên đường và địa chỉ chi tiết.
+        - `latitude`, `longitude`: Tọa độ vị trí, không bắt buộc.
+
+        **Nhóm chứng chỉ hành nghề**
+
+        - `certificate_file`: JPG, PNG, WEBP hoặc PDF, tối đa 10 MB.
+        - `certificate_number`: Số giấy phép hoặc số chứng chỉ.
+        - `certificate_expiry_date`: Ngày hết hạn dạng `YYYY-MM-DD`; chứng chỉ phải còn hạn.
+
+        **Nhóm tài khoản ngân hàng**
+
+        - `bank_code`: Mã ngân hàng, ví dụ `VCB`, `TCB`, `MB`.
+        - `bank_account_number`: Gồm 6–20 chữ số; backend mã hóa trước khi lưu.
+        - `bank_account_holder`: Tên chủ tài khoản, nên viết in hoa.
+
+        Response không trả số tài khoản đầy đủ mà chỉ trả dạng che, ví dụ `******6789`.
+
+        **Điều khoản và trạng thái hồ sơ**
+
+        - `terms_accepted`: Phải là `true` để hồ sơ được xem là hoàn chỉnh.
+        - `DRAFT`: Được cập nhật toàn bộ. Nếu còn thiếu dữ liệu thì tiếp tục giữ `DRAFT`.
+        - `REJECTED`: Được sửa toàn bộ; khi đủ dữ liệu sẽ chuyển lại `PENDING`.
+        - `PENDING`: Vẫn được cập nhật toàn bộ và giữ trạng thái `PENDING`.
+        - `ACTIVE`: Chỉ được cập nhật địa chỉ và tọa độ. Thông tin định danh,
+          CCCD, chứng chỉ, ngân hàng và số điện thoại bị khóa.
+        - `SUSPENDED`: Không được cập nhật.
+
+        Khi tất cả field bắt buộc và tài liệu đã đầy đủ, backend tự động chuyển hồ sơ
+        sang `PENDING`, ghi nhận `submitted_at` và chờ admin xét duyệt.
+
+        **Lưu ý request**
+
+        - Dùng `application/json` nếu chỉ cập nhật dữ liệu text.
+        - Dùng `multipart/form-data` nếu request có `portrait`, ảnh CCCD hoặc chứng chỉ.
+        - Client không được gửi hoặc tự thay đổi `status`, `role`, `approved_by`, `approved_at`.
+        """,
+        tags=["1. Authentication & Users"],
+        request=WorkerProfileUpdateSerializer,
+        responses={200: WorkerProfileUpdateSerializer},
+    )
+)
+
+ADMIN_WORKER_PROFILE_LIST_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        summary="Danh sách hồ sơ nhân viên chờ duyệt",
+        description="""
+        Mặc định trả về các hồ sơ nhân viên có trạng thái PENDING để admin xét duyệt.
+        Có thể truyền query parameter `status` để xem hồ sơ ở trạng thái khác.
+        Response bao gồm thông tin cá nhân, địa chỉ, URL tài liệu xác minh,
+        trạng thái completeness và thông tin xét duyệt. Số tài khoản ngân hàng luôn được che.
+        """,
+        tags=["1. Authentication & Users - Admin"],
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                enum=["DRAFT", "PENDING", "ACTIVE", "REJECTED", "SUSPENDED"],
+                description="Trạng thái cần lọc; mặc định là PENDING.",
+            )
+        ],
+        responses={200: WorkerProfileUpdateSerializer(many=True)},
+    )
+)
+
+ADMIN_WORKER_STATUS_UPDATE_SCHEMA = extend_schema_view(
+    patch=extend_schema(
+        summary="Cập nhật trạng thái hồ sơ nhân viên",
+        description="""
+        Cho phép admin chuyển trạng thái hồ sơ nhân viên.
+
+        - `ACTIVE`: duyệt hồ sơ; chỉ thực hiện khi hồ sơ đầy đủ, đồng thời ghi `approved_by` và `approved_at`.
+        - `REJECTED`: từ chối hồ sơ; bắt buộc truyền `reason`.
+        - `SUSPENDED`: tạm khóa nghiệp vụ nhân viên; có thể truyền `reason`.
+        - `PENDING`: đưa hồ sơ đầy đủ về hàng chờ duyệt và làm mới `submitted_at`.
+        - `DRAFT`: đưa hồ sơ về trạng thái bổ sung thông tin.
+
+        API chỉ cập nhật `WorkerProfile.status`; vai trò `User.role=WORKER` không bị thay đổi.
+        """,
+        tags=["1. Authentication & Users - Admin"],
+        request=AdminWorkerStatusUpdateSerializer,
+        responses={200: WorkerProfileUpdateSerializer},
     )
 )
 
