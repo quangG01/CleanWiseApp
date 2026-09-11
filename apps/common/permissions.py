@@ -49,9 +49,10 @@ class IsWorkerRole(IsRole):
     message = "Chỉ nhân viên mới có quyền thực hiện thao tác này."
 
 
-class IsAdminOrCustomerRole(AllowSuperuserMixin, IsRole):
+class IsAdminOrCustomerRole(IsRole):
     allowed_roles = ('ADMIN', 'CUSTOMER')
     message = "Chỉ quản trị viên hoặc khách hàng mới có quyền thực hiện thao tác này."
+
 
 
 class IsAdminOrWorkerRole(AllowSuperuserMixin, IsRole):

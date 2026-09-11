@@ -91,18 +91,68 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
-CUSTOMER_AVATAR_UPLOAD_DIR = os.environ.get(
-    "CUSTOMER_AVATAR_UPLOAD_DIR",
-    "customer_avatars"
+# ============================================= Cloudinary =============================================
+
+CLOUDINARY_CLOUD_NAME = os.environ.get(
+    "CLOUDINARY_CLOUD_NAME",
+    ""
 )
-CUSTOMER_AVATAR_MAX_SIZE = int(os.environ.get("CUSTOMER_AVATAR_MAX_SIZE", 5 * 1024 * 1024))
-CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
-CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
-CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
+
+CLOUDINARY_API_KEY = os.environ.get(
+    "CLOUDINARY_API_KEY",
+    ""
+)
+
+CLOUDINARY_API_SECRET = os.environ.get(
+    "CLOUDINARY_API_SECRET",
+    ""
+)
+
+
+# --------------------------------------------- Cloudinary folders
+
 CLOUDINARY_ROOT_FOLDER = "cleanwise"
-CLOUDINARY_CUSTOMER_AVATAR_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/customer_avatars"
-CLOUDINARY_SERVICE_IMAGE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/service_images"
-CLOUDINARY_REVIEW_IMAGE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/review_images"
+
+CLOUDINARY_CUSTOMER_AVATAR_FOLDER = (
+    f"{CLOUDINARY_ROOT_FOLDER}/customer_avatars"
+)
+
+CLOUDINARY_SERVICE_CATEGORY_FOLDER = (
+    f"{CLOUDINARY_ROOT_FOLDER}/service_categories"
+)
+
+CLOUDINARY_SERVICE_IMAGE_FOLDER = (
+    f"{CLOUDINARY_ROOT_FOLDER}/service_images"
+)
+
+CLOUDINARY_REVIEW_IMAGE_FOLDER = (
+    f"{CLOUDINARY_ROOT_FOLDER}/review_images"
+)
+
+
+# --------------------------------------------- Image size limits
+
+CUSTOMER_AVATAR_MAX_SIZE = int(
+    os.environ.get(
+        "CUSTOMER_AVATAR_MAX_SIZE",
+        5 * 1024 * 1024
+    )
+)
+
+SERVICE_CATEGORY_IMAGE_MAX_SIZE = int(
+    os.environ.get(
+        "SERVICE_CATEGORY_IMAGE_MAX_SIZE",
+        10 * 1024 * 1024
+    )
+)
+
+SERVICE_IMAGE_MAX_SIZE = int(
+    os.environ.get(
+        "SERVICE_IMAGE_MAX_SIZE",
+        10 * 1024 * 1024
+    )
+)
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -154,3 +204,6 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'CleanWiseApp Backend API',
     'VERSION': '1.0.0',
 }
+
+# ============================================= CORS =============================================
+CORS_ALLOW_ALL_ORIGINS = True  # Chỉ dùng khi DEBUG=True, lúc dev/test
