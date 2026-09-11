@@ -8,12 +8,28 @@ from .views import (
     ForgotPasswordView,
     VerifyPasswordResetOTPView,
     ResetPasswordView,
+    WorkerRegisterView,
+    WorkerProfileView,
+    AdminWorkerProfileListView,
+    AdminWorkerStatusUpdateView,
 )
 
 urlpatterns = [
     path('users/', UserListView.as_view(), name='user-list'),
     path('customer/profile/', CustomerProfileView.as_view(), name='customer-profile'),
     path('register/', RegisterView.as_view(), name='register'),
+    path('worker/register/', WorkerRegisterView.as_view(), name='worker-register'),
+    path('worker/profile/', WorkerProfileView.as_view(), name='worker-profile'),
+    path(
+        'admin/worker-profiles/',
+        AdminWorkerProfileListView.as_view(),
+        name='admin-worker-profile-list',
+    ),
+    path(
+        'admin/worker-profiles/<int:pk>/status/',
+        AdminWorkerStatusUpdateView.as_view(),
+        name='admin-worker-status-update',
+    ),
     path('login/', LoginView.as_view(), name='login'),
     path("login-google/", GoogleLoginView.as_view(), name="google-login"),
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),

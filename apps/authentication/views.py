@@ -18,6 +18,10 @@ from .schemas import (
     VERIFY_PASSWORD_RESET_OTP_SCHEMA,
     RESET_PASSWORD_SCHEMA,
     CUSTOMER_PROFILE_SCHEMA,
+    WORKER_REGISTER_SCHEMA,
+    WORKER_PROFILE_SCHEMA,
+    ADMIN_WORKER_PROFILE_LIST_SCHEMA,
+    ADMIN_WORKER_STATUS_UPDATE_SCHEMA,
 )
 from .serializers import (
     UserSerializer,
@@ -28,9 +32,12 @@ from .serializers import (
     ForgotPasswordSerializer,
     VerifyPasswordResetOTPSerializer,
     ResetPasswordSerializer,
+    WorkerRegisterSerializer,
+    WorkerProfileUpdateSerializer,
+    AdminWorkerStatusUpdateSerializer,
 )
-from .models import PasswordResetOTP
-from apps.common.permissions import IsAdminRole, IsCustomerRole, IsAdminOrCustomerRole
+from .models import PasswordResetOTP, WorkerProfile
+from apps.common.permissions import IsAdminRole, IsAdminOrCustomerRole, IsWorkerRole
 from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
@@ -172,6 +179,117 @@ class RegisterView(generics.CreateAPIView):
             "message": "Đăng ký tài khoản thành công.",
             "data": data
         }, status=status.HTTP_201_CREATED)
+
+
+#========================================================================================================================
+@WORKER_REGISTER_SCHEMA
+class WorkerRegisterView(generics.CreateAPIView):
+    """
+    POST /api/auth/worker/register/
+    API đăng ký tài khoản nhân viên với trạng thái hồ sơ DRAFT.
+    """
+    permission_classes = [permissions.AllowAny]
+    serializer_class = WorkerRegisterSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        data = build_token_response(user)
+        data["profile_status"] = user.worker_profile.status
+
+        return Response({
+            "message": "Tạo tài khoản nhân viên thành công.",
+            "data": data
+        }, status=status.HTTP_201_CREATED)
+
+
+#========================================================================================================================
+@WORKER_PROFILE_SCHEMA
+class WorkerProfileView(generics.GenericAPIView):
+    """
+    PATCH /api/auth/worker/profile/
+    API cập nhật từng phần hồ sơ nhân viên đang đăng nhập.
+    """
+    permission_classes = [IsWorkerRole]
+    serializer_class = WorkerProfileUpdateSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_object(self):
+        return self.request.user.worker_profile
+
+    def patch(self, request, *args, **kwargs):
+        previous_status = self.get_object().status
+        serializer = self.get_serializer(
+            self.get_object(),
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+        response_serializer = self.get_serializer(profile)
+
+        message = "Cập nhật hồ sơ nhân viên thành công."
+        if (
+            previous_status != profile.Status.PENDING
+            and profile.status == profile.Status.PENDING
+        ):
+            message = "Hồ sơ đã đầy đủ và được chuyển sang trạng thái chờ duyệt."
+
+        return Response({
+            "message": message,
+            "data": response_serializer.data,
+        }, status=status.HTTP_200_OK)
+
+
+#========================================================================================================================
+@ADMIN_WORKER_PROFILE_LIST_SCHEMA
+class AdminWorkerProfileListView(generics.ListAPIView):
+    """GET /api/auth/admin/worker-profiles/"""
+
+    permission_classes = [IsAdminRole]
+    serializer_class = WorkerProfileUpdateSerializer
+
+    def get_queryset(self):
+        requested_status = self.request.query_params.get(
+            "status",
+            WorkerProfile.Status.PENDING,
+        ).upper()
+        valid_statuses = set(WorkerProfile.Status.values)
+        if requested_status not in valid_statuses:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({
+                "status": "Trạng thái không hợp lệ."
+            })
+
+        return (
+            WorkerProfile.objects
+            .filter(status=requested_status)
+            .select_related("user", "approved_by")
+            .prefetch_related("user__verification_documents")
+            .order_by("-submitted_at", "-created_at")
+        )
+
+
+#========================================================================================================================
+@ADMIN_WORKER_STATUS_UPDATE_SCHEMA
+class AdminWorkerStatusUpdateView(generics.GenericAPIView):
+    """PATCH /api/auth/admin/worker-profiles/<profile_id>/status/"""
+
+    permission_classes = [IsAdminRole]
+    serializer_class = AdminWorkerStatusUpdateSerializer
+    queryset = WorkerProfile.objects.select_related("user", "approved_by")
+
+    def patch(self, request, *args, **kwargs):
+        profile = self.get_object()
+        serializer = self.get_serializer(profile, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+
+        return Response({
+            "message": "Cập nhật trạng thái hồ sơ nhân viên thành công.",
+            "data": WorkerProfileUpdateSerializer(profile).data,
+        }, status=status.HTTP_200_OK)
 
 
 #========================================================================================================================

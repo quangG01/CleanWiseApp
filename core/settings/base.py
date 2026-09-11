@@ -13,6 +13,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-produc
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 PASSWORD_RESET_OTP_TTL_MINUTES = int(os.environ.get("PASSWORD_RESET_OTP_TTL_MINUTES", 10))
 PASSWORD_RESET_OTP_MAX_ATTEMPTS = int(os.environ.get("PASSWORD_RESET_OTP_MAX_ATTEMPTS", 5))
+FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
 
 # # ============================================= Danh sách Django Apps & Third-party Packages # ============================================= 
 INSTALLED_APPS = [
@@ -103,6 +104,8 @@ CLOUDINARY_ROOT_FOLDER = "cleanwise"
 CLOUDINARY_CUSTOMER_AVATAR_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/customer_avatars"
 CLOUDINARY_SERVICE_IMAGE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/service_images"
 CLOUDINARY_REVIEW_IMAGE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/review_images"
+CLOUDINARY_WORKER_PROFILE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/worker_profiles"
+WORKER_DOCUMENT_MAX_SIZE = int(os.environ.get("WORKER_DOCUMENT_MAX_SIZE", 10 * 1024 * 1024))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -153,4 +156,8 @@ SIMPLE_JWT = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'CleanWiseApp Backend API',
     'VERSION': '1.0.0',
+    'ENUM_NAME_OVERRIDES': {
+        'WorkerProfileStatusEnum': 'apps.authentication.models.WorkerProfile.Status',
+        'UserVoucherStatusEnum': 'apps.bookings.models.UserVoucher.Status',
+    },
 }

@@ -24,14 +24,20 @@ def ensure_cloudinary_configured(field_name="file"):
     )
 
 
-def upload_image(file, folder, public_id_prefix="image", field_name="file"):
+def upload_file(
+    file,
+    folder,
+    public_id_prefix="file",
+    field_name="file",
+    resource_type="auto",
+):
     ensure_cloudinary_configured(field_name=field_name)
 
     result = cloudinary.uploader.upload(
         file,
         folder=folder,
         public_id=f"{public_id_prefix}_{uuid4().hex}",
-        resource_type="image",
+        resource_type=resource_type,
         overwrite=False,
     )
 
@@ -39,3 +45,13 @@ def upload_image(file, folder, public_id_prefix="image", field_name="file"):
         "url": result["secure_url"],
         "public_id": result["public_id"],
     }
+
+
+def upload_image(file, folder, public_id_prefix="image", field_name="file"):
+    return upload_file(
+        file,
+        folder=folder,
+        public_id_prefix=public_id_prefix,
+        field_name=field_name,
+        resource_type="image",
+    )

@@ -5,7 +5,6 @@ from django.conf import settings
 class Area(models.Model):
     name = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
-    district = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -13,12 +12,12 @@ class Area(models.Model):
     class Meta:
         db_table = 'areas'
         constraints = [
-            models.UniqueConstraint(fields=['city', 'district', 'name'], name='areas_city_district_name_unique'),
+            models.UniqueConstraint(fields=['city', 'name'], name='areas_city_name_unique'),
         ]
-        ordering = ['city', 'district', 'name']
+        ordering = ['city', 'name']
 
     def __str__(self):
-        return f"{self.name}, {self.district}, {self.city}"
+        return f"{self.name}, {self.city}"
 
 
 class CustomerAddress(models.Model):
@@ -29,7 +28,6 @@ class CustomerAddress(models.Model):
     receiver_phone = models.CharField(max_length=15)
     address_line = models.TextField()
     ward = models.CharField(max_length=100, blank=True, null=True)
-    district = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
     latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
     longitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
@@ -41,6 +39,13 @@ class CustomerAddress(models.Model):
     class Meta:
         db_table = 'customer_addresses'
         ordering = ['-is_default', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer'],
+                condition=models.Q(is_default=True, is_active=True),
+                name='customer_addresses_one_active_default',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.label} - {self.receiver_name}"
@@ -251,10 +256,20 @@ class Voucher(models.Model):
         PERCENT = 'PERCENT', 'Phần trăm'
         FIXED = 'FIXED', 'Số tiền cố định'
 
+    class DistributionType(models.TextChoices):
+        PUBLIC = 'PUBLIC', 'Công khai'
+        CODE_ONLY = 'CODE_ONLY', 'Chỉ nhận bằng mã'
+        ASSIGNED = 'ASSIGNED', 'Được cấp riêng'
+
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True, null=True)
     discount_type = models.CharField(max_length=20, choices=DiscountType.choices)
+    distribution_type = models.CharField(
+        max_length=20,
+        choices=DistributionType.choices,
+        default=DistributionType.CODE_ONLY,
+    )
     discount_value = models.DecimalField(max_digits=12, decimal_places=2)
     max_discount_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     min_order_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -282,10 +297,74 @@ class Voucher(models.Model):
         return self.code
 
 
+class UserVoucher(models.Model):
+    class Source(models.TextChoices):
+        CUSTOMER_CLAIM = 'CUSTOMER_CLAIM', 'Khách hàng tự nhận'
+        ADMIN = 'ADMIN', 'Quản trị viên cấp'
+        CAMPAIGN = 'CAMPAIGN', 'Chiến dịch tự động'
+
+    class Status(models.TextChoices):
+        AVAILABLE = 'AVAILABLE', 'Có thể sử dụng'
+        REVOKED = 'REVOKED', 'Đã thu hồi'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.DO_NOTHING,
+        related_name='user_vouchers',
+    )
+    voucher = models.ForeignKey(
+        Voucher,
+        on_delete=models.DO_NOTHING,
+        related_name='user_vouchers',
+    )
+    source = models.CharField(max_length=20, choices=Source.choices)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.AVAILABLE,
+    )
+    is_visible = models.BooleanField(default=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.DO_NOTHING,
+        related_name='created_user_vouchers',
+        blank=True,
+        null=True,
+    )
+    admin_note = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_vouchers'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'voucher'],
+                name='user_vouchers_user_voucher_unique',
+            ),
+        ]
+        ordering = ['-received_at', '-id']
+
+    def __str__(self):
+        return f"{self.user} - {self.voucher}"
+
+
 class BookingVoucher(models.Model):
+    class Status(models.TextChoices):
+        RESERVED = 'RESERVED', 'Đã giữ lượt'
+        USED = 'USED', 'Đã sử dụng'
+        RELEASED = 'RELEASED', 'Đã hoàn lượt'
+
     booking = models.ForeignKey(Booking, on_delete=models.DO_NOTHING, related_name='booking_vouchers')
     voucher = models.ForeignKey(Voucher, on_delete=models.DO_NOTHING, related_name='booking_vouchers')
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.RESERVED)
+    reserved_at = models.DateTimeField(blank=True, null=True)
+    used_at = models.DateTimeField(blank=True, null=True)
+    released_at = models.DateTimeField(blank=True, null=True)
+    release_reason = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
