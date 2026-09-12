@@ -43,13 +43,12 @@ class IsWorkerRole(IsRole):
 
 
 class IsAdminOrCustomerRole(IsRole):
-    allowed_roles = ('ADMIN', 'CUSTOMER')
+    allowed_roles = ("ADMIN", "CUSTOMER")
     message = "Chỉ quản trị viên hoặc khách hàng mới có quyền thực hiện thao tác này."
 
 
-
-class IsAdminOrWorkerRole(AllowSuperuserMixin, IsRole):
-    allowed_roles = ('ADMIN', 'WORKER')
+class IsAdminOrWorkerRole(IsRole):
+    allowed_roles = ("ADMIN", "WORKER")
     message = "Chỉ quản trị viên hoặc nhân viên mới có quyền thực hiện thao tác này."
 
 
