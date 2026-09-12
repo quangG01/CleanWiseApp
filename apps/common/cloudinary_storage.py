@@ -151,3 +151,13 @@ def upload_image(
         "url": result["secure_url"],
         "public_id": result["public_id"],
     }
+
+
+def upload_image(file, folder, public_id_prefix="image", field_name="file"):
+    return upload_file(
+        file,
+        folder=folder,
+        public_id_prefix=public_id_prefix,
+        field_name=field_name,
+        resource_type="image",
+    )

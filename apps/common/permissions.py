@@ -2,50 +2,43 @@ from rest_framework.permissions import BasePermission
 
 
 def get_user_role(user):
-    return getattr(user, 'role', None)
+    return getattr(user, "role", None)
 
 
 class IsRole(BasePermission):
     """
-    Base permission kiểm tra user đã đăng nhập và có role nằm trong allowed_roles.
+    Kiểm tra user đã đăng nhập và có role nằm trong allowed_roles.
+    Superuser luôn được phép.
     """
+
     allowed_roles = ()
     message = "Bạn không có quyền truy cập tài nguyên này."
 
     def has_permission(self, request, view):
         user = request.user
-        return bool(
-            user
-            and user.is_authenticated
-            and get_user_role(user) in self.allowed_roles
-        )
 
-
-class AllowSuperuserMixin:
-    def has_permission(self, request, view):
-        user = request.user
         return bool(
             user
             and user.is_authenticated
             and (
-                get_user_role(user) == 'ADMIN'
+                get_user_role(user) in self.allowed_roles
                 or user.is_superuser
             )
         )
 
 
-class IsAdminRole(AllowSuperuserMixin, IsRole):
-    allowed_roles = ('ADMIN',)
+class IsAdminRole(IsRole):
+    allowed_roles = ("ADMIN",)
     message = "Chỉ quản trị viên mới có quyền thực hiện thao tác này."
 
 
 class IsCustomerRole(IsRole):
-    allowed_roles = ('CUSTOMER',)
+    allowed_roles = ("CUSTOMER",)
     message = "Chỉ khách hàng mới có quyền thực hiện thao tác này."
 
 
 class IsWorkerRole(IsRole):
-    allowed_roles = ('WORKER',)
+    allowed_roles = ("WORKER",)
     message = "Chỉ nhân viên mới có quyền thực hiện thao tác này."
 
 
@@ -61,5 +54,5 @@ class IsAdminOrWorkerRole(AllowSuperuserMixin, IsRole):
 
 
 class IsCustomerOrWorkerRole(IsRole):
-    allowed_roles = ('CUSTOMER', 'WORKER')
+    allowed_roles = ("CUSTOMER", "WORKER")
     message = "Chỉ khách hàng hoặc nhân viên mới có quyền thực hiện thao tác này."
