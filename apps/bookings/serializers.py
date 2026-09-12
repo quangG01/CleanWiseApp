@@ -25,12 +25,6 @@ class AreaSummarySerializer(serializers.ModelSerializer):
 
 
 class CustomerAddressSerializer(serializers.ModelSerializer):
-    area_id = serializers.PrimaryKeyRelatedField(
-        source='area',
-        queryset=Area.objects.filter(is_active=True),
-        help_text='ID khu vực phục vụ đang hoạt động.',
-    )
-    area = AreaSummarySerializer(read_only=True)
     label = serializers.CharField(
         required=False,
         max_length=100,
@@ -78,8 +72,6 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
         model = CustomerAddress
         fields = [
             'id',
-            'area_id',
-            'area',
             'label',
             'receiver_name',
             'receiver_phone',
@@ -108,19 +100,6 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        area = attrs.get('area', self.instance.area if self.instance else None)
-        city = attrs.get('city', self.instance.city if self.instance else None)
-        ward = attrs.get('ward', self.instance.ward if self.instance else None)
-
-        if area and city and area.city.strip().casefold() != city.strip().casefold():
-            raise serializers.ValidationError({
-                'city': 'Tỉnh/thành phố không khớp với khu vực phục vụ đã chọn.'
-            })
-        if area and ward and area.name.strip().casefold() != ward.strip().casefold():
-            raise serializers.ValidationError({
-                'ward': 'Xã/phường/đặc khu không khớp với khu vực phục vụ đã chọn.'
-            })
-
         if (
             self.instance
             and self.instance.is_default

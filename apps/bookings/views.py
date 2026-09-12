@@ -49,7 +49,6 @@ class CustomerAddressListCreateView(generics.GenericAPIView):
         return (
             CustomerAddress.objects
             .filter(customer=self.request.user, is_active=True)
-            .select_related('area')
             .order_by('-is_default', '-created_at')
         )
 
@@ -79,7 +78,7 @@ class CustomerAddressDetailView(generics.GenericAPIView):
 
     def get_object(self):
         return get_object_or_404(
-            CustomerAddress.objects.select_related('area'),
+            CustomerAddress.objects,
             pk=self.kwargs['pk'],
             customer=self.request.user,
             is_active=True,
@@ -120,7 +119,7 @@ class CustomerAddressSetDefaultView(generics.GenericAPIView):
 
     def get_object(self):
         return get_object_or_404(
-            CustomerAddress.objects.select_related('area'),
+            CustomerAddress.objects,
             pk=self.kwargs['pk'],
             customer=self.request.user,
             is_active=True,

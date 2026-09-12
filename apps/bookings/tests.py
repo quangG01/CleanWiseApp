@@ -33,18 +33,13 @@ class CustomerAddressAPITests(APITestCase):
             role=User.Role.CUSTOMER,
         )
         CustomerProfile.objects.create(user=self.other_customer)
-        self.area = Area.objects.create(
-            city='Thành phố Hồ Chí Minh',
-            name='Phường Sài Gòn',
-        )
         self.list_url = reverse('customer-address-list-create')
         self.payload = {
-            'area_id': self.area.id,
             'label': 'Nhà',
             'receiver_name': 'Nguyễn Văn An',
             'receiver_phone': '0912345678',
-            'city': self.area.city,
-            'ward': self.area.name,
+            'city': 'Thành phố Hồ Chí Minh',
+            'ward': 'Phường Sài Gòn',
             'address_line': '01 Nguyễn Huệ',
             'latitude': '10.7731000',
             'longitude': '106.7032000',
@@ -56,7 +51,6 @@ class CustomerAddressAPITests(APITestCase):
         data = {**self.payload, **overrides}
         return CustomerAddress.objects.create(
             customer=customer,
-            area=self.area,
             label=data['label'],
             receiver_name=data['receiver_name'],
             receiver_phone=data['receiver_phone'],
@@ -151,22 +145,6 @@ class CustomerAddressAPITests(APITestCase):
         self.assertFalse(first.is_default)
         self.assertTrue(second.is_default)
 
-    def test_rejects_address_that_does_not_match_area(self):
-        payload = {**self.payload, 'ward': 'Phường Bến Thành'}
-
-        response = self.client.post(self.list_url, payload, format='json')
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('ward', response.data['errors'])
-
-    def test_rejects_inactive_service_area(self):
-        self.area.is_active = False
-        self.area.save(update_fields=['is_active'])
-
-        response = self.client.post(self.list_url, self.payload, format='json')
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('area_id', response.data['errors'])
 
     def test_rejects_invalid_coordinates(self):
         payload = {**self.payload, 'latitude': '91.0000000'}
@@ -370,10 +348,8 @@ class VoucherServiceTests(APITestCase):
             base_price=Decimal('300000.00'),
             duration_minutes=120,
         )
-        area = Area.objects.create(city='Hà Nội', name='Phường Ba Đình')
         address = CustomerAddress.objects.create(
             customer=self.customer,
-            area=area,
             receiver_name='Nguyễn Văn An',
             receiver_phone='0912345678',
             address_line='01 Tràng Tiền',

@@ -22,12 +22,11 @@ class Area(models.Model):
 
 class CustomerAddress(models.Model):
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='addresses')
-    area = models.ForeignKey(Area, on_delete=models.DO_NOTHING, related_name='customer_addresses')
     label = models.CharField(max_length=100, default='Dia chi')
     receiver_name = models.CharField(max_length=150)
     receiver_phone = models.CharField(max_length=15)
     address_line = models.TextField()
-    ward = models.CharField(max_length=100, blank=True, null=True)
+    ward = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
     latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
     longitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
