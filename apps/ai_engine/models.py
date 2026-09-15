@@ -47,7 +47,11 @@ class AIAssignmentLog(models.Model):
         NO_CANDIDATE = 'NO_CANDIDATE', 'Không có ứng viên'
         FAILED = 'FAILED', 'Thất bại'
 
-    booking = models.ForeignKey('bookings.Booking', on_delete=models.DO_NOTHING, related_name='ai_assignment_logs')
+    schedule = models.ForeignKey(
+        'bookings.BookingSchedule',
+        on_delete=models.DO_NOTHING,
+        related_name='ai_assignment_logs',
+    )
     requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,
@@ -70,4 +74,4 @@ class AIAssignmentLog(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.booking} - {self.status}"
+        return f"{self.schedule} - {self.status}"

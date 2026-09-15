@@ -1,0 +1,1 @@
+"""CleanWise Django applications."""
