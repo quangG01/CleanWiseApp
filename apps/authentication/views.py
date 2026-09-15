@@ -186,7 +186,7 @@ class RegisterView(generics.CreateAPIView):
 class WorkerRegisterView(generics.CreateAPIView):
     """
     POST /api/auth/worker/register/
-    API đăng ký tài khoản nhân viên với trạng thái hồ sơ DRAFT.
+    API đăng ký tài khoản nhân viên với trạng thái hồ sơ PENDING.
     """
     permission_classes = [permissions.AllowAny]
     serializer_class = WorkerRegisterSerializer
@@ -267,7 +267,7 @@ class AdminWorkerProfileListView(generics.ListAPIView):
             .filter(status=requested_status)
             .select_related("user", "approved_by")
             .prefetch_related("user__verification_documents")
-            .order_by("-submitted_at", "-created_at")
+            .order_by("-created_at")
         )
 
 

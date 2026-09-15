@@ -79,7 +79,6 @@ def validate_and_calculate_voucher(*, code, customer, subtotal_amount, lock=Fals
     customer_usage = BookingVoucher.objects.filter(
         voucher=voucher,
         booking__customer=customer,
-        status__in=[BookingVoucher.Status.RESERVED, BookingVoucher.Status.USED],
     ).count()
     if customer_usage >= voucher.per_user_limit:
         raise serializers.ValidationError({'code': 'Bạn đã sử dụng hết số lượt cho voucher này.'})

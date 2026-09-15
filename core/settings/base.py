@@ -5,10 +5,6 @@ from datetime import timedelta
 # Đường dẫn gốc tới thư mục project (nhảy lên 3 cấp từ core/settings/base.py)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Tự động nhận diện thư mục apps/ để import không bị lỗi
-import sys
-sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
-
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 PASSWORD_RESET_OTP_TTL_MINUTES = int(os.environ.get("PASSWORD_RESET_OTP_TTL_MINUTES", 10))
