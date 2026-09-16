@@ -1,3 +1,4 @@
+# apps/services/models.py
 from django.db import models
 
 
@@ -8,7 +9,7 @@ class Service(models.Model):
     description = models.TextField()
     form_schema = models.JSONField()
     pricing_config = models.JSONField()
-    is_active = models.BooleanField()
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
