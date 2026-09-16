@@ -44,5 +44,18 @@ urlauthpatterns = [
 
 urlpatterns += urlauthpatterns
 
+urladminservicepatterns = [
+    path('api/admin/services/', include('apps.services.admin_urls')),
+]
+
+urlpatterns += urladminservicepatterns
+
+urlservicepatterns = [
+    path('api/services/', include('apps.services.urls')),
+]
+
+urlpatterns += urlservicepatterns
+
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
