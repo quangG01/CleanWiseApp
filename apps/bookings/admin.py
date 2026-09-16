@@ -5,7 +5,6 @@ from .models import (
     BookingAssignment,
     BookingSchedule,
     BookingScheduleImage,
-    BookingVoucher,
     ChatConversation,
     ChatMessage,
     Complaint,
@@ -16,6 +15,7 @@ from .models import (
     Review,
     ReviewImage,
     Voucher,
+    UserVoucher,
     WorkerAvailability,
     WorkerWorkingArea,
 )
@@ -29,7 +29,7 @@ admin.site.register(BookingAssignment)
 admin.site.register(BookingSchedule)
 admin.site.register(BookingScheduleImage)
 admin.site.register(Voucher)
-admin.site.register(BookingVoucher)
+admin.site.register(UserVoucher)
 admin.site.register(Payment)
 admin.site.register(Review)
 admin.site.register(ReviewImage)

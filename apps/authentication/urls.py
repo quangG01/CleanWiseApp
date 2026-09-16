@@ -3,7 +3,7 @@ from .views import (
     UserListView,
     CustomerProfileView,
     LoginView,
-    RegisterView,
+    CustomerRegisterView,
     GoogleLoginView,
     ForgotPasswordView,
     VerifyPasswordResetOTPView,
@@ -17,7 +17,7 @@ from .views import (
 urlpatterns = [
     path('users/', UserListView.as_view(), name='user-list'),
     path('customer/profile/', CustomerProfileView.as_view(), name='customer-profile'),
-    path('register/', RegisterView.as_view(), name='register'),
+    path('register/', CustomerRegisterView.as_view(), name='register'),
     path('worker/register/', WorkerRegisterView.as_view(), name='worker-register'),
     path('worker/profile/', WorkerProfileView.as_view(), name='worker-profile'),
     path(
