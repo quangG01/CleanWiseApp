@@ -152,6 +152,24 @@ SIMPLE_JWT = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'CleanWiseApp Backend API',
     'VERSION': '1.0.0',
+    'TAGS': [
+        {
+            'name': 'Voucher - Admin',
+            'description': 'Quản lý, tạo, cập nhật và tra cứu voucher dành cho quản trị viên.',
+        },
+        {
+            'name': 'Voucher - Customer',
+            'description': 'Xem, nhận, kiểm tra và quản lý ví voucher của khách hàng.',
+        },
+    ],
+    'EXTENSIONS_ROOT': {
+        'x-tagGroups': [
+            {
+                'name': 'Voucher',
+                'tags': ['Voucher - Admin', 'Voucher - Customer'],
+            },
+        ],
+    },
     'ENUM_NAME_OVERRIDES': {
         'WorkerProfileStatusEnum': 'apps.authentication.models.WorkerProfile.Status',
         'UserVoucherStatusEnum': 'apps.bookings.models.UserVoucher.Status',

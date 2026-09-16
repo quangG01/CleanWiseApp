@@ -12,7 +12,7 @@ import secrets
 from .schemas import (
     USER_LIST_SCHEMA,
     LOGIN_SCHEMA,
-    REGISTER_SCHEMA,
+    CUSTOMER_REGISTER_SCHEMA,
     GOOGLE_LOGIN_SCHEMA,
     FORGOT_PASSWORD_SCHEMA,
     VERIFY_PASSWORD_RESET_OTP_SCHEMA,
@@ -27,7 +27,7 @@ from .serializers import (
     UserSerializer,
     CustomerProfileSerializer,
     LoginSerializer,
-    RegisterSerializer,
+    CustomerRegisterSerializer,
     GoogleLoginSerializer,
     ForgotPasswordSerializer,
     VerifyPasswordResetOTPSerializer,
@@ -160,14 +160,14 @@ class LoginView(generics.GenericAPIView):
 
 #========================================================================================================================
 
-@REGISTER_SCHEMA
-class RegisterView(generics.CreateAPIView):
+@CUSTOMER_REGISTER_SCHEMA
+class CustomerRegisterView(generics.CreateAPIView):
     """
     POST /api/auth/register/
-    API đăng ký tài khoản khách hàng hoặc nhân viên.
+    API đăng ký tài khoản khách hàng.
     """
     permission_classes = [permissions.AllowAny]
-    serializer_class = RegisterSerializer
+    serializer_class = CustomerRegisterSerializer
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -176,7 +176,7 @@ class RegisterView(generics.CreateAPIView):
         data = build_token_response(user)
 
         return Response({
-            "message": "Đăng ký tài khoản thành công.",
+            "message": "Đăng ký tài khoản khách hàng thành công.",
             "data": data
         }, status=status.HTTP_201_CREATED)
 
@@ -196,7 +196,10 @@ class WorkerRegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         data = build_token_response(user)
-        data["profile_status"] = user.worker_profile.status
+        data["worker_profile"] = {
+            "id": user.worker_profile.id,
+            "status": user.worker_profile.status,
+        }
 
         return Response({
             "message": "Tạo tài khoản nhân viên thành công.",

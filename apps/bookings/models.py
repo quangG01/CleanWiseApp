@@ -5,7 +5,6 @@ from django.db import models
 class Area(models.Model):
     name = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
-    district = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -14,25 +13,23 @@ class Area(models.Model):
         db_table = 'areas'
         constraints = [
             models.UniqueConstraint(
-                fields=['city', 'district', 'name'],
-                name='areas_city_district_name_unique',
+                fields=['city', 'name'],
+                name='areas_city_name_unique',
             ),
         ]
-        ordering = ['city', 'district', 'name']
+        ordering = ['city', 'name']
 
     def __str__(self):
-        return f"{self.name}, {self.district}, {self.city}"
+        return f"{self.name}, {self.city}"
 
 
 class CustomerAddress(models.Model):
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='addresses')
-    area = models.ForeignKey(Area, on_delete=models.DO_NOTHING, related_name='customer_addresses')
     label = models.CharField(max_length=100, default='Dia chi')
     receiver_name = models.CharField(max_length=150)
     receiver_phone = models.CharField(max_length=15)
     address_line = models.TextField()
     ward = models.CharField(max_length=100, blank=True, null=True)
-    district = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
     latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
     longitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
@@ -123,6 +120,13 @@ class Booking(models.Model):
     booking_code = models.CharField(max_length=30, unique=True)
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='bookings')
     service = models.ForeignKey('services.Service', on_delete=models.DO_NOTHING, related_name='bookings')
+    user_voucher = models.OneToOneField(
+        'UserVoucher',
+        on_delete=models.DO_NOTHING,
+        related_name='booking',
+        blank=True,
+        null=True,
+    )
     service_data = models.JSONField()
     address = models.ForeignKey(CustomerAddress, on_delete=models.DO_NOTHING, related_name='bookings')
     note = models.TextField(blank=True, null=True)
@@ -314,16 +318,25 @@ class Voucher(models.Model):
         PERCENT = 'PERCENT', 'Phần trăm'
         FIXED = 'FIXED', 'Số tiền cố định'
 
+    class DistributionType(models.TextChoices):
+        PUBLIC = 'PUBLIC', 'Công khai'
+        CODE_ONLY = 'CODE_ONLY', 'Chỉ nhận bằng mã'
+        ASSIGNED = 'ASSIGNED', 'Được cấp riêng'
+
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True, null=True)
+    distribution_type = models.CharField(
+        max_length=20,
+        choices=DistributionType.choices,
+        default=DistributionType.CODE_ONLY,
+    )
     discount_type = models.CharField(max_length=20, choices=DiscountType.choices)
     discount_value = models.DecimalField(max_digits=12, decimal_places=2)
     max_discount_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     min_order_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    usage_limit = models.IntegerField(blank=True, null=True)
-    used_count = models.IntegerField(default=0)
-    per_user_limit = models.IntegerField(default=1)
+    issuance_limit = models.IntegerField(blank=True, null=True)
+    issued_count = models.IntegerField(default=0)
     start_at = models.DateTimeField()
     end_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
@@ -335,11 +348,38 @@ class Voucher(models.Model):
         constraints = [
             models.CheckConstraint(condition=models.Q(discount_value__gt=0), name='vouchers_discount_value_check'),
             models.CheckConstraint(condition=models.Q(min_order_amount__gte=0), name='vouchers_min_order_amount_check'),
-            models.CheckConstraint(condition=models.Q(used_count__gte=0), name='vouchers_used_count_check'),
-            models.CheckConstraint(condition=models.Q(per_user_limit__gt=0), name='vouchers_per_user_limit_check'),
+            models.CheckConstraint(condition=models.Q(issued_count__gte=0), name='vouchers_issued_count_check'),
             models.CheckConstraint(
-                condition=models.Q(usage_limit__isnull=True) | models.Q(usage_limit__gt=0),
-                name='vouchers_usage_limit_check',
+                condition=models.Q(issuance_limit__isnull=True) | models.Q(issuance_limit__gt=0),
+                name='vouchers_issuance_limit_check',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(issuance_limit__isnull=True)
+                    | models.Q(issued_count__lte=models.F('issuance_limit'))
+                ),
+                name='vouchers_issued_within_limit_check',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(discount_type='FIXED')
+                    | models.Q(discount_value__lte=100)
+                ),
+                name='vouchers_percent_value_check',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(max_discount_amount__isnull=True)
+                    | models.Q(max_discount_amount__gt=0)
+                ),
+                name='vouchers_max_discount_amount_check',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(discount_type='PERCENT')
+                    | models.Q(max_discount_amount__isnull=True)
+                ),
+                name='vouchers_fixed_max_discount_null_check',
             ),
             models.CheckConstraint(
                 condition=models.Q(start_at__lt=models.F('end_at')),
@@ -351,27 +391,57 @@ class Voucher(models.Model):
         return self.code
 
 
-class BookingVoucher(models.Model):
-    booking = models.ForeignKey(Booking, on_delete=models.DO_NOTHING, related_name='booking_vouchers')
-    voucher = models.ForeignKey(Voucher, on_delete=models.DO_NOTHING, related_name='booking_vouchers')
-    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+class UserVoucher(models.Model):
+    class Source(models.TextChoices):
+        ADMIN = 'ADMIN', 'Quản trị viên cấp'
+        CODE = 'CODE', 'Nhận bằng mã'
+        PUBLIC = 'PUBLIC', 'Tự nhận công khai'
+        CAMPAIGN = 'CAMPAIGN', 'Chiến dịch tự động'
+
+    class Status(models.TextChoices):
+        AVAILABLE = 'AVAILABLE', 'Có thể sử dụng'
+        RESERVED = 'RESERVED', 'Đang được giữ'
+        USED = 'USED', 'Đã sử dụng'
+        REVOKED = 'REVOKED', 'Đã thu hồi'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.DO_NOTHING,
+        related_name='user_vouchers',
+    )
+    voucher = models.ForeignKey(
+        Voucher,
+        on_delete=models.DO_NOTHING,
+        related_name='user_vouchers',
+    )
+    source = models.CharField(max_length=20, choices=Source.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.AVAILABLE)
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.DO_NOTHING,
+        related_name='assigned_user_vouchers',
+        blank=True,
+        null=True,
+    )
+    reserved_at = models.DateTimeField(blank=True, null=True)
+    used_at = models.DateTimeField(blank=True, null=True)
+    revoked_at = models.DateTimeField(blank=True, null=True)
+    note = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'booking_vouchers'
+        db_table = 'user_vouchers'
         constraints = [
             models.UniqueConstraint(
-                fields=['booking', 'voucher'],
-                name='booking_vouchers_booking_voucher_unique',
-            ),
-            models.CheckConstraint(
-                condition=models.Q(discount_amount__gte=0),
-                name='booking_vouchers_discount_amount_check',
+                fields=['user', 'voucher'],
+                name='user_vouchers_user_voucher_unique',
             ),
         ]
+        ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.booking} - {self.voucher}"
+        return f"{self.user} - {self.voucher}"
 
 
 class Payment(models.Model):

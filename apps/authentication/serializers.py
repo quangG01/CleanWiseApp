@@ -189,7 +189,7 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
-class RegisterSerializer(serializers.ModelSerializer):
+class CustomerRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         required=True,
         write_only=True,
@@ -202,7 +202,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'username', 'email', 'password', 'password_confirm', 'first_name',
-            'last_name', 'gender', 'birth_date', 'role', 'phone_number',
+            'last_name', 'gender', 'birth_date', 'phone_number',
         ]
         extra_kwargs = {
             'email': {'required': True},
@@ -210,9 +210,14 @@ class RegisterSerializer(serializers.ModelSerializer):
             'last_name': {'required': False},
             'gender': {'required': False},
             'birth_date': {'required': False},
-            'role': {'required': False},
             'phone_number': {'required': False},
         }
+
+    def validate_username(self, value):
+        value = value.strip()
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError('Tên đăng nhập này đã được sử dụng.')
+        return value
 
     def validate_email(self, value):
         value = value.strip().lower()
@@ -221,16 +226,25 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_phone_number(self, value):
-        if value and User.objects.filter(phone_number=value).exists():
+        if value in ('', None):
+            return None
+        value = value.strip()
+        if not re.fullmatch(r'(?:\+84|0)\d{9}', value):
+            raise serializers.ValidationError('Số điện thoại Việt Nam không hợp lệ.')
+        if User.objects.filter(phone_number=value).exists():
             raise serializers.ValidationError('Số điện thoại này đã được sử dụng.')
         return value
 
-    def validate_role(self, value):
-        if value == User.Role.ADMIN:
-            raise serializers.ValidationError('Không thể đăng ký trực tiếp tài khoản quản trị viên.')
+    def validate_birth_date(self, value):
+        if value and value > timezone.localdate():
+            raise serializers.ValidationError('Ngày sinh không được ở tương lai.')
         return value
 
     def validate(self, attrs):
+        if 'role' in self.initial_data:
+            raise serializers.ValidationError({
+                'role': 'Role của API đăng ký khách hàng được backend cố định là CUSTOMER.',
+            })
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({'password_confirm': 'Mật khẩu xác nhận không khớp.'})
         return attrs
@@ -239,20 +253,73 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
-        user = User(**validated_data)
+        user = User(role=User.Role.CUSTOMER, **validated_data)
         user.set_password(password)
         user.save()
-        if user.role == User.Role.WORKER:
-            WorkerProfile.objects.create(user=user)
         return user
 
 
-class WorkerRegisterSerializer(RegisterSerializer):
-    class Meta(RegisterSerializer.Meta):
+class WorkerRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'},
+        validators=[validate_password],
+    )
+    password_confirm = serializers.CharField(required=True, write_only=True, style={'input_type': 'password'})
+
+    class Meta:
+        model = User
         fields = [
             'username', 'email', 'password', 'password_confirm',
             'first_name', 'last_name', 'gender', 'birth_date', 'phone_number',
         ]
+        extra_kwargs = {
+            'email': {'required': True},
+            'first_name': {'required': True, 'allow_blank': False},
+            'last_name': {'required': True, 'allow_blank': False},
+            'gender': {'required': True, 'allow_null': False, 'allow_blank': False},
+            'birth_date': {'required': True, 'allow_null': False},
+            'phone_number': {'required': True, 'allow_null': False, 'allow_blank': False},
+        }
+
+    def validate_username(self, value):
+        value = value.strip()
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError('Tên đăng nhập này đã được sử dụng.')
+        return value
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError('Email này đã được sử dụng.')
+        return value
+
+    def validate_phone_number(self, value):
+        value = value.strip()
+        if not re.fullmatch(r'(?:\+84|0)\d{9}', value):
+            raise serializers.ValidationError('Số điện thoại Việt Nam không hợp lệ.')
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError('Số điện thoại này đã được sử dụng.')
+        return value
+
+    def validate_birth_date(self, value):
+        today = timezone.localdate()
+        if value > today:
+            raise serializers.ValidationError('Ngày sinh không được ở tương lai.')
+        age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
+        if age < 18:
+            raise serializers.ValidationError('Nhân viên phải đủ 18 tuổi.')
+        return value
+
+    def validate(self, attrs):
+        if 'role' in self.initial_data:
+            raise serializers.ValidationError({
+                'role': 'Role của API đăng ký nhân viên được backend cố định là WORKER.',
+            })
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({'password_confirm': 'Mật khẩu xác nhận không khớp.'})
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):
@@ -574,5 +641,10 @@ class TokenResponseSerializer(serializers.Serializer):
     is_new_user = serializers.BooleanField(required=False)
 
 
+class WorkerProfileSummaryResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    status = serializers.ChoiceField(choices=WorkerProfile.Status.choices)
+
+
 class WorkerRegisterResponseSerializer(TokenResponseSerializer):
-    profile_status = serializers.ChoiceField(choices=WorkerProfile.Status.choices)
+    worker_profile = WorkerProfileSummaryResponseSerializer()
