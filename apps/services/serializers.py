@@ -6,6 +6,8 @@ from uuid import uuid4
 import cloudinary.uploader
 from django.conf import settings
 from django.db import transaction
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.common.cloudinary_storage import upload_image
@@ -82,12 +84,21 @@ class ServiceImageSerializer(serializers.ModelSerializer):
 
 
 class ServiceListSerializer(serializers.ModelSerializer):
-    primary_image = serializers.SerializerMethodField()
+    primary_image = serializers.SerializerMethodField(help_text='URL ảnh đại diện của dịch vụ; có thể là null.')
 
     class Meta:
         model = Service
         fields = ['id', 'code', 'section_code', 'name', 'description', 'is_active', 'primary_image']
+        extra_kwargs = {
+            'id': {'help_text': 'ID gửi trong field service_id khi nhân viên cập nhật hồ sơ.'},
+            'code': {'help_text': 'Mã định danh duy nhất của dịch vụ.'},
+            'section_code': {'help_text': 'Mã nhóm dịch vụ, dùng để lọc theo section_code.'},
+            'name': {'help_text': 'Tên dịch vụ hiển thị.'},
+            'description': {'help_text': 'Mô tả dịch vụ.'},
+            'is_active': {'help_text': 'Trạng thái hoạt động; API công khai chỉ trả về true.'},
+        }
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_primary_image(self, obj):
         image = obj.images.filter(is_primary=True).first() or obj.images.first()
         return image.image if image else None

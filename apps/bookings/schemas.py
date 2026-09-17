@@ -13,10 +13,12 @@ from rest_framework import serializers
 
 from .models import Voucher
 from .serializers import (
+    AreaSummarySerializer,
     UserVoucherSerializer,
     VoucherAdminSerializer,
     VoucherAdminWriteSerializer,
     VoucherCodeClaimSerializer,
+    WorkerWorkingAreaSerializer,
 )
 
 
@@ -55,6 +57,148 @@ UserVoucherListResponse = inline_serializer(
         'message': serializers.CharField(),
         'data': UserVoucherSerializer(many=True),
     },
+)
+
+WorkerWorkingAreaResponse = inline_serializer(
+    name='WorkerWorkingAreaResponse',
+    fields={
+        'message': serializers.CharField(),
+        'data': WorkerWorkingAreaSerializer(),
+    },
+)
+
+WorkerWorkingAreaListResponse = inline_serializer(
+    name='WorkerWorkingAreaListResponse',
+    fields={
+        'message': serializers.CharField(),
+        'data': WorkerWorkingAreaSerializer(many=True),
+    },
+)
+
+WorkerWorkingAreaMessageResponse = inline_serializer(
+    name='WorkerWorkingAreaMessageResponse',
+    fields={'message': serializers.CharField()},
+)
+
+
+WORKER_ACTIVE_AREA_LIST_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        operation_id='worker_active_area_list',
+        summary='Danh mục khu vực đang hoạt động',
+        description=(
+            '### Mục đích\n'
+            'Cung cấp danh mục khu vực để nhân viên lựa chọn nơi có thể làm việc.\n\n'
+            '### Bộ lọc\n'
+            '- `city`: lọc chính xác theo tỉnh/thành phố.\n'
+            '- `search`: tìm gần đúng theo tên khu vực hoặc tỉnh/thành phố.\n\n'
+            'Chỉ các khu vực đang hoạt động được trả về.'
+        ),
+        tags=['Worker - Working Areas'],
+        parameters=[
+            OpenApiParameter(
+                name='city',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Lọc chính xác theo tỉnh/thành phố, không phân biệt hoa thường.',
+            ),
+            OpenApiParameter(
+                name='search',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Tìm gần đúng theo tên khu vực hoặc tỉnh/thành phố.',
+            ),
+        ],
+        responses={200: AreaSummarySerializer(many=True)},
+    ),
+)
+
+
+WORKER_WORKING_AREA_LIST_CREATE_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        operation_id='worker_working_area_list',
+        summary='Danh sách khu vực làm việc của nhân viên',
+        description=(
+            '### Mục đích\n'
+            'Trả về các khu vực mà nhân viên đang đăng nhập đã chọn để nhận việc.\n\n'
+            '> Nhân viên chỉ xem được dữ liệu của chính mình.'
+        ),
+        tags=['Worker - Working Areas'],
+        responses={200: WorkerWorkingAreaListResponse},
+    ),
+    post=extend_schema(
+        operation_id='worker_working_area_create',
+        summary='Thêm khu vực làm việc',
+        description=(
+            '### Cách sử dụng\n'
+            '1. Gọi `GET /api/worker/areas/` để lấy danh mục.\n'
+            '2. Chọn một khu vực và gửi ID vào `area_id`.\n\n'
+            '### Quy tắc\n'
+            '- Khu vực phải đang hoạt động.\n'
+            '- Nhân viên không thể chọn trùng một khu vực.\n'
+            '- Backend tự lấy nhân viên từ access token.'
+        ),
+        tags=['Worker - Working Areas'],
+        request=WorkerWorkingAreaSerializer,
+        examples=[
+            OpenApiExample(
+                'Chọn khu vực',
+                value={'area_id': 3},
+                request_only=True,
+            ),
+        ],
+        responses={
+            201: WorkerWorkingAreaResponse,
+            400: OpenApiResponse(description='Khu vực không hợp lệ hoặc đã được chọn.'),
+            403: OpenApiResponse(description='Tài khoản không có quyền nhân viên.'),
+        },
+    ),
+)
+
+
+WORKER_WORKING_AREA_DETAIL_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        operation_id='worker_working_area_detail',
+        summary='Chi tiết khu vực làm việc đã chọn',
+        description=(
+            'Trả về một khu vực làm việc đã chọn của nhân viên đang đăng nhập.\n\n'
+            '> Truy cập lựa chọn của nhân viên khác sẽ trả về `404`.'
+        ),
+        tags=['Worker - Working Areas'],
+        responses={
+            200: WorkerWorkingAreaResponse,
+            404: OpenApiResponse(description='Không tìm thấy lựa chọn khu vực của nhân viên hiện tại.'),
+        },
+    ),
+    patch=extend_schema(
+        operation_id='worker_working_area_update',
+        summary='Thay đổi khu vực làm việc đã chọn',
+        description=(
+            '### Cách sử dụng\n'
+            '- Gửi `area_id` mới để thay đổi khu vực.\n'
+            '- Khu vực mới phải đang hoạt động và chưa được nhân viên chọn trước đó.'
+        ),
+        tags=['Worker - Working Areas'],
+        request=WorkerWorkingAreaSerializer,
+        responses={
+            200: WorkerWorkingAreaResponse,
+            400: OpenApiResponse(description='Khu vực không hợp lệ hoặc đã được chọn.'),
+            404: OpenApiResponse(description='Không tìm thấy lựa chọn khu vực của nhân viên hiện tại.'),
+        },
+    ),
+    delete=extend_schema(
+        operation_id='worker_working_area_delete',
+        summary='Xóa khu vực khỏi danh sách làm việc',
+        description=(
+            '### Phạm vi xóa\n'
+            '- Chỉ xóa lựa chọn khu vực của nhân viên đang đăng nhập.\n'
+            '- Không xóa khu vực khỏi danh mục chung của hệ thống.'
+        ),
+        tags=['Worker - Working Areas'],
+        responses={
+            200: WorkerWorkingAreaMessageResponse,
+            404: OpenApiResponse(description='Không tìm thấy lựa chọn khu vực của nhân viên hiện tại.'),
+        },
+    ),
 )
 
 VOUCHER_REQUEST_EXAMPLES = [

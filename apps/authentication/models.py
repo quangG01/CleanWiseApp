@@ -78,17 +78,25 @@ class PasswordResetOTP(models.Model):
 
 class WorkerProfile(models.Model):
     class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Đang hoàn thiện'
         PENDING = 'PENDING', 'Chờ duyệt'
         ACTIVE = 'ACTIVE', 'Đang hoạt động'
         REJECTED = 'REJECTED', 'Bị từ chối'
         SUSPENDED = 'SUSPENDED', 'Tạm khóa'
 
     user = models.OneToOneField(User, on_delete=models.DO_NOTHING, related_name='worker_profile')
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     bio = models.TextField(blank=True, null=True)
     experience_years = models.IntegerField(default=0)
     identity_number = models.CharField(max_length=30, unique=True, blank=True, null=True)
     avatar = models.CharField(max_length=255, blank=True, null=True)
+    registered_service = models.ForeignKey(
+        'services.Service',
+        on_delete=models.SET_NULL,
+        related_name='registered_workers',
+        blank=True,
+        null=True,
+    )
     approved_by = models.ForeignKey(
         User,
         on_delete=models.DO_NOTHING,
