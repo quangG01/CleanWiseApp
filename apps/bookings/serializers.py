@@ -6,13 +6,45 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .address_service import set_default_address
-from .models import Area, CustomerAddress, UserVoucher, Voucher
+from .models import Area, CustomerAddress, UserVoucher, Voucher, WorkerWorkingArea
 
 
 class AreaSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Area
         fields = ['id', 'name', 'city']
+
+
+class WorkerWorkingAreaSerializer(serializers.ModelSerializer):
+    area = AreaSummarySerializer(read_only=True)
+    area_id = serializers.PrimaryKeyRelatedField(
+        source='area',
+        queryset=Area.objects.filter(is_active=True),
+        write_only=True,
+    )
+
+    class Meta:
+        model = WorkerWorkingArea
+        fields = ['id', 'area', 'area_id', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate(self, attrs):
+        worker = self.context['request'].user
+        area = attrs.get('area', getattr(self.instance, 'area', None))
+        queryset = WorkerWorkingArea.objects.filter(worker=worker, area=area)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError({
+                'area_id': 'Bạn đã chọn khu vực làm việc này.',
+            })
+        return attrs
+
+    def create(self, validated_data):
+        return WorkerWorkingArea.objects.create(
+            worker=self.context['request'].user,
+            **validated_data,
+        )
 
 
 class CustomerAddressSerializer(serializers.ModelSerializer):

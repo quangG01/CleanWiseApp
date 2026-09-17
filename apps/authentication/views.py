@@ -1,10 +1,12 @@
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import EmailMultiAlternatives
+from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import timedelta
@@ -20,6 +22,7 @@ from .schemas import (
     CUSTOMER_PROFILE_SCHEMA,
     WORKER_REGISTER_SCHEMA,
     WORKER_PROFILE_SCHEMA,
+    WORKER_PROFILE_SUBMIT_SCHEMA,
     ADMIN_WORKER_PROFILE_LIST_SCHEMA,
     ADMIN_WORKER_STATUS_UPDATE_SCHEMA,
 )
@@ -37,6 +40,7 @@ from .serializers import (
     AdminWorkerStatusUpdateSerializer,
 )
 from .models import PasswordResetOTP, WorkerProfile
+from .worker_profile import get_worker_profile_completeness
 from apps.common.permissions import IsAdminRole, IsAdminOrCustomerRole, IsWorkerRole
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -211,18 +215,28 @@ class WorkerRegisterView(generics.CreateAPIView):
 @WORKER_PROFILE_SCHEMA
 class WorkerProfileView(generics.GenericAPIView):
     """
-    PATCH /api/auth/worker/profile/
-    API cập nhật từng phần hồ sơ nhân viên đang đăng nhập.
+    GET/PATCH /api/auth/worker/profile/
+    API xem và cập nhật từng phần hồ sơ nhân viên đang đăng nhập.
     """
     permission_classes = [IsWorkerRole]
     serializer_class = WorkerProfileUpdateSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_object(self):
-        return self.request.user.worker_profile
+        return (
+            WorkerProfile.objects
+            .select_related('user', 'approved_by', 'registered_service')
+            .prefetch_related('user__verification_documents', 'user__working_areas')
+            .get(user=self.request.user)
+        )
+
+    def get(self, request, *args, **kwargs):
+        return Response({
+            'message': 'Lấy hồ sơ nhân viên thành công.',
+            'data': self.get_serializer(self.get_object()).data,
+        }, status=status.HTTP_200_OK)
 
     def patch(self, request, *args, **kwargs):
-        previous_status = self.get_object().status
         serializer = self.get_serializer(
             self.get_object(),
             data=request.data,
@@ -232,16 +246,48 @@ class WorkerProfileView(generics.GenericAPIView):
         profile = serializer.save()
         response_serializer = self.get_serializer(profile)
 
-        message = "Cập nhật hồ sơ nhân viên thành công."
-        if (
-            previous_status != profile.Status.PENDING
-            and profile.status == profile.Status.PENDING
-        ):
-            message = "Hồ sơ đã đầy đủ và được chuyển sang trạng thái chờ duyệt."
+        return Response({
+            "message": "Cập nhật hồ sơ nhân viên thành công.",
+            "data": response_serializer.data,
+        }, status=status.HTTP_200_OK)
+
+
+#========================================================================================================================
+@WORKER_PROFILE_SUBMIT_SCHEMA
+class WorkerProfileSubmitView(generics.GenericAPIView):
+    """POST /api/auth/worker/profile/submit/"""
+
+    permission_classes = [IsWorkerRole]
+    serializer_class = WorkerProfileUpdateSerializer
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        profile = (
+            WorkerProfile.objects
+            .select_for_update(of=('self',))
+            .select_related('user', 'approved_by', 'registered_service')
+            .prefetch_related('user__verification_documents', 'user__working_areas')
+            .get(user=request.user)
+        )
+        if profile.status != WorkerProfile.Status.DRAFT:
+            raise ValidationError({
+                'status': 'Chỉ hồ sơ ở trạng thái DRAFT mới có thể gửi duyệt.',
+            })
+
+        completeness = get_worker_profile_completeness(profile)
+        if not completeness['is_complete']:
+            raise ValidationError({
+                'missing_fields': completeness['missing_fields'],
+                'completion_percent': completeness['completion_percent'],
+            })
+
+        profile.status = WorkerProfile.Status.PENDING
+        profile.rejection_reason = None
+        profile.save(update_fields=['status', 'rejection_reason', 'updated_at'])
 
         return Response({
-            "message": message,
-            "data": response_serializer.data,
+            'message': 'Gửi hồ sơ chờ duyệt thành công.',
+            'data': self.get_serializer(profile).data,
         }, status=status.HTTP_200_OK)
 
 
@@ -268,7 +314,7 @@ class AdminWorkerProfileListView(generics.ListAPIView):
         return (
             WorkerProfile.objects
             .filter(status=requested_status)
-            .select_related("user", "approved_by")
+            .select_related("user", "approved_by", "registered_service")
             .prefetch_related("user__verification_documents")
             .order_by("-created_at")
         )

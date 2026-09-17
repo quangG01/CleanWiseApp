@@ -13,7 +13,9 @@ from google.oauth2 import id_token as google_id_token
 from rest_framework import serializers
 
 from apps.common.cloudinary_storage import upload_file, upload_image
+from apps.services.models import Service
 from .models import PasswordResetOTP, WorkerProfile, WorkerVerificationDocument
+from .worker_profile import get_worker_profile_completeness
 
 User = get_user_model()
 
@@ -359,41 +361,69 @@ class WorkerDocumentField(serializers.FileField):
         return data
 
 
+class WorkerRegisteredServiceSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True, help_text='ID dịch vụ, dùng làm service_id khi cập nhật hồ sơ.')
+    code = serializers.CharField(read_only=True, help_text='Mã định danh duy nhất của dịch vụ.')
+    section_code = serializers.CharField(read_only=True, help_text='Mã nhóm chứa dịch vụ.')
+    name = serializers.CharField(read_only=True, help_text='Tên dịch vụ hiển thị cho người dùng.')
+
+    class Meta:
+        model = Service
+        fields = ['id', 'code', 'section_code', 'name']
+
+
 class WorkerProfileUpdateSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    user_id = serializers.IntegerField(read_only=True)
-    username = serializers.CharField(read_only=True)
-    email = serializers.EmailField(read_only=True)
-    first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
-    last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
-    phone_number = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=15)
+    id = serializers.IntegerField(read_only=True, help_text='ID hồ sơ nhân viên.')
+    user_id = serializers.IntegerField(read_only=True, help_text='ID tài khoản sở hữu hồ sơ.')
+    username = serializers.CharField(read_only=True, help_text='Tên đăng nhập, không thể sửa tại API này.')
+    email = serializers.EmailField(read_only=True, help_text='Email tài khoản, không thể sửa tại API này.')
+    first_name = serializers.CharField(required=False, allow_blank=True, max_length=150, help_text='Tên của nhân viên.')
+    last_name = serializers.CharField(required=False, allow_blank=True, max_length=150, help_text='Họ và tên đệm của nhân viên.')
+    phone_number = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=15, help_text='Số điện thoại duy nhất của nhân viên.')
     gender = serializers.ChoiceField(
         choices=User.Gender.choices,
         required=False,
         allow_blank=True,
         allow_null=True,
+        help_text='Giới tính: MALE, FEMALE hoặc OTHER.',
     )
-    birth_date = serializers.DateField(required=False, allow_null=True)
-    role = serializers.CharField(read_only=True)
-    status = serializers.ChoiceField(choices=WorkerProfile.Status.choices, read_only=True)
-    bio = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    experience_years = serializers.IntegerField(required=False, min_value=0)
-    identity_number = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=30)
-    portrait = WorkerImageUploadField(required=False, allow_null=True)
-    identity_front = WorkerDocumentField(required=False)
-    identity_back = WorkerDocumentField(required=False)
-    certificate_file = WorkerDocumentField(required=False, allow_pdf=True)
-    approved_by = UserSerializer(read_only=True)
-    approved_at = serializers.DateTimeField(read_only=True)
-    rejection_reason = serializers.CharField(read_only=True, allow_null=True)
-    average_rating = serializers.DecimalField(read_only=True, max_digits=3, decimal_places=2)
-    total_completed_jobs = serializers.IntegerField(read_only=True)
-    created_at = serializers.DateTimeField(read_only=True)
-    updated_at = serializers.DateTimeField(read_only=True)
+    birth_date = serializers.DateField(required=False, allow_null=True, help_text='Ngày sinh; nhân viên phải đủ 18 tuổi.')
+    role = serializers.CharField(read_only=True, help_text='Vai trò tài khoản, luôn là WORKER đối với API này.')
+    status = serializers.ChoiceField(choices=WorkerProfile.Status.choices, read_only=True, help_text='Trạng thái xét duyệt hồ sơ; nhân viên không thể tự sửa.')
+    bio = serializers.CharField(required=False, allow_blank=True, allow_null=True, help_text='Giới thiệu hoặc mô tả kinh nghiệm của nhân viên.')
+    experience_years = serializers.IntegerField(required=False, min_value=0, help_text='Số năm kinh nghiệm, không được âm.')
+    identity_number = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=30, help_text='Số CCCD/CMND gồm 9 hoặc 12 chữ số và không được trùng.')
+    registered_service = WorkerRegisteredServiceSerializer(read_only=True, help_text='Thông tin loại dịch vụ nhân viên đã đăng ký.')
+    service_id = serializers.PrimaryKeyRelatedField(
+        source='registered_service',
+        queryset=Service.objects.filter(is_active=True),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        help_text='ID dịch vụ đang hoạt động muốn đăng ký; gửi null để bỏ lựa chọn.',
+    )
+    portrait = WorkerImageUploadField(required=False, allow_null=True, help_text='Ảnh chân dung JPG, JPEG, PNG hoặc WEBP.')
+    identity_front = WorkerDocumentField(required=False, help_text='Ảnh mặt trước CCCD/CMND; phải gửi cùng identity_back.')
+    identity_back = WorkerDocumentField(required=False, help_text='Ảnh mặt sau CCCD/CMND; phải gửi cùng identity_front.')
+    certificate_file = WorkerDocumentField(required=False, allow_pdf=True, help_text='Chứng chỉ nghề nghiệp tùy chọn, dạng ảnh hoặc PDF.')
+    approved_by = UserSerializer(read_only=True, help_text='Admin đã duyệt hồ sơ.')
+    approved_at = serializers.DateTimeField(read_only=True, help_text='Thời điểm hồ sơ được duyệt.')
+    rejection_reason = serializers.CharField(read_only=True, allow_null=True, help_text='Lý do hồ sơ bị từ chối hoặc tạm khóa.')
+    average_rating = serializers.DecimalField(read_only=True, max_digits=3, decimal_places=2, help_text='Điểm đánh giá trung bình từ 0 đến 5.')
+    total_completed_jobs = serializers.IntegerField(read_only=True, help_text='Tổng số công việc đã hoàn thành.')
+    is_complete = serializers.BooleanField(read_only=True, help_text='True khi mọi thông tin bắt buộc để gửi duyệt đã đầy đủ.')
+    missing_fields = serializers.ListField(child=serializers.CharField(), read_only=True, help_text='Tên các field còn thiếu hoặc chưa hợp lệ.')
+    completion_percent = serializers.IntegerField(read_only=True, help_text='Phần trăm hoàn thiện dựa trên các field bắt buộc.')
+    created_at = serializers.DateTimeField(read_only=True, help_text='Thời điểm tạo hồ sơ.')
+    updated_at = serializers.DateTimeField(read_only=True, help_text='Thời điểm cập nhật hồ sơ gần nhất.')
 
     def validate_phone_number(self, value):
         if value == '':
             return None
+        if value:
+            value = value.strip()
+            if not re.fullmatch(r'(?:\+84|0)\d{9}', value):
+                raise serializers.ValidationError('Số điện thoại Việt Nam không hợp lệ.')
         if value and User.objects.filter(phone_number=value).exclude(pk=self.instance.user_id).exists():
             raise serializers.ValidationError('Số điện thoại này đã được sử dụng.')
         return value
@@ -409,6 +439,16 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
+        protected_fields = {
+            'role', 'status', 'approved_by', 'approved_at', 'rejection_reason',
+            'average_rating', 'total_completed_jobs', 'created_at', 'updated_at',
+        }
+        attempted_fields = protected_fields.intersection(self.initial_data)
+        if attempted_fields:
+            raise serializers.ValidationError({
+                field: 'Field này chỉ đọc và không thể cập nhật tại API hồ sơ nhân viên.'
+                for field in sorted(attempted_fields)
+            })
         front = attrs.get('identity_front')
         back = attrs.get('identity_back')
         if bool(front) != bool(back):
@@ -483,6 +523,7 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
             item.document_type: item.file
             for item in instance.user.verification_documents.order_by('created_at')
         }
+        completeness = get_worker_profile_completeness(instance)
         return {
             'id': instance.id,
             'user_id': instance.user_id,
@@ -498,6 +539,9 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
             'bio': instance.bio,
             'experience_years': instance.experience_years,
             'identity_number': instance.identity_number,
+            'registered_service': WorkerRegisteredServiceSerializer(
+                instance.registered_service,
+            ).data if instance.registered_service else None,
             'portrait': instance.avatar,
             'identity_front': documents.get(WorkerVerificationDocument.DocumentType.IDENTITY_FRONT),
             'identity_back': documents.get(WorkerVerificationDocument.DocumentType.IDENTITY_BACK),
@@ -507,6 +551,7 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
             'rejection_reason': instance.rejection_reason,
             'average_rating': instance.average_rating,
             'total_completed_jobs': instance.total_completed_jobs,
+            **completeness,
             'created_at': instance.created_at,
             'updated_at': instance.updated_at,
         }
