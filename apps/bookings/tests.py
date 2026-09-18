@@ -18,6 +18,7 @@ from .models import (
     CustomerAddress,
     UserVoucher,
     Voucher,
+    WorkerWorkingArea,
 )
 from .voucher_service import validate_and_calculate_voucher
 
@@ -98,6 +99,135 @@ class SchemaFlowTests(APITestCase):
 
         self.assertEqual(assignment.schedule_id, schedule.id)
         self.assertEqual(log.schedule_id, schedule.id)
+
+
+class WorkerWorkingAreaAPITests(APITestCase):
+    def setUp(self):
+        self.worker = User.objects.create_user(
+            username='area-worker',
+            email='area-worker@example.com',
+            password='CleanWise@2026!',
+            role=User.Role.WORKER,
+        )
+        self.other_worker = User.objects.create_user(
+            username='other-area-worker',
+            email='other-area-worker@example.com',
+            password='CleanWise@2026!',
+            role=User.Role.WORKER,
+        )
+        self.customer = User.objects.create_user(
+            username='area-customer',
+            email='area-customer@example.com',
+            password='CleanWise@2026!',
+            role=User.Role.CUSTOMER,
+        )
+        self.area = Area.objects.create(name='Bến Nghé', city='TP.HCM')
+        self.second_area = Area.objects.create(name='Thảo Điền', city='TP.HCM')
+        self.inactive_area = Area.objects.create(
+            name='Khu vực tạm ngừng',
+            city='Hà Nội',
+            is_active=False,
+        )
+
+    def test_worker_can_complete_working_area_crud_flow(self):
+        self.client.force_authenticate(self.worker)
+
+        create_response = self.client.post(
+            reverse('worker-working-area-list-create'),
+            {'area_id': self.area.id},
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED, create_response.data)
+        working_area_id = create_response.data['data']['id']
+        self.assertEqual(create_response.data['data']['area']['id'], self.area.id)
+        self.assertNotIn('area_id', create_response.data['data'])
+
+        list_response = self.client.get(reverse('worker-working-area-list-create'))
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data['data']), 1)
+
+        detail_url = reverse('worker-working-area-detail', args=[working_area_id])
+        detail_response = self.client.get(detail_url)
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+
+        update_response = self.client.patch(
+            detail_url,
+            {'area_id': self.second_area.id},
+            format='json',
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK, update_response.data)
+        self.assertEqual(update_response.data['data']['area']['id'], self.second_area.id)
+
+        delete_response = self.client.delete(detail_url)
+        self.assertEqual(delete_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(WorkerWorkingArea.objects.filter(pk=working_area_id).exists())
+        self.assertTrue(Area.objects.filter(pk=self.second_area.id).exists())
+
+    def test_worker_cannot_select_duplicate_area(self):
+        WorkerWorkingArea.objects.create(worker=self.worker, area=self.area)
+        self.client.force_authenticate(self.worker)
+
+        response = self.client.post(
+            reverse('worker-working-area-list-create'),
+            {'area_id': self.area.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(WorkerWorkingArea.objects.filter(worker=self.worker).count(), 1)
+
+    def test_worker_cannot_select_inactive_area(self):
+        self.client.force_authenticate(self.worker)
+
+        response = self.client.post(
+            reverse('worker-working-area-list-create'),
+            {'area_id': self.inactive_area.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(WorkerWorkingArea.objects.filter(worker=self.worker).exists())
+
+    def test_worker_cannot_access_another_workers_selection(self):
+        working_area = WorkerWorkingArea.objects.create(
+            worker=self.other_worker,
+            area=self.area,
+        )
+        self.client.force_authenticate(self.worker)
+        detail_url = reverse('worker-working-area-detail', args=[working_area.id])
+
+        self.assertEqual(self.client.get(detail_url).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(
+            self.client.patch(detail_url, {'area_id': self.second_area.id}).status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(self.client.delete(detail_url).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(WorkerWorkingArea.objects.filter(pk=working_area.id).exists())
+
+    def test_customer_cannot_use_worker_area_apis(self):
+        self.client.force_authenticate(self.customer)
+
+        self.assertEqual(
+            self.client.get(reverse('worker-active-area-list')).status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+        self.assertEqual(
+            self.client.get(reverse('worker-working-area-list-create')).status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_active_area_list_supports_filters(self):
+        Area.objects.create(name='Hoàn Kiếm', city='Hà Nội')
+        self.client.force_authenticate(self.worker)
+
+        response = self.client.get(
+            reverse('worker-active-area-list'),
+            {'city': 'tp.hcm', 'search': 'điền'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item['id'] for item in response.data], [self.second_area.id])
+        self.assertNotIn(self.inactive_area.id, [item['id'] for item in response.data])
 
 
 class VoucherTests(APITestCase):

@@ -5,8 +5,20 @@ from .serializers import ServiceAdminWriteSerializer, ServiceDetailSerializer, S
 
 SERVICE_LIST_SCHEMA = extend_schema_view(
     get=extend_schema(
-        summary='Danh sách dịch vụ (khách hàng)',
-        description='Ai cũng xem được. Chỉ trả dịch vụ đang hoạt động.',
+        operation_id='active_service_list',
+        summary='Danh sách dịch vụ đang hoạt động',
+        description=(
+            '### Mục đích\n'
+            '- Khách hàng xem các dịch vụ có thể đặt.\n'
+            '- Nhân viên xem các loại dịch vụ có thể đăng ký.\n\n'
+            '### Luồng chọn dịch vụ của nhân viên\n'
+            '1. Gọi API này để lấy danh sách dịch vụ.\n'
+            '2. Lấy field `id` của dịch vụ được chọn.\n'
+            '3. Gửi ID đó vào `service_id` tại `PATCH /api/auth/worker/profile/`.\n\n'
+            '### Quy tắc\n'
+            '- Chỉ trả về dịch vụ có `is_active=true`.\n'
+            '- Có thể lọc theo `section_code` hoặc tìm kiếm theo tên bằng `search`.'
+        ),
         tags=['Services'],
         parameters=[
             OpenApiParameter(name='section_code', type=str, required=False),

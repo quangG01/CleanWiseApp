@@ -10,6 +10,7 @@ from .views import (
     ResetPasswordView,
     WorkerRegisterView,
     WorkerProfileView,
+    WorkerProfileSubmitView,
     AdminWorkerProfileListView,
     AdminWorkerStatusUpdateView,
 )
@@ -20,6 +21,11 @@ urlpatterns = [
     path('register/', CustomerRegisterView.as_view(), name='register'),
     path('worker/register/', WorkerRegisterView.as_view(), name='worker-register'),
     path('worker/profile/', WorkerProfileView.as_view(), name='worker-profile'),
+    path(
+        'worker/profile/submit/',
+        WorkerProfileSubmitView.as_view(),
+        name='worker-profile-submit',
+    ),
     path(
         'admin/worker-profiles/',
         AdminWorkerProfileListView.as_view(),

@@ -37,6 +37,7 @@ urlpatterns = [
 urlauthpatterns = [
     path('api/auth/', include('apps.authentication.urls')),
     path('api/customer/', include('apps.bookings.urls')),
+    path('api/worker/', include('apps.bookings.worker_urls')),
     path('api/admin/', include('apps.bookings.admin_urls')),
 ]
 

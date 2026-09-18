@@ -6,9 +6,9 @@ from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from apps.common.permissions import IsAdminRole, IsCustomerRole
+from apps.common.permissions import IsAdminRole, IsCustomerRole, IsWorkerRole
 from .address_service import set_default_address, soft_delete_address
-from .models import CustomerAddress, UserVoucher, Voucher
+from .models import Area, CustomerAddress, UserVoucher, Voucher, WorkerWorkingArea
 from .schemas import (
     ADMIN_VOUCHER_BY_CODE_SCHEMA,
     ADMIN_VOUCHER_DETAIL_SCHEMA,
@@ -18,6 +18,9 @@ from .schemas import (
     BOOKING_ADMIN_SCHEMA,
     CUSTOMER_CODE_VOUCHER_CLAIM_SCHEMA,
     CUSTOMER_VOUCHER_WALLET_LIST_SCHEMA,
+    WORKER_ACTIVE_AREA_LIST_SCHEMA,
+    WORKER_WORKING_AREA_DETAIL_SCHEMA,
+    WORKER_WORKING_AREA_LIST_CREATE_SCHEMA,
 )
 from .serializers import (
     CustomerAddressSerializer,
@@ -27,6 +30,8 @@ from .serializers import (
     VoucherCodeClaimSerializer,
     VoucherPublicSerializer,
     VoucherValidationSerializer,
+    AreaSummarySerializer,
+    WorkerWorkingAreaSerializer,
 )
 from .voucher_service import (
     claim_voucher_by_code,
@@ -42,6 +47,89 @@ from .serializers import (
 
 from .worker_serializers import AdminAssignWorkerSerializer
 from rest_framework.pagination import PageNumberPagination
+
+
+@WORKER_ACTIVE_AREA_LIST_SCHEMA
+class WorkerActiveAreaListView(generics.ListAPIView):
+    permission_classes = [IsWorkerRole]
+    serializer_class = AreaSummarySerializer
+
+    def get_queryset(self):
+        queryset = Area.objects.filter(is_active=True)
+        city = self.request.query_params.get('city')
+        search = self.request.query_params.get('search')
+        if city:
+            queryset = queryset.filter(city__iexact=city.strip())
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search.strip()) | Q(city__icontains=search.strip())
+            )
+        return queryset
+
+
+@WORKER_WORKING_AREA_LIST_CREATE_SCHEMA
+class WorkerWorkingAreaListCreateView(generics.GenericAPIView):
+    permission_classes = [IsWorkerRole]
+    serializer_class = WorkerWorkingAreaSerializer
+
+    def get_queryset(self):
+        return (
+            WorkerWorkingArea.objects
+            .filter(worker=self.request.user)
+            .select_related('area')
+            .order_by('area__city', 'area__name')
+        )
+
+    def get(self, request, *args, **kwargs):
+        return Response({
+            'message': 'Lấy danh sách khu vực làm việc thành công.',
+            'data': self.get_serializer(self.get_queryset(), many=True).data,
+        })
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        working_area = serializer.save()
+        return Response({
+            'message': 'Thêm khu vực làm việc thành công.',
+            'data': self.get_serializer(working_area).data,
+        }, status=status.HTTP_201_CREATED)
+
+
+@WORKER_WORKING_AREA_DETAIL_SCHEMA
+class WorkerWorkingAreaDetailView(generics.GenericAPIView):
+    permission_classes = [IsWorkerRole]
+    serializer_class = WorkerWorkingAreaSerializer
+
+    def get_object(self):
+        return get_object_or_404(
+            WorkerWorkingArea.objects.select_related('area'),
+            pk=self.kwargs['pk'],
+            worker=self.request.user,
+        )
+
+    def get(self, request, *args, **kwargs):
+        return Response({
+            'message': 'Lấy chi tiết khu vực làm việc thành công.',
+            'data': self.get_serializer(self.get_object()).data,
+        })
+
+    def patch(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            self.get_object(),
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        working_area = serializer.save()
+        return Response({
+            'message': 'Cập nhật khu vực làm việc thành công.',
+            'data': self.get_serializer(working_area).data,
+        })
+
+    def delete(self, request, *args, **kwargs):
+        self.get_object().delete()
+        return Response({'message': 'Xóa khu vực làm việc thành công.'})
 
 
 class CustomerAddressListCreateView(generics.GenericAPIView):
