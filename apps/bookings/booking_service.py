@@ -1,5 +1,5 @@
 import uuid
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -8,14 +8,15 @@ from rest_framework import serializers
 
 from apps.services.models import Service
 
-from .models import Booking, BookingSchedule, CustomerAddress, UserVoucher
-from .voucher_service import validate_and_calculate_voucher
+from apps.addresses.models import CustomerAddress
+from apps.vouchers.models import UserVoucher
+
+from .models import Booking, BookingSchedule
+from apps.vouchers.voucher_service import validate_and_calculate_voucher
 
 from .service_data_validation import validate_service_data
 
 PRICE_DRIVEN_KEYS = ('base_prices', 'price_matrix', 'unit_prices')
-
-from decimal import Decimal, ROUND_HALF_UP
 
 TWO_PLACES = Decimal('0.01')
 
@@ -174,7 +175,7 @@ def create_booking(*, customer, service_id, address_id, service_data, schedules,
     else:
         pricing_status = Booking.PricingStatus.WAITING_QUOTE
 
-    discount = _q(result['discount_amount']) if voucher_code and subtotal is not None else Decimal('0')
+    discount = Decimal('0')
     user_voucher = None
     if voucher_code:
         if subtotal is None:

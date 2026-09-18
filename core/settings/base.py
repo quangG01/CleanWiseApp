@@ -29,8 +29,16 @@ INSTALLED_APPS = [
 
     # Local apps
     'apps.authentication',
+    'apps.addresses',
+    'apps.worker',
+    'apps.payments',
+    'apps.reviews',
+    'apps.complaints',
+    'apps.notifications',
+    'apps.chat',
     'apps.services',
     'apps.bookings',
+    'apps.vouchers',
     'apps.ai_engine',
     'apps.analytics',
     'apps.common',

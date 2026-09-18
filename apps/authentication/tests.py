@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.bookings.models import Area, WorkerWorkingArea
+from apps.worker.models import Area, WorkerWorkingArea
 from apps.services.models import Service
 from .models import PasswordResetOTP, WorkerProfile, WorkerVerificationDocument
 
