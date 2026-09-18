@@ -36,9 +36,12 @@ urlpatterns = [
 ### ======================================= URL API API AUTHENTICATION & USERS  =======================================
 urlauthpatterns = [
     path('api/auth/', include('apps.authentication.urls')),
+    path('api/customer/', include('apps.addresses.urls')),
+    path('api/customer/', include('apps.vouchers.urls')),
     path('api/customer/', include('apps.bookings.urls')),
-    path('api/worker/', include('apps.bookings.worker_urls')),
-    path('api/admin/', include('apps.bookings.admin_urls')),
+    path('api/worker/', include('apps.worker.urls')),
+    path('api/admin/', include('apps.vouchers.admin_urls')),
+    path('api/admin/', include('apps.worker.admin_urls')),
 ]
 
 
@@ -56,11 +59,6 @@ urlservicepatterns = [
 ]
 
 urlpatterns += urlservicepatterns
-
-urlworkerpatterns = [
-    path('api/worker/', include('apps.bookings.worker_urls')),
-]
-urlpatterns += urlworkerpatterns
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
