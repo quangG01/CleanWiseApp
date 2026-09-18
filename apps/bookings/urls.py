@@ -9,6 +9,8 @@ from .views import (
     CustomerVoucherListView,
     CustomerVoucherWalletListView,
     CustomerVoucherValidateView,
+    BookingDetailView,
+    BookingListCreateView
 )
 
 
@@ -21,4 +23,6 @@ urlpatterns = [
     path('vouchers/claim-by-code/', CustomerCodeVoucherClaimView.as_view(), name='customer-voucher-claim-by-code'),
     path('vouchers/validate/', CustomerVoucherValidateView.as_view(), name='customer-voucher-validate'),
     path('vouchers/<int:pk>/', CustomerVoucherDetailView.as_view(), name='customer-voucher-detail'),
+    path('bookings/', BookingListCreateView.as_view(), name='customer-booking-list-create'),
+    path('bookings/<int:pk>/', BookingDetailView.as_view(), name='customer-booking-detail'),
 ]

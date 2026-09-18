@@ -13,6 +13,9 @@ from rest_framework import serializers
 
 from .models import Voucher
 from .serializers import (
+    BookingCreateSerializer,
+    BookingDetailSerializer,
+    BookingListSerializer,
     UserVoucherSerializer,
     VoucherAdminSerializer,
     VoucherAdminWriteSerializer,
@@ -241,5 +244,85 @@ CUSTOMER_VOUCHER_WALLET_LIST_SCHEMA = extend_schema_view(
         ),
         tags=['Voucher - Customer'],
         responses={200: UserVoucherListResponse},
+    ),
+)
+
+
+BOOKING_CUSTOMER_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        operation_id='customer_booking_list',
+        summary='Danh sách đơn hàng của khách hàng',
+        description='Lấy danh sách booking theo tài khoản hiện tại, có thể lọc theo trạng thái và phân trang.',
+        tags=['Booking - Customer'],
+        responses={200: OpenApiResponse(description='Danh sách đơn hàng của khách hàng.')},
+    ),
+    post=extend_schema(
+        operation_id='customer_booking_create',
+        summary='Tạo booking mới',
+        description='Khách hàng đặt dịch vụ bằng cách gửi thông tin dịch vụ, địa chỉ, lịch làm việc và có thể áp dụng voucher nếu hợp lệ.',
+        tags=['Booking - Customer'],
+        request=BookingCreateSerializer,
+        responses={
+            201: OpenApiResponse(description='Đặt dịch vụ thành công.'),
+            400: OpenApiResponse(description='Dữ liệu đầu vào không hợp lệ.'),
+        },
+    ),
+)
+
+
+BOOKING_DETAIL_CUSTOMER_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        operation_id='customer_booking_detail',
+        summary='Chi tiết đơn hàng của khách hàng',
+        description='Lấy thông tin chi tiết của một booking gồm dịch vụ, lịch trình, thông tin giá và trạng thái hiện tại.',
+        tags=['Booking - Customer'],
+        responses={200: OpenApiResponse(description='Chi tiết booking.')},
+    ),
+)
+
+
+BOOKING_ADMIN_SCHEMA = extend_schema_view(
+    post=extend_schema(
+        operation_id='admin_assign_worker',
+        summary='Gán nhân viên cho lịch làm việc',
+        description='Quản trị viên phân công nhân viên cho một buổi làm việc cụ thể trong booking.',
+        tags=['Booking - Admin'],
+        request=BookingCreateSerializer,
+        responses={
+            201: OpenApiResponse(description='Gán nhân viên thành công.'),
+            400: OpenApiResponse(description='Dữ liệu đầu vào không hợp lệ.'),
+        },
+    ),
+)
+
+
+BOOKING_WORKER_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        operation_id='worker_schedule_available_list',
+        summary='Danh sách lịch khả dụng cho worker',
+        description='Hiển thị các buổi làm việc còn trống mà nhân viên có thể nhận để làm việc.',
+        tags=['Booking - Worker'],
+        responses={200: OpenApiResponse(description='Danh sách lịch khả dụng.')},
+    ),
+    post=extend_schema(
+        operation_id='worker_claim_schedule',
+        summary='Nhận việc cho lịch làm việc',
+        description='Nhân viên nhận một buổi làm việc được phân công hoặc sẵn sàng để thực hiện.',
+        tags=['Booking - Worker'],
+        responses={
+            201: OpenApiResponse(description='Nhận việc thành công.'),
+            400: OpenApiResponse(description='Không thể nhận việc.'),
+        },
+    ),
+)
+
+
+BOOKING_WORKER_ASSIGNMENT_SCHEMA = extend_schema_view(
+    post=extend_schema(
+        operation_id='worker_cancel_assignment',
+        summary='Hủy nhận việc',
+        description='Nhân viên hủy lịch làm việc đã nhận và cung cấp lý do hủy.',
+        tags=['Booking - Worker'],
+        responses={200: OpenApiResponse(description='Hủy nhận việc thành công.')},
     ),
 )

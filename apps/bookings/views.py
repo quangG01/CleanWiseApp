@@ -13,6 +13,9 @@ from .schemas import (
     ADMIN_VOUCHER_BY_CODE_SCHEMA,
     ADMIN_VOUCHER_DETAIL_SCHEMA,
     ADMIN_VOUCHER_LIST_CREATE_SCHEMA,
+    BOOKING_CUSTOMER_SCHEMA,
+    BOOKING_DETAIL_CUSTOMER_SCHEMA,
+    BOOKING_ADMIN_SCHEMA,
     CUSTOMER_CODE_VOUCHER_CLAIM_SCHEMA,
     CUSTOMER_VOUCHER_WALLET_LIST_SCHEMA,
 )
@@ -30,6 +33,16 @@ from .voucher_service import (
     validate_and_calculate_voucher,
 )
 
+from .models import Booking
+from .serializers import (
+    BookingCreateSerializer,
+    BookingDetailSerializer,
+    BookingListSerializer,
+)
+
+from .worker_serializers import AdminAssignWorkerSerializer
+from rest_framework.pagination import PageNumberPagination
+
 
 class CustomerAddressListCreateView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
@@ -41,12 +54,24 @@ class CustomerAddressListCreateView(generics.GenericAPIView):
             is_active=True,
         ).order_by('-is_default', '-created_at')
 
+    @extend_schema(
+        operation_id='customer_address_list',
+        summary='Danh sách địa chỉ của khách hàng',
+        description='Lấy toàn bộ địa chỉ đang hoạt động của khách hàng, ưu tiên địa chỉ mặc định lên đầu.',
+        tags=['Address - Customer'],
+    )
     def get(self, request, *args, **kwargs):
         return Response({
             'message': 'Lấy danh sách địa điểm thành công.',
             'data': self.get_serializer(self.get_queryset(), many=True).data,
         })
 
+    @extend_schema(
+        operation_id='customer_address_create',
+        summary='Thêm địa chỉ mới cho khách hàng',
+        description='Tạo một địa chỉ giao dịch mới và tự xác định địa chỉ mặc định nếu đây là địa chỉ đầu tiên hoặc người dùng yêu cầu.',
+        tags=['Address - Customer'],
+    )
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -69,12 +94,24 @@ class CustomerAddressDetailView(generics.GenericAPIView):
             is_active=True,
         )
 
+    @extend_schema(
+        operation_id='customer_address_detail',
+        summary='Chi tiết địa chỉ khách hàng',
+        description='Lấy thông tin chi tiết của một địa chỉ theo ID, chỉ trả về địa chỉ thuộc về tài khoản hiện tại.',
+        tags=['Address - Customer'],
+    )
     def get(self, request, *args, **kwargs):
         return Response({
             'message': 'Lấy chi tiết địa điểm thành công.',
             'data': self.get_serializer(self.get_object()).data,
         })
 
+    @extend_schema(
+        operation_id='customer_address_update',
+        summary='Cập nhật địa chỉ khách hàng',
+        description='Sửa một phần hoặc toàn bộ thông tin địa chỉ của khách hàng. Có thể cập nhật và đặt lại địa chỉ mặc định.',
+        tags=['Address - Customer'],
+    )
     def patch(self, request, *args, **kwargs):
         serializer = self.get_serializer(self.get_object(), data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -84,6 +121,12 @@ class CustomerAddressDetailView(generics.GenericAPIView):
             'data': self.get_serializer(address).data,
         })
 
+    @extend_schema(
+        operation_id='customer_address_delete',
+        summary='Xóa địa chỉ khách hàng',
+        description='Xóa mềm địa chỉ: địa chỉ sẽ bị vô hiệu hóa nhưng dữ liệu vẫn được lưu lại cho hệ thống.',
+        tags=['Address - Customer'],
+    )
     def delete(self, request, *args, **kwargs):
         soft_delete_address(self.get_object())
         return Response({'message': 'Xóa địa điểm thành công.'})
@@ -101,6 +144,12 @@ class CustomerAddressSetDefaultView(generics.GenericAPIView):
             is_active=True,
         )
 
+    @extend_schema(
+        operation_id='customer_address_set_default',
+        summary='Đặt địa chỉ mặc định',
+        description='Thiết lập địa chỉ được chọn làm địa chỉ mặc định cho tài khoản khách hàng.',
+        tags=['Address - Customer'],
+    )
     def patch(self, request, *args, **kwargs):
         address = set_default_address(self.get_object())
         return Response({
@@ -319,3 +368,97 @@ class AdminVoucherByCodeDetailView(generics.GenericAPIView):
             'message': 'Lấy chi tiết voucher theo mã thành công.',
             'data': self.get_serializer(voucher).data,
         })
+
+class BookingPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
+@BOOKING_CUSTOMER_SCHEMA
+class BookingListCreateView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]
+    pagination_class = BookingPagination
+
+    def get_queryset(self):
+        queryset = Booking.objects.filter(
+            customer=self.request.user,
+        ).select_related('service').order_by('-created_at')
+
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            status_param = status_param.upper()
+            if status_param not in Booking.Status.values:
+                raise ValidationError({'status': 'Trạng thái đơn hàng không hợp lệ.'})
+            queryset = queryset.filter(status=status_param)
+
+        return queryset
+
+    def get_serializer_class(self):
+        return BookingCreateSerializer if self.request.method == 'POST' else BookingListSerializer
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        serialized = BookingListSerializer(page, many=True).data
+        return Response({
+            'message': 'Lấy danh sách đơn hàng thành công.',
+            'data': {
+                'results': serialized,
+                'count': paginator.page.paginator.count,
+                'page': paginator.page.number,
+                'total_pages': paginator.page.paginator.num_pages,
+                'has_next': paginator.page.has_next(),
+                'has_previous': paginator.page.has_previous(),
+                'page_size': paginator.get_page_size(request),
+            },
+        })
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = serializer.save()
+        return Response({
+            'message': 'Đặt dịch vụ thành công.',
+            'data': BookingDetailSerializer(booking).data,
+        }, status=status.HTTP_201_CREATED)
+
+
+@BOOKING_DETAIL_CUSTOMER_SCHEMA
+class BookingDetailView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]
+    serializer_class = BookingDetailSerializer
+
+    def get_object(self):
+        return get_object_or_404(
+            Booking.objects.select_related('service').prefetch_related('schedules'),
+            pk=self.kwargs['pk'],
+            customer=self.request.user,
+        )
+
+    def get(self, request, *args, **kwargs):
+        return Response({
+            'message': 'Lấy chi tiết đơn hàng thành công.',
+            'data': self.get_serializer(self.get_object()).data,
+        })
+
+
+@BOOKING_ADMIN_SCHEMA
+class AdminAssignWorkerView(generics.GenericAPIView):
+    permission_classes = [IsAdminRole]
+    serializer_class = AdminAssignWorkerSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        assignment = assignment_service.admin_assign_worker(
+            schedule_id=kwargs['schedule_id'],
+            worker_id=serializer.validated_data['worker_id'],
+            admin_user=request.user,
+            note=serializer.validated_data.get('note'),
+        )
+        return Response({
+            'message': 'Gán nhân viên thành công.',
+            'data': {'assignment_id': assignment.id},
+        }, status=status.HTTP_201_CREATED)
