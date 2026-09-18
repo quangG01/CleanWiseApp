@@ -4,23 +4,15 @@ from django.db import models
 
 class Booking(models.Model):
     class Status(models.TextChoices):
-        PENDING = 'PENDING', 'Chờ xử lý'
-        WAITING_ASSIGNMENT = 'WAITING_ASSIGNMENT', 'Chờ phân công'
-        ASSIGNED = 'ASSIGNED', 'Đã phân công'
+        PENDING = 'PENDING', 'Chờ nhận việc'
+        ASSIGNED = 'ASSIGNED', 'Đã có nhân viên nhận'
         IN_PROGRESS = 'IN_PROGRESS', 'Đang thực hiện'
-        COMPLETED = 'COMPLETED', 'Hoàn thành'
+        COMPLETED = 'COMPLETED', 'Hoàn thành toàn bộ'
         CANCELLED = 'CANCELLED', 'Đã hủy'
         FAILED = 'FAILED', 'Thất bại'
 
-    class PricingStatus(models.TextChoices):
-        PENDING = 'PENDING', 'Chưa tính giá'
-        CALCULATED = 'CALCULATED', 'Đã tính tự động'
-        WAITING_QUOTE = 'WAITING_QUOTE', 'Chờ báo giá'
-        QUOTED = 'QUOTED', 'Đã báo giá'
-
     class PaymentStatus(models.TextChoices):
         UNPAID = 'UNPAID', 'Chưa thanh toán'
-        PARTIALLY_PAID = 'PARTIALLY_PAID', 'Thanh toán một phần'
         PAID = 'PAID', 'Đã thanh toán'
         REFUNDED = 'REFUNDED', 'Đã hoàn tiền'
 
@@ -37,13 +29,15 @@ class Booking(models.Model):
     service_data = models.JSONField()
     address = models.ForeignKey('addresses.CustomerAddress', on_delete=models.DO_NOTHING, related_name='bookings')
     note = models.TextField(blank=True, null=True)
+    
     status = models.CharField(max_length=30, choices=Status.choices, default=Status.PENDING)
-    pricing_status = models.CharField(max_length=30, choices=PricingStatus.choices)
     payment_status = models.CharField(max_length=30, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID)
+    
     price_breakdown = models.JSONField(blank=True, null=True)
     subtotal_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    
     cancelled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,
@@ -77,11 +71,11 @@ class Booking(models.Model):
 
 class BookingSchedule(models.Model):
     class Status(models.TextChoices):
-        PENDING = 'PENDING', 'Chờ xử lý'
-        IN_PROGRESS = 'IN_PROGRESS', 'Đang thực hiện'
-        COMPLETED = 'COMPLETED', 'Hoàn thành'
-        CANCELLED = 'CANCELLED', 'Đã hủy'
-        MISSED = 'MISSED', 'Bỏ lỡ'
+        PENDING = 'PENDING', 'Chờ thực hiện'
+        IN_PROGRESS = 'IN_PROGRESS', 'Đang làm buổi này'
+        COMPLETED = 'COMPLETED', 'Đã xong buổi này'
+        CANCELLED = 'CANCELLED', 'Hủy buổi này'
+        MISSED = 'MISSED', 'Bỏ lỡ buổi này'
 
     booking = models.ForeignKey(Booking, on_delete=models.DO_NOTHING, related_name='schedules')
     sequence_no = models.IntegerField()
@@ -91,6 +85,7 @@ class BookingSchedule(models.Model):
     actual_end = models.DateTimeField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     note = models.TextField(blank=True, null=True)
+    
     cancelled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,
@@ -131,7 +126,7 @@ class BookingSchedule(models.Model):
             models.Index(fields=['scheduled_start'], name='bs_scheduled_start_idx'),
             models.Index(fields=['status', 'scheduled_start'], name='bs_status_start_idx'),
         ]
-        ordering = ['scheduled_start']
+        ordering = ['seo' if False else 'scheduled_start'] # Giữ nguyên ordering = ['scheduled_start']
 
     def __str__(self):
         return f"{self.booking} - buổi {self.sequence_no}"
@@ -160,13 +155,11 @@ class BookingScheduleImage(models.Model):
         db_table = 'booking_schedule_images'
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(sort_order__gte=0),
+                competition=models.Q(sort_order__gte=0),
                 name='booking_schedule_images_sort_order_check',
-            ),
+            ) if hasattr(models.Q, 'sort_order') else models.CheckConstraint(condition=models.Q(sort_order__gte=0), name='booking_schedule_images_sort_order_check')
         ]
         ordering = ['schedule_id', 'sort_order', 'created_at', 'id']
 
     def __str__(self):
         return f"{self.schedule} - {self.image_type}"
-
-

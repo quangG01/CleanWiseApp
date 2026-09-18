@@ -1,5 +1,5 @@
 import re
-
+from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from rest_framework import serializers
 
@@ -8,6 +8,10 @@ from .models import CustomerAddress
 
 
 class CustomerAddressSerializer(serializers.ModelSerializer):
+    # Khai báo ép thành CharField để DRF không chặn lỗi max_digits từ đầu
+    latitude = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    longitude = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+
     class Meta:
         model = CustomerAddress
         fields = ['id', 'label', 'receiver_name', 'receiver_phone', 'address_line', 'ward', 'city', 'latitude', 'longitude', 'is_default', 'is_active', 'created_at', 'updated_at']
@@ -19,6 +23,23 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
         if not re.fullmatch(r'(?:\+84|0)\d{9}', value):
             raise serializers.ValidationError('Số điện thoại Việt Nam không hợp lệ.')
         return value
+
+    def validate_latitude(self, value):
+        if value is None or value == '':
+            return None
+        try:
+            # Ép về Decimal và làm tròn chuẩn 7 chữ số thập phân
+            return Decimal(str(value)).quantize(Decimal('0.0000001'))
+        except (InvalidOperation, ValueError):
+            raise serializers.ValidationError('Vĩ độ (latitude) không hợp lệ.')
+
+    def validate_longitude(self, value):
+        if value is None or value == '':
+            return None
+        try:
+            return Decimal(str(value)).quantize(Decimal('0.0000001'))
+        except (InvalidOperation, ValueError):
+            raise serializers.ValidationError('Kinh độ (longitude) không hợp lệ.')
 
     def validate(self, attrs):
         if self.instance and self.instance.is_default and attrs.get('is_default') is False:

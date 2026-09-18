@@ -18,7 +18,18 @@ from .serializers import (
 )
 from .voucher_service import claim_voucher_by_code, validate_and_calculate_voucher
 
+from .schemas import (
+    VOUCHER_CUSTOMER_LIST_SCHEMA,
+    VOUCHER_CUSTOMER_DETAIL_SCHEMA,
+    VOUCHER_WALLET_SCHEMA,
+    VOUCHER_CLAIM_SCHEMA,
+    VOUCHER_VALIDATE_SCHEMA,
+    VOUCHER_ADMIN_LIST_CREATE_SCHEMA,
+    VOUCHER_ADMIN_DETAIL_SCHEMA,
+    VOUCHER_ADMIN_BY_CODE_SCHEMA,
+)
 
+@VOUCHER_CUSTOMER_LIST_SCHEMA
 class CustomerVoucherListView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     serializer_class = VoucherPublicSerializer
@@ -41,6 +52,7 @@ class CustomerVoucherListView(generics.GenericAPIView):
         })
 
 
+@VOUCHER_CUSTOMER_DETAIL_SCHEMA
 class CustomerVoucherDetailView(CustomerVoucherListView):
     def get(self, request, *args, **kwargs):
         voucher = get_object_or_404(self.get_queryset(), pk=self.kwargs['pk'])
@@ -50,6 +62,7 @@ class CustomerVoucherDetailView(CustomerVoucherListView):
         })
 
 
+@VOUCHER_WALLET_SCHEMA
 class CustomerVoucherWalletListView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     serializer_class = UserVoucherSerializer
@@ -64,6 +77,7 @@ class CustomerVoucherWalletListView(generics.GenericAPIView):
         })
 
 
+@VOUCHER_CLAIM_SCHEMA
 class CustomerCodeVoucherClaimView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     serializer_class = VoucherCodeClaimSerializer
@@ -78,6 +92,7 @@ class CustomerCodeVoucherClaimView(generics.GenericAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
+@VOUCHER_VALIDATE_SCHEMA
 class CustomerVoucherValidateView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     serializer_class = VoucherValidationSerializer
@@ -101,6 +116,7 @@ class CustomerVoucherValidateView(generics.GenericAPIView):
         })
 
 
+@VOUCHER_ADMIN_LIST_CREATE_SCHEMA
 class AdminVoucherListCreateView(generics.GenericAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = VoucherAdminSerializer
@@ -139,6 +155,7 @@ class AdminVoucherListCreateView(generics.GenericAPIView):
         return Response({'message': 'Tạo voucher thành công.', 'data': self.get_serializer(voucher).data}, status=status.HTTP_201_CREATED)
 
 
+@VOUCHER_ADMIN_DETAIL_SCHEMA
 class AdminVoucherDetailView(generics.GenericAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = VoucherAdminSerializer
@@ -160,6 +177,7 @@ class AdminVoucherDetailView(generics.GenericAPIView):
         return Response({'message': 'Ngừng sử dụng voucher thành công.'})
 
 
+@VOUCHER_ADMIN_BY_CODE_SCHEMA
 class AdminVoucherByCodeDetailView(generics.GenericAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = VoucherAdminSerializer

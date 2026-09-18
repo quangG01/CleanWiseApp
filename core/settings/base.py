@@ -161,20 +161,49 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'CleanWiseApp Backend API',
     'VERSION': '1.0.0',
     'TAGS': [
-        {
-            'name': 'Voucher - Admin',
-            'description': 'Quản lý, tạo, cập nhật và tra cứu voucher dành cho quản trị viên.',
-        },
-        {
-            'name': 'Voucher - Customer',
-            'description': 'Xem, nhận, kiểm tra và quản lý ví voucher của khách hàng.',
-        },
+        # --- NHÓM 1: Xác thực & Dùng chung ---
+        {'name': 'Auth', 'description': 'Đăng nhập, đăng ký chung (Khách hàng & Nhân viên)'},
+        {'name': 'Auth - Password Reset', 'description': 'Quên và đặt lại mật khẩu'},
+
+        # --- NHÓM 2: Dành cho Khách hàng (Customer) ---
+        {'name': 'Customer - Profile', 'description': 'Thông tin cá nhân khách hàng'},
+        {'name': 'Customer - Addresses', 'description': 'Quản lý địa chỉ khách hàng'},
+        {'name': 'Services', 'description': 'Xem danh sách dịch vụ'},
+        {'name': 'Voucher - Customer', 'description': 'Ví voucher và ưu đãi của khách hàng'},
+        {'name': 'Booking - Customer', 'description': 'Đặt lịch dịch vụ của khách hàng'},
+
+        # --- NHÓM 3: Dành cho Nhân viên (Worker) ---
+        {'name': 'Worker - Auth', 'description': 'Đăng ký tài khoản nhân viên'},
+        {'name': 'Worker - Profile', 'description': 'Hồ sơ cá nhân nhân viên'},
+        {'name': 'Worker - Areas', 'description': 'Khu vực hoạt động khả dụng'},
+        {'name': 'Worker - Working Areas', 'description': 'Đăng ký khu vực làm việc của nhân viên'},
+        {'name': 'Worker - Schedules', 'description': 'Lịch làm việc của nhân viên'},
+        {'name': 'Worker - Assignments', 'description': 'Nhận và hủy việc của nhân viên'},
+
+        # --- NHÓM 4: Dành cho Quản trị viên (Admin) ---
+        {'name': 'Users - Admin', 'description': 'Quản lý người dùng hệ thống'},
+        {'name': 'Worker - Admin', 'description': 'Phê duyệt hồ sơ nhân viên'},
+        {'name': 'Services - Admin', 'description': 'Quản lý dịch vụ'},
+        {'name': 'Booking - Admin', 'description': 'Quản lý lịch làm việc & phân công'},
+        {'name': 'Voucher - Admin', 'description': 'Quản lý, tạo và tra cứu voucher'},
     ],
     'EXTENSIONS_ROOT': {
         'x-tagGroups': [
             {
-                'name': 'Voucher',
-                'tags': ['Voucher - Admin', 'Voucher - Customer'],
+                'name': '1. Xác thực & Dùng chung',
+                'tags': ['Auth', 'Auth - Password Reset'],
+            },
+            {
+                'name': '2. Khách hàng (Customer)',
+                'tags': ['Customer - Profile', 'Customer - Addresses', 'Services', 'Voucher - Customer', 'Booking - Customer'],
+            },
+            {
+                'name': '3. Nhân viên (Worker)',
+                'tags': ['Worker - Auth', 'Worker - Profile', 'Worker - Areas', 'Worker - Working Areas', 'Worker - Schedules', 'Worker - Assignments'],
+            },
+            {
+                'name': '4. Quản trị viên (Admin)',
+                'tags': ['Users - Admin', 'Worker - Admin', 'Services - Admin', 'Booking - Admin', 'Voucher - Admin'],
             },
         ],
     },

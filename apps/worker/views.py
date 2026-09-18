@@ -17,11 +17,22 @@ from .serializers import (
     WorkerWorkingAreaSerializer,
 )
 
+from .schemas import (
+    WORKER_ACTIVE_AREA_SCHEMA,
+    WORKER_WORKING_AREA_SCHEMA,
+    WORKER_WORKING_AREA_DETAIL_SCHEMA,
+    WORKER_AVAILABLE_SCHEDULE_SCHEMA,
+    WORKER_MY_SCHEDULE_SCHEMA,
+    WORKER_CLAIM_SCHEDULE_SCHEMA,
+    WORKER_CANCEL_ASSIGNMENT_SCHEMA,
+    ADMIN_ASSIGN_WORKER_SCHEMA,
+)
 
 def _prefetch_assignments(queryset):
     return queryset.prefetch_related(Prefetch('assignments', queryset=BookingAssignment.objects.filter(status=BookingAssignment.Status.ACCEPTED)))
 
 
+@WORKER_ACTIVE_AREA_SCHEMA
 class WorkerActiveAreaListView(generics.ListAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = AreaSummarySerializer
@@ -37,6 +48,7 @@ class WorkerActiveAreaListView(generics.ListAPIView):
         return queryset
 
 
+@WORKER_WORKING_AREA_SCHEMA
 class WorkerWorkingAreaListCreateView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = WorkerWorkingAreaSerializer
@@ -54,6 +66,7 @@ class WorkerWorkingAreaListCreateView(generics.GenericAPIView):
         return Response({'message': 'Thêm khu vực làm việc thành công.', 'data': self.get_serializer(working_area).data}, status=status.HTTP_201_CREATED)
 
 
+@WORKER_WORKING_AREA_DETAIL_SCHEMA
 class WorkerWorkingAreaDetailView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = WorkerWorkingAreaSerializer
@@ -75,6 +88,7 @@ class WorkerWorkingAreaDetailView(generics.GenericAPIView):
         return Response({'message': 'Xóa khu vực làm việc thành công.'})
 
 
+@WORKER_AVAILABLE_SCHEDULE_SCHEMA
 class WorkerAvailableScheduleListView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = WorkerScheduleSerializer
@@ -84,6 +98,7 @@ class WorkerAvailableScheduleListView(generics.GenericAPIView):
         return Response({'message': 'Lấy danh sách buổi làm việc khả dụng thành công.', 'data': self.get_serializer(queryset, many=True).data})
 
 
+@WORKER_MY_SCHEDULE_SCHEMA
 class WorkerMyScheduleListView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = WorkerScheduleSerializer
@@ -93,6 +108,7 @@ class WorkerMyScheduleListView(generics.GenericAPIView):
         return Response({'message': 'Lấy danh sách buổi làm việc của tôi thành công.', 'data': self.get_serializer(queryset, many=True).data})
 
 
+@WORKER_CLAIM_SCHEDULE_SCHEMA
 class WorkerClaimScheduleView(APIView):
     permission_classes = [IsWorkerRole]
 
@@ -101,6 +117,7 @@ class WorkerClaimScheduleView(APIView):
         return Response({'message': 'Nhận việc thành công.', 'data': {'assignment_id': assignment.id, 'schedule_id': assignment.schedule_id}}, status=status.HTTP_201_CREATED)
 
 
+@WORKER_CANCEL_ASSIGNMENT_SCHEMA
 class WorkerCancelAssignmentView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = CancelAssignmentSerializer
@@ -112,6 +129,7 @@ class WorkerCancelAssignmentView(generics.GenericAPIView):
         return Response({'message': 'Hủy nhận việc thành công.'})
 
 
+@ADMIN_ASSIGN_WORKER_SCHEMA
 class AdminAssignWorkerView(generics.GenericAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = AdminAssignWorkerSerializer
