@@ -18,31 +18,13 @@ WORKER_WORKING_AREA_SCHEMA = extend_schema_view(
         description='Lấy danh sách các khu vực mà nhân viên đang đăng ký nhận việc.',
         tags=['Worker - Working Areas']
     ),
-    post=extend_schema(
-        operation_id='worker_working_area_create',
-        summary='Đăng ký khu vực làm việc mới',
-        description='Thêm một khu vực mới vào danh sách khu vực có thể nhận việc của nhân viên.',
-        tags=['Worker - Working Areas']
-    ),
-)
-
-WORKER_WORKING_AREA_DETAIL_SCHEMA = extend_schema_view(
-    get=extend_schema(
-        operation_id='worker_working_area_detail',
-        summary='Chi tiết khu vực làm việc',
-        description='Xem thông tin chi tiết một khu vực làm việc đã đăng ký theo ID.',
-        tags=['Worker - Working Areas']
-    ),
-    patch=extend_schema(
-        operation_id='worker_working_area_update',
-        summary='Cập nhật khu vực làm việc',
-        description='Chỉnh sửa thông tin khu vực làm việc của nhân viên.',
-        tags=['Worker - Working Areas']
-    ),
-    delete=extend_schema(
-        operation_id='worker_working_area_delete',
-        summary='Xóa khu vực làm việc',
-        description='Hủy đăng ký một khu vực làm việc khỏi danh sách của nhân viên.',
+    put=extend_schema(
+        operation_id='worker_working_area_bulk_update',
+        summary='Cập nhật danh sách khu vực làm việc',
+        description=(
+            'Thay thế toàn bộ danh sách khu vực làm việc của nhân viên bằng danh sách area_ids gửi lên. '
+            'Phải chọn ít nhất 1 khu vực.'
+        ),
         tags=['Worker - Working Areas']
     ),
 )
