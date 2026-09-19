@@ -1,4 +1,11 @@
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
+
+from .serializers import (
+    AdminAssignedUserVoucherSerializer,
+    VoucherAdminAssignSerializer,
+    VoucherAdminSerializer,
+    VoucherAdminWriteSerializer,
+)
 
 # --- NHÓM VOUCHER - CUSTOMER ---
 
@@ -61,6 +68,28 @@ VOUCHER_ADMIN_LIST_CREATE_SCHEMA = extend_schema_view(
         operation_id='admin_voucher_create',
         summary='Tạo mới voucher (Admin)',
         description='Quản trị viên tạo mới một chương trình voucher hoặc mã giảm giá cho hệ thống.',
+        request=VoucherAdminWriteSerializer,
+        responses={201: VoucherAdminSerializer},
+        examples=[
+            OpenApiExample(
+                'Voucher giảm 20%',
+                value={
+                    'code': 'TESTFE20',
+                    'name': 'Voucher kiểm thử FE',
+                    'description': 'Giảm 20% khi kiểm thử',
+                    'distribution_type': 'PUBLIC',
+                    'discount_type': 'PERCENT',
+                    'discount_value': '20.00',
+                    'max_discount_amount': '50000.00',
+                    'min_order_amount': '100000.00',
+                    'issuance_limit': 100,
+                    'start_at': '2026-09-01T00:00:00+07:00',
+                    'end_at': '2026-12-31T23:59:59+07:00',
+                    'is_active': True,
+                },
+                request_only=True,
+            ),
+        ],
         tags=['Voucher - Admin']
     ),
 )
@@ -76,6 +105,8 @@ VOUCHER_ADMIN_DETAIL_SCHEMA = extend_schema_view(
         operation_id='admin_voucher_update',
         summary='Cập nhật voucher (Admin)',
         description='Chỉnh sửa thông tin, thời gian hoặc cấu hình giảm giá của một voucher.',
+        request=VoucherAdminWriteSerializer,
+        responses={200: VoucherAdminSerializer},
         tags=['Voucher - Admin']
     ),
     delete=extend_schema(
@@ -93,4 +124,29 @@ VOUCHER_ADMIN_BY_CODE_SCHEMA = extend_schema_view(
         description='Tìm kiếm và lấy thông tin chi tiết của voucher trực tiếp thông qua chuỗi mã code.',
         tags=['Voucher - Admin']
     )
+)
+
+VOUCHER_ADMIN_ASSIGN_SCHEMA = extend_schema_view(
+    post=extend_schema(
+        operation_id='admin_voucher_assign',
+        summary='Cấp voucher riêng cho khách hàng',
+        description=(
+            'Admin cấp một voucher có hình thức phát hành ASSIGNED cho một khách hàng. '
+            'Mỗi khách hàng chỉ được nhận voucher đó một lần.'
+        ),
+        request=VoucherAdminAssignSerializer,
+        responses={201: AdminAssignedUserVoucherSerializer},
+        examples=[
+            OpenApiExample(
+                'Cấp voucher cho khách hàng',
+                value={
+                    'voucher_id': 12,
+                    'customer_id': 15,
+                    'note': 'Tặng khách hàng thân thiết',
+                },
+                request_only=True,
+            ),
+        ],
+        tags=['Voucher - Admin'],
+    ),
 )
