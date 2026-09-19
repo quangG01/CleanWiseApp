@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import Area, BookingAssignment, WorkerWorkingArea
@@ -11,26 +12,53 @@ class AreaSummarySerializer(serializers.ModelSerializer):
 
 
 class WorkerWorkingAreaSerializer(serializers.ModelSerializer):
+    """Chỉ dùng để serialize output (GET, và trả về sau khi PUT)."""
     area = AreaSummarySerializer(read_only=True)
-    area_id = serializers.PrimaryKeyRelatedField(source='area', queryset=Area.objects.filter(is_active=True), write_only=True)
 
     class Meta:
         model = WorkerWorkingArea
-        fields = ['id', 'area', 'area_id', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'area', 'created_at']
+        read_only_fields = fields
 
-    def validate(self, attrs):
+
+class WorkerWorkingAreaBulkUpdateSerializer(serializers.Serializer):
+    area_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Area.objects.filter(is_active=True),
+        allow_empty=False,
+        error_messages={
+            'empty': 'Phải chọn ít nhất một khu vực hoạt động.',
+            'does_not_exist': 'Khu vực với id={pk_value} không tồn tại hoặc không còn hoạt động.',
+        },
+    )
+
+    def validate_area_ids(self, value):
+        ids = [area.id for area in value]
+        if len(ids) != len(set(ids)):
+            raise serializers.ValidationError('Danh sách khu vực bị trùng lặp.')
+        return value
+
+    def save(self):
         worker = self.context['request'].user
-        area = attrs.get('area', getattr(self.instance, 'area', None))
-        queryset = WorkerWorkingArea.objects.filter(worker=worker, area=area)
-        if self.instance:
-            queryset = queryset.exclude(pk=self.instance.pk)
-        if queryset.exists():
-            raise serializers.ValidationError({'area_id': 'Bạn đã chọn khu vực làm việc này.'})
-        return attrs
+        areas = self.validated_data['area_ids']
+        area_ids = [area.id for area in areas]
 
-    def create(self, validated_data):
-        return WorkerWorkingArea.objects.create(worker=self.context['request'].user, **validated_data)
+        with transaction.atomic():
+            WorkerWorkingArea.objects.filter(worker=worker).exclude(area_id__in=area_ids).delete()
+
+            existing_ids = set(
+                WorkerWorkingArea.objects.filter(worker=worker, area_id__in=area_ids)
+                .values_list('area_id', flat=True)
+            )
+            to_create = [
+                WorkerWorkingArea(worker=worker, area_id=aid)
+                for aid in area_ids
+                if aid not in existing_ids
+            ]
+            if to_create:
+                WorkerWorkingArea.objects.bulk_create(to_create)
+
+        return WorkerWorkingArea.objects.filter(worker=worker).select_related('area').order_by('area__city', 'area__name')
 
 
 class WorkerScheduleSerializer(serializers.ModelSerializer):
