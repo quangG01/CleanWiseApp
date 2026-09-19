@@ -39,9 +39,12 @@ urlauthpatterns = [
     path('api/customer/', include('apps.addresses.urls')),
     path('api/customer/', include('apps.vouchers.urls')),
     path('api/customer/', include('apps.bookings.urls')),
+    path('api/customer/', include('apps.reviews.urls')),
     path('api/worker/', include('apps.worker.urls')),
+    path('api/worker/', include('apps.reviews.worker_urls')),
     path('api/admin/', include('apps.vouchers.admin_urls')),
     path('api/admin/', include('apps.worker.admin_urls')),
+    path('api/admin/', include('apps.reviews.admin_urls')),
 ]
 
 

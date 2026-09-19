@@ -3,9 +3,11 @@ from django.db import models
 
 
 class Review(models.Model):
-    booking = models.OneToOneField('bookings.Booking', on_delete=models.DO_NOTHING, related_name='review')
-    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='reviews')
-    worker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='worker_reviews', blank=True, null=True)
+    assignment = models.OneToOneField(
+        'worker.BookingAssignment',
+        on_delete=models.PROTECT,
+        related_name='review',
+    )
     rating = models.IntegerField()
     comment = models.TextField(blank=True, null=True)
     admin_reply = models.TextField(blank=True, null=True)
@@ -21,7 +23,7 @@ class Review(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f'{self.booking} - {self.rating}'
+        return f'{self.assignment} - {self.rating}'
 
 
 class ReviewImage(models.Model):
