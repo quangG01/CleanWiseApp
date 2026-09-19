@@ -110,6 +110,8 @@ CLOUDINARY_SERVICE_IMAGE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/service_images"
 CLOUDINARY_REVIEW_IMAGE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/review_images"
 CLOUDINARY_WORKER_PROFILE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/worker_profiles"
 WORKER_DOCUMENT_MAX_SIZE = int(os.environ.get("WORKER_DOCUMENT_MAX_SIZE", 10 * 1024 * 1024))
+REVIEW_IMAGE_MAX_SIZE = int(os.environ.get("REVIEW_IMAGE_MAX_SIZE", 5 * 1024 * 1024))
+REVIEW_MAX_IMAGES = int(os.environ.get("REVIEW_MAX_IMAGES", 5))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -171,6 +173,7 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Services', 'description': 'Xem danh sách dịch vụ'},
         {'name': 'Voucher - Customer', 'description': 'Ví voucher và ưu đãi của khách hàng'},
         {'name': 'Booking - Customer', 'description': 'Đặt lịch dịch vụ của khách hàng'},
+        {'name': 'Review - Customer', 'description': 'Đánh giá nhân viên theo từng buổi đã hoàn thành'},
 
         # --- NHÓM 3: Dành cho Nhân viên (Worker) ---
         {'name': 'Worker - Auth', 'description': 'Đăng ký tài khoản nhân viên'},
@@ -179,6 +182,7 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Worker - Working Areas', 'description': 'Đăng ký khu vực làm việc của nhân viên'},
         {'name': 'Worker - Schedules', 'description': 'Lịch làm việc của nhân viên'},
         {'name': 'Worker - Assignments', 'description': 'Nhận và hủy việc của nhân viên'},
+        {'name': 'Review - Worker', 'description': 'Xem đánh giá và thống kê điểm của nhân viên'},
 
         # --- NHÓM 4: Dành cho Quản trị viên (Admin) ---
         {'name': 'Users - Admin', 'description': 'Quản lý người dùng hệ thống'},
@@ -186,6 +190,7 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Services - Admin', 'description': 'Quản lý dịch vụ'},
         {'name': 'Booking - Admin', 'description': 'Quản lý lịch làm việc & phân công'},
         {'name': 'Voucher - Admin', 'description': 'Quản lý, tạo và tra cứu voucher'},
+        {'name': 'Review - Admin', 'description': 'Kiểm duyệt và phản hồi đánh giá'},
     ],
     'EXTENSIONS_ROOT': {
         'x-tagGroups': [
@@ -195,20 +200,20 @@ SPECTACULAR_SETTINGS = {
             },
             {
                 'name': '2. Khách hàng (Customer)',
-                'tags': ['Customer - Profile', 'Customer - Addresses', 'Services', 'Voucher - Customer', 'Booking - Customer'],
+                'tags': ['Customer - Profile', 'Customer - Addresses', 'Services', 'Voucher - Customer', 'Booking - Customer', 'Review - Customer'],
             },
             {
                 'name': '3. Nhân viên (Worker)',
-                'tags': ['Worker - Auth', 'Worker - Profile', 'Worker - Areas', 'Worker - Working Areas', 'Worker - Schedules', 'Worker - Assignments'],
+                'tags': ['Worker - Auth', 'Worker - Profile', 'Worker - Areas', 'Worker - Working Areas', 'Worker - Schedules', 'Worker - Assignments', 'Review - Worker'],
             },
             {
                 'name': '4. Quản trị viên (Admin)',
-                'tags': ['Users - Admin', 'Worker - Admin', 'Services - Admin', 'Booking - Admin', 'Voucher - Admin'],
+                'tags': ['Users - Admin', 'Worker - Admin', 'Services - Admin', 'Booking - Admin', 'Voucher - Admin', 'Review - Admin'],
             },
         ],
     },
     'ENUM_NAME_OVERRIDES': {
         'WorkerProfileStatusEnum': 'apps.authentication.models.WorkerProfile.Status',
-        'UserVoucherStatusEnum': 'apps.bookings.models.UserVoucher.Status',
+        'UserVoucherStatusEnum': 'apps.vouchers.models.UserVoucher.Status',
     },
 }
