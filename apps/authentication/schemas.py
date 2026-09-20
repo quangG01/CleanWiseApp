@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view, inline_serializer
+from drf_spectacular.utils import OpenApiExample,OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view, inline_serializer
 from .serializers import (
     CustomerRegisterSerializer,
     LoginSerializer,
@@ -215,8 +215,26 @@ WORKER_PROFILE_SUBMIT_SCHEMA = extend_schema_view(
 ADMIN_WORKER_PROFILE_LIST_SCHEMA = extend_schema_view(
     get=extend_schema(
         operation_id='admin_worker_profile_list',
-        summary='Danh sách hồ sơ nhân viên chờ duyệt (Admin)',
-        tags=['Worker - Admin']
+        summary='Danh sách hồ sơ nhân viên (Admin)',
+        description=(
+            '### Lọc theo trạng thái\n'
+            'Mặc định (`status=ALL` hoặc bỏ trống) trả về toàn bộ hồ sơ nhân viên, '
+            'dùng cho tab "Toàn bộ nhân viên".\n\n'
+            'Truyền `status=PENDING` để lấy danh sách hồ sơ đang chờ duyệt, '
+            'dùng cho tab "Chờ duyệt". Các giá trị khác: `DRAFT`, `ACTIVE`, `REJECTED`, `SUSPENDED`.'
+        ),
+        parameters=[
+            OpenApiParameter(
+                name='status',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description='Lọc theo trạng thái hồ sơ. Mặc định ALL (toàn bộ).',
+                enum=['ALL', 'DRAFT', 'PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED'],
+            ),
+        ],
+        tags=['Worker - Admin'],
+        responses={200: WorkerProfileUpdateSerializer(many=True)},
     )
 )
 

@@ -4,6 +4,10 @@ from rest_framework import serializers
 from .models import Area, BookingAssignment, WorkerWorkingArea
 from apps.bookings.models import BookingSchedule
 
+from django.utils import timezone
+from . import assignment_service
+from .constants import MIN_CANCEL_HOURS
+
 
 class AreaSummarySerializer(serializers.ModelSerializer):
     class Meta:
@@ -62,19 +66,56 @@ class WorkerWorkingAreaBulkUpdateSerializer(serializers.Serializer):
 
 
 class WorkerScheduleSerializer(serializers.ModelSerializer):
+    booking_id = serializers.IntegerField(read_only=True)
     booking_code = serializers.CharField(source='booking.booking_code', read_only=True)
+    service_id = serializers.IntegerField(source='booking.service_id', read_only=True)
     service_name = serializers.CharField(source='booking.service.name', read_only=True)
+    booking_note = serializers.CharField(source='booking.note', read_only=True, allow_null=True)
+    total_sessions = serializers.IntegerField(read_only=True)
     address_city = serializers.CharField(source='booking.address.city', read_only=True)
     address_ward = serializers.CharField(source='booking.address.ward', read_only=True)
     assignment_id = serializers.SerializerMethodField()
 
     class Meta:
         model = BookingSchedule
-        fields = ['id', 'booking_code', 'service_name', 'sequence_no', 'scheduled_start', 'scheduled_end', 'status', 'address_city', 'address_ward', 'assignment_id']
+        fields = [
+            'id', 'booking_id', 'booking_code', 'service_id', 'service_name', 'booking_note',
+            'sequence_no', 'total_sessions', 'scheduled_start', 'scheduled_end', 'status',
+            'address_city', 'address_ward', 'assignment_id',
+        ]
+        read_only_fields = fields
 
     def get_assignment_id(self, instance):
-        assignment = next((a for a in instance.assignments.all() if a.status == BookingAssignment.Status.ACCEPTED), None)
+        assignment = next(
+            (a for a in instance.assignments.all() if a.status == BookingAssignment.Status.ACCEPTED),
+            None,
+        )
         return assignment.id if assignment else None
+
+
+class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
+    """my-schedules: lộ thông tin liên hệ vì nhân viên đã nhận việc."""
+    address_line = serializers.CharField(source='booking.address.address_line', read_only=True)
+    receiver_name = serializers.CharField(source='booking.address.receiver_name', read_only=True)
+    receiver_phone = serializers.CharField(source='booking.address.receiver_phone', read_only=True)
+    can_cancel = serializers.SerializerMethodField()
+    cancel_deadline = serializers.SerializerMethodField()
+
+    class Meta(WorkerScheduleSerializer.Meta):
+        fields = WorkerScheduleSerializer.Meta.fields + [
+            'note', 'address_line', 'receiver_name', 'receiver_phone',
+            'can_cancel', 'cancel_deadline',
+        ]
+        read_only_fields = fields
+
+    def get_can_cancel(self, obj):
+        return (
+            obj.status == BookingSchedule.Status.PENDING
+            and assignment_service.get_cancel_deadline(obj) > timezone.now()
+        )
+
+    def get_cancel_deadline(self, obj):
+        return assignment_service.get_cancel_deadline(obj)
 
 
 class CancelAssignmentSerializer(serializers.Serializer):

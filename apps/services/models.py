@@ -22,7 +22,11 @@ class Service(models.Model):
 
 
 class ServiceImage(models.Model):
-    service = models.ForeignKey(Service, on_delete=models.DO_NOTHING, related_name='images')
+    service = models.ForeignKey(
+        Service,
+        on_delete=models.CASCADE,
+        related_name='images',
+    )
     image = models.CharField(max_length=255)
     alt_text = models.CharField(max_length=255, blank=True, null=True)
     sort_order = models.IntegerField(default=0)

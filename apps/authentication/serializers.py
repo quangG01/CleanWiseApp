@@ -372,6 +372,15 @@ class WorkerRegisteredServiceSerializer(serializers.ModelSerializer):
         fields = ['id', 'code', 'section_code', 'name']
 
 
+# Các field mà admin được phép đánh dấu là "sai, cần sửa lại" — khớp với
+# field thật sự nhân viên nhập trong luồng profile-setup.
+REJECTABLE_PROFILE_FIELDS = {
+    'first_name', 'last_name', 'phone_number', 'gender', 'birth_date',
+    'bio', 'experience_years', 'identity_number', 'service_id',
+    'portrait', 'identity_front', 'identity_back', 'certificate_file',
+}
+
+
 class WorkerProfileUpdateSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True, help_text='ID hồ sơ nhân viên.')
     user_id = serializers.IntegerField(read_only=True, help_text='ID tài khoản sở hữu hồ sơ.')
@@ -409,6 +418,7 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
     approved_by = UserSerializer(read_only=True, help_text='Admin đã duyệt hồ sơ.')
     approved_at = serializers.DateTimeField(read_only=True, help_text='Thời điểm hồ sơ được duyệt.')
     rejection_reason = serializers.CharField(read_only=True, allow_null=True, help_text='Lý do hồ sơ bị từ chối hoặc tạm khóa.')
+    rejected_fields = serializers.DictField(read_only=True, help_text='Map field_name -> ghi chú, các field cần sửa lại khi bị từ chối.')
     average_rating = serializers.DecimalField(read_only=True, max_digits=3, decimal_places=2, help_text='Điểm đánh giá trung bình từ 0 đến 5.')
     total_completed_jobs = serializers.IntegerField(read_only=True, help_text='Tổng số công việc đã hoàn thành.')
     is_complete = serializers.BooleanField(read_only=True, help_text='True khi mọi thông tin bắt buộc để gửi duyệt đã đầy đủ.')
@@ -441,7 +451,8 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
     def validate(self, attrs):
         protected_fields = {
             'role', 'status', 'approved_by', 'approved_at', 'rejection_reason',
-            'average_rating', 'total_completed_jobs', 'created_at', 'updated_at',
+            'rejected_fields', 'average_rating', 'total_completed_jobs',
+            'created_at', 'updated_at',
         }
         attempted_fields = protected_fields.intersection(self.initial_data)
         if attempted_fields:
@@ -507,6 +518,15 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
                 field_name='portrait',
             )
             instance.avatar = uploaded['url']
+
+        # Hồ sơ đang bị từ chối, worker vừa sửa lại (bất kỳ field nào) ->
+        # đưa về DRAFT để có thể gửi duyệt lại qua WorkerProfileSubmitView,
+        # đồng thời xoá lý do/field bị đánh dấu cũ vì đã được cập nhật.
+        if instance.status == WorkerProfile.Status.REJECTED:
+            instance.status = WorkerProfile.Status.DRAFT
+            instance.rejection_reason = None
+            instance.rejected_fields = {}
+
         instance.save()
 
         for uploaded_file, document_type, field_name in (
@@ -549,6 +569,7 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
             'approved_by': UserSerializer(instance.approved_by).data if instance.approved_by else None,
             'approved_at': instance.approved_at,
             'rejection_reason': instance.rejection_reason,
+            'rejected_fields': instance.rejected_fields or {},
             'average_rating': instance.average_rating,
             'total_completed_jobs': instance.total_completed_jobs,
             **completeness,
@@ -558,12 +579,50 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
 
 
 class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
-    status = serializers.ChoiceField(choices=WorkerProfile.Status.choices)
+    ADMIN_ALLOWED_STATUSES = {
+        WorkerProfile.Status.ACTIVE,
+        WorkerProfile.Status.REJECTED,
+        WorkerProfile.Status.SUSPENDED,
+    }
+    # Chỉ cho phép admin chuyển đến 3 trạng thái này, không cho set DRAFT/PENDING
+    status = serializers.ChoiceField(choices=[(s, s) for s in ADMIN_ALLOWED_STATUSES])
     reason = serializers.CharField(required=False, allow_blank=False)
+    rejected_fields = serializers.DictField(
+        child=serializers.CharField(allow_blank=False),
+        required=False,
+    )
+
+    def validate_rejected_fields(self, value):
+        invalid = set(value) - REJECTABLE_PROFILE_FIELDS
+        if invalid:
+            raise serializers.ValidationError(f"Field không hợp lệ: {', '.join(sorted(invalid))}.")
+        return value
 
     def validate(self, attrs):
-        if attrs['status'] == WorkerProfile.Status.REJECTED and not attrs.get('reason'):
-            raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do từ chối hồ sơ.'})
+        target = attrs['status']
+        current = self.instance.status
+
+        # Chỉ approve/reject khi hồ sơ đang PENDING; chỉ suspend khi đang ACTIVE
+        if target in (WorkerProfile.Status.ACTIVE, WorkerProfile.Status.REJECTED):
+            if current != WorkerProfile.Status.PENDING:
+                raise serializers.ValidationError({
+                    'status': f'Chỉ hồ sơ đang PENDING mới được duyệt/từ chối (hiện tại: {current}).',
+                })
+        elif target == WorkerProfile.Status.SUSPENDED:
+            if current != WorkerProfile.Status.ACTIVE:
+                raise serializers.ValidationError({
+                    'status': f'Chỉ hồ sơ đang ACTIVE mới được tạm khóa (hiện tại: {current}).',
+                })
+
+        if target == WorkerProfile.Status.REJECTED:
+            if not attrs.get('reason'):
+                raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do từ chối hồ sơ.'})
+            if not attrs.get('rejected_fields'):
+                raise serializers.ValidationError({'rejected_fields': 'Vui lòng đánh dấu ít nhất một trường cần sửa.'})
+        elif target == WorkerProfile.Status.SUSPENDED:
+            if not attrs.get('reason'):
+                raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do tạm khóa.'})
+
         return attrs
 
     @transaction.atomic
@@ -575,10 +634,14 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
         instance.approved_by = None
         instance.approved_at = None
         instance.rejection_reason = None
+        instance.rejected_fields = {}
         if target_status == WorkerProfile.Status.ACTIVE:
             instance.approved_by = self.context['request'].user
             instance.approved_at = timezone.now()
-        elif target_status in {WorkerProfile.Status.REJECTED, WorkerProfile.Status.SUSPENDED}:
+        elif target_status == WorkerProfile.Status.REJECTED:
+            instance.rejection_reason = reason
+            instance.rejected_fields = validated_data.get('rejected_fields', {})
+        elif target_status == WorkerProfile.Status.SUSPENDED:
             instance.rejection_reason = reason
         instance.save()
         return instance

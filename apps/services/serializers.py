@@ -1,5 +1,6 @@
 # apps/services/serializers.py
 import logging
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -45,16 +46,33 @@ class ServiceImageFileField(serializers.FileField):
         return data
 
 
-def save_service_image(service, image_file):
-    folder = f"{settings.CLOUDINARY_SERVICE_IMAGE_FOLDER}/service_{service.id}"
+def save_service_image(
+    service,
+    image_file,
+    is_primary=False,
+):
+    folder = (
+        f"{settings.CLOUDINARY_SERVICE_IMAGE_FOLDER}"
+        f"/service_{service.id}"
+    )
+
     uploaded = upload_image(
         image_file,
         folder=folder,
         public_id_prefix='service_image',
         field_name='images',
-        max_size=getattr(settings, 'SERVICE_IMAGE_MAX_SIZE', 10 * 1024 * 1024),
+        max_size=getattr(
+            settings,
+            'SERVICE_IMAGE_MAX_SIZE',
+            10 * 1024 * 1024,
+        ),
     )
-    return ServiceImage.objects.create(service=service, image=uploaded['url'])
+
+    return ServiceImage.objects.create(
+        service=service,
+        image=uploaded['url'],
+        is_primary=is_primary,
+    )
 
 
 def delete_service_image(image):
@@ -127,6 +145,7 @@ class ServiceAdminWriteSerializer(serializers.ModelSerializer):
         allow_empty=True,
         write_only=True,
     )
+
     delete_image_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
         required=False,
@@ -134,74 +153,230 @@ class ServiceAdminWriteSerializer(serializers.ModelSerializer):
         write_only=True,
     )
 
+    primary_image_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+
     class Meta:
         model = Service
         fields = [
-            'id', 'code', 'section_code', 'name', 'description',
-            'form_schema', 'pricing_config', 'is_active',
-            'images', 'delete_image_ids',
+            'id',
+            'code',
+            'section_code',
+            'name',
+            'description',
+            'form_schema',
+            'pricing_config',
+            'is_active',
+            'images',
+            'delete_image_ids',
+            'primary_image_id',
         ]
         read_only_fields = ['id']
 
     def validate_code(self, value):
         value = value.strip().upper()
+
         queryset = Service.objects.filter(code__iexact=value)
+
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
+
         if queryset.exists():
-            raise serializers.ValidationError('Mã dịch vụ đã tồn tại.')
+            raise serializers.ValidationError(
+                'Mã dịch vụ đã tồn tại.'
+            )
+
         return value
 
     def validate_section_code(self, value):
         return value.strip().upper()
 
     def validate_form_schema(self, value):
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError(
+                    'form_schema phải là JSON hợp lệ.'
+                )
+
         if not isinstance(value, dict):
-            raise serializers.ValidationError('form_schema phải là một object JSON.')
+            raise serializers.ValidationError(
+                'form_schema phải là một object JSON.'
+            )
+
         return value
 
     def validate_pricing_config(self, value):
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError(
+                    'pricing_config phải là JSON hợp lệ.'
+                )
+
         if not isinstance(value, dict):
-            raise serializers.ValidationError('pricing_config phải là một object JSON.')
+            raise serializers.ValidationError(
+                'pricing_config phải là một object JSON.'
+            )
+
         return value
 
     def validate(self, attrs):
         delete_image_ids = attrs.get('delete_image_ids', [])
-        if self.instance and delete_image_ids:
+        primary_image_id = attrs.get('primary_image_id')
+
+        # CREATE
+        if not self.instance:
+            if delete_image_ids:
+                raise serializers.ValidationError({
+                    'delete_image_ids': (
+                        'Không thể xoá ảnh khi đang tạo dịch vụ.'
+                    )
+                })
+
+            if primary_image_id is not None:
+                raise serializers.ValidationError({
+                    'primary_image_id': (
+                        'Không thể chọn ảnh chính cũ khi đang tạo dịch vụ.'
+                    )
+                })
+
+            return attrs
+
+        # UPDATE - kiểm tra ảnh muốn xoá
+        if delete_image_ids:
             existing_ids = set(
-                self.instance.images.filter(id__in=delete_image_ids).values_list('id', flat=True)
+                self.instance.images.filter(
+                    id__in=delete_image_ids
+                ).values_list('id', flat=True)
             )
+
             invalid_ids = set(delete_image_ids) - existing_ids
+
             if invalid_ids:
                 raise serializers.ValidationError({
-                    'delete_image_ids': 'Một hoặc nhiều ảnh không thuộc dịch vụ này.'
+                    'delete_image_ids': (
+                        'Một hoặc nhiều ảnh không thuộc dịch vụ này.'
+                    )
                 })
-        elif delete_image_ids and not self.instance:
-            raise serializers.ValidationError({
-                'delete_image_ids': 'Không thể xoá ảnh khi đang tạo dịch vụ.'
-            })
+
+        # UPDATE - kiểm tra ảnh chính
+        if primary_image_id is not None:
+            primary_image = self.instance.images.filter(
+                id=primary_image_id
+            ).first()
+
+            if not primary_image:
+                raise serializers.ValidationError({
+                    'primary_image_id': (
+                        'Ảnh chính không thuộc dịch vụ này.'
+                    )
+                })
+
+            if primary_image_id in delete_image_ids:
+                raise serializers.ValidationError({
+                    'primary_image_id': (
+                        'Không thể chọn ảnh đang được xoá làm ảnh chính.'
+                    )
+                })
+
         return attrs
 
     @transaction.atomic
     def create(self, validated_data):
         images = validated_data.pop('images', [])
         validated_data.pop('delete_image_ids', None)
+        validated_data.pop('primary_image_id', None)
+
         service = Service.objects.create(**validated_data)
-        for image_file in images:
-            save_service_image(service, image_file)
+
+        for index, image_file in enumerate(images):
+            save_service_image(
+                service,
+                image_file,
+                is_primary=(index == 0),
+            )
+
         return service
 
     @transaction.atomic
     def update(self, instance, validated_data):
         images = validated_data.pop('images', [])
-        delete_image_ids = validated_data.pop('delete_image_ids', [])
+        delete_image_ids = validated_data.pop(
+            'delete_image_ids',
+            [],
+        )
+        primary_image_id = validated_data.pop(
+            'primary_image_id',
+            None,
+        )
+
+        # --------------------------------------------------
+        # 1. Update các field của Service
+        # --------------------------------------------------
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
         instance.save()
+
+        # --------------------------------------------------
+        # 2. Xoá ảnh được yêu cầu
+        # --------------------------------------------------
         for image_id in delete_image_ids:
-            image = instance.images.filter(id=image_id).first()
+            image = instance.images.filter(
+                id=image_id
+            ).first()
+
             if image:
                 delete_service_image(image)
+
+        # --------------------------------------------------
+        # 3. Upload ảnh mới
+        # --------------------------------------------------
+        new_images = []
+
         for image_file in images:
-            save_service_image(instance, image_file)
+            new_image = save_service_image(
+                instance,
+                image_file,
+                is_primary=False,
+            )
+            new_images.append(new_image)
+
+        # --------------------------------------------------
+        # 4. Nếu admin chọn ảnh chính cũ
+        # --------------------------------------------------
+        if primary_image_id is not None:
+            instance.images.update(is_primary=False)
+
+            primary_image = instance.images.filter(
+                id=primary_image_id
+            ).first()
+
+            if primary_image:
+                primary_image.is_primary = True
+                primary_image.save(
+                    update_fields=['is_primary']
+                )
+
+        # --------------------------------------------------
+        # 5. Nếu không chọn ảnh chính và hiện tại không có
+        #    ảnh chính thì lấy ảnh đầu tiên còn lại
+        # --------------------------------------------------
+        elif not instance.images.filter(
+            is_primary=True
+        ).exists():
+            first_image = instance.images.first()
+
+            if first_image:
+                first_image.is_primary = True
+                first_image.save(
+                    update_fields=['is_primary']
+                )
+
         return instance
