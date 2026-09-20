@@ -7,6 +7,12 @@ from apps.common.permissions import IsAdminRole, IsWorkerRole
 
 from . import assignment_service
 from .models import Area, BookingAssignment, WorkerWorkingArea
+
+from django.utils.dateparse import parse_date
+from rest_framework.exceptions import ValidationError
+from .serializers import WorkerMyScheduleSerializer  # thêm vào import
+from apps.bookings.models import BookingSchedule
+
 from .serializers import (
     AdminAssignWorkerSerializer,
     AreaSummarySerializer,
@@ -29,6 +35,15 @@ from .schemas import (
 
 def _prefetch_assignments(queryset):
     return queryset.prefetch_related(Prefetch('assignments', queryset=BookingAssignment.objects.filter(status=BookingAssignment.Status.ACCEPTED)))
+
+def _parse_date_param(request, name):
+    raw = request.query_params.get(name)
+    if not raw:
+        return None
+    parsed = parse_date(raw)
+    if parsed is None:
+        raise ValidationError({name: 'Định dạng ngày phải là YYYY-MM-DD.'})
+    return parsed
 
 
 @WORKER_ACTIVE_AREA_SCHEMA
@@ -78,27 +93,53 @@ class WorkerAvailableScheduleListView(generics.GenericAPIView):
     serializer_class = WorkerScheduleSerializer
 
     def get(self, request, *args, **kwargs):
-        queryset = _prefetch_assignments(assignment_service.list_available_schedules_for_worker(request.user))
-        return Response({'message': 'Lấy danh sách buổi làm việc khả dụng thành công.', 'data': self.get_serializer(queryset, many=True).data})
-
+        booking_id = request.query_params.get('booking_id')
+        if booking_id and not booking_id.isdigit():
+            raise ValidationError({'booking_id': 'booking_id phải là số nguyên.'})
+        queryset = _prefetch_assignments(assignment_service.list_available_schedules_for_worker(
+            request.user,
+            booking_id=int(booking_id) if booking_id else None,
+            date_from=_parse_date_param(request, 'date_from'),
+            date_to=_parse_date_param(request, 'date_to'),
+        ))
+        return Response({
+            'message': 'Lấy danh sách buổi làm việc khả dụng thành công.',
+            'data': self.get_serializer(queryset, many=True).data,
+        })
 
 @WORKER_MY_SCHEDULE_SCHEMA
 class WorkerMyScheduleListView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
-    serializer_class = WorkerScheduleSerializer
+    serializer_class = WorkerMyScheduleSerializer
 
     def get(self, request, *args, **kwargs):
-        queryset = _prefetch_assignments(assignment_service.list_my_schedules(request.user, schedule_status=request.query_params.get('status')))
-        return Response({'message': 'Lấy danh sách buổi làm việc của tôi thành công.', 'data': self.get_serializer(queryset, many=True).data})
+        schedule_status = request.query_params.get('status')
+        if schedule_status:
+            schedule_status = schedule_status.upper()
+            if schedule_status not in BookingSchedule.Status.values:
+                raise ValidationError({'status': 'Trạng thái buổi làm không hợp lệ.'})
+        queryset = _prefetch_assignments(
+            assignment_service.list_my_schedules(request.user, schedule_status=schedule_status)
+        )
+        return Response({
+            'message': 'Lấy danh sách buổi làm việc của tôi thành công.',
+            'data': self.get_serializer(queryset, many=True).data,
+        })
 
 
-@WORKER_CLAIM_SCHEDULE_SCHEMA
 class WorkerClaimScheduleView(APIView):
     permission_classes = [IsWorkerRole]
 
     def post(self, request, *args, **kwargs):
         assignment = assignment_service.claim_schedule(schedule_id=kwargs['schedule_id'], worker=request.user)
-        return Response({'message': 'Nhận việc thành công.', 'data': {'assignment_id': assignment.id, 'schedule_id': assignment.schedule_id}}, status=201)
+        return Response({
+            'message': 'Nhận việc thành công.',
+            'data': {
+                'assignment_id': assignment.id,
+                'schedule_id': assignment.schedule_id,
+                'status': assignment.status,
+            },
+        }, status=201)
 
 
 @WORKER_CANCEL_ASSIGNMENT_SCHEMA
@@ -109,8 +150,18 @@ class WorkerCancelAssignmentView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        assignment_service.cancel_assignment(assignment_id=kwargs['assignment_id'], worker=request.user, reason=serializer.validated_data['reason'])
-        return Response({'message': 'Hủy nhận việc thành công.'})
+        assignment = assignment_service.cancel_assignment(
+            assignment_id=kwargs['assignment_id'], worker=request.user,
+            reason=serializer.validated_data['reason'],
+        )
+        return Response({
+            'message': 'Hủy nhận việc thành công.',
+            'data': {
+                'assignment_id': assignment.id,
+                'schedule_id': assignment.schedule_id,
+                'status': assignment.status,
+            },
+        })
 
 
 @ADMIN_ASSIGN_WORKER_SCHEMA
