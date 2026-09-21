@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
@@ -8,6 +9,7 @@ from .models import UserVoucher, Voucher
 
 
 MONEY_QUANTIZER = Decimal('0.01')
+User = get_user_model()
 
 
 def _validate_claimable_voucher(voucher):
@@ -47,6 +49,44 @@ def _claim_locked_voucher(*, voucher, customer, source):
     if UserVoucher.objects.filter(user=customer, voucher=voucher).exists():
         raise serializers.ValidationError({'voucher': 'Bạn đã nhận voucher này rồi.'})
     user_voucher = UserVoucher.objects.create(user=customer, voucher=voucher, source=source)
+    voucher.issued_count += 1
+    voucher.save(update_fields=['issued_count', 'updated_at'])
+    return user_voucher
+
+
+@transaction.atomic
+def assign_voucher_to_customer(*, voucher_id, customer_id, admin_user, note=None):
+    try:
+        voucher = Voucher.objects.select_for_update().get(pk=voucher_id)
+    except Voucher.DoesNotExist:
+        raise serializers.ValidationError({'voucher_id': 'Voucher không tồn tại.'})
+
+    try:
+        customer = User.objects.get(pk=customer_id, role=User.Role.CUSTOMER)
+    except User.DoesNotExist:
+        raise serializers.ValidationError({'customer_id': 'Khách hàng không tồn tại.'})
+
+    if voucher.distribution_type != Voucher.DistributionType.ASSIGNED:
+        raise serializers.ValidationError({
+            'voucher_id': 'Chỉ voucher có hình thức phát hành ASSIGNED mới được cấp riêng.',
+        })
+
+    try:
+        _validate_claimable_voucher(voucher)
+    except serializers.ValidationError as exc:
+        detail = exc.detail.get('voucher', exc.detail)
+        raise serializers.ValidationError({'voucher_id': detail})
+
+    if UserVoucher.objects.filter(user=customer, voucher=voucher).exists():
+        raise serializers.ValidationError({'customer_id': 'Khách hàng đã được cấp voucher này.'})
+
+    user_voucher = UserVoucher.objects.create(
+        user=customer,
+        voucher=voucher,
+        source=UserVoucher.Source.ADMIN,
+        assigned_by=admin_user,
+        note=(note or '').strip() or None,
+    )
     voucher.issued_count += 1
     voucher.save(update_fields=['issued_count', 'updated_at'])
     return user_voucher

@@ -68,6 +68,12 @@ class VoucherAdminWriteSerializer(VoucherAdminValidationMixin, serializers.Model
         fields = ['code', 'name', 'description', 'distribution_type', 'discount_type', 'discount_value', 'max_discount_amount', 'min_order_amount', 'issuance_limit', 'start_at', 'end_at', 'is_active']
 
 
+class VoucherAdminAssignSerializer(serializers.Serializer):
+    voucher_id = serializers.IntegerField(min_value=1)
+    customer_id = serializers.IntegerField(min_value=1)
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=1000)
+
+
 class VoucherAdminSerializer(serializers.ModelSerializer):
     lifecycle_status = serializers.SerializerMethodField()
     remaining_issuance = serializers.SerializerMethodField()
@@ -131,6 +137,26 @@ class UserVoucherSerializer(serializers.ModelSerializer):
         now = timezone.now()
         voucher = instance.voucher
         return bool(instance.status == UserVoucher.Status.AVAILABLE and voucher.is_active and voucher.start_at <= now <= voucher.end_at)
+
+
+class AdminAssignedUserVoucherSerializer(serializers.ModelSerializer):
+    voucher_id = serializers.IntegerField(read_only=True)
+    customer_id = serializers.IntegerField(source='user_id', read_only=True)
+    assigned_by = serializers.IntegerField(source='assigned_by_id', read_only=True, allow_null=True)
+
+    class Meta:
+        model = UserVoucher
+        fields = [
+            'id',
+            'voucher_id',
+            'customer_id',
+            'source',
+            'status',
+            'assigned_by',
+            'note',
+            'created_at',
+        ]
+        read_only_fields = fields
 
 
 class VoucherValidationSerializer(serializers.Serializer):

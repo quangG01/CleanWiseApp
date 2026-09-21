@@ -35,3 +35,72 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'{self.booking} - {self.amount}'
+
+
+class UserPaymentMethod(models.Model):
+    class MethodType(models.TextChoices):
+        BANK_ACCOUNT = 'BANK_ACCOUNT', 'Tài khoản ngân hàng'
+        MOMO = 'MOMO', 'MoMo'
+        VNPAY = 'VNPAY', 'VNPAY'
+
+    class UsageType(models.TextChoices):
+        PAYMENT = 'PAYMENT', 'Thanh toán'
+        PAYOUT = 'PAYOUT', 'Nhận tiền'
+
+    class VerificationStatus(models.TextChoices):
+        UNVERIFIED = 'UNVERIFIED', 'Chưa xác minh'
+        PENDING = 'PENDING', 'Đang xác minh'
+        VERIFIED = 'VERIFIED', 'Đã xác minh'
+        FAILED = 'FAILED', 'Xác minh thất bại'
+        DISCONNECTED = 'DISCONNECTED', 'Đã ngắt liên kết'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='payment_methods',
+    )
+    method_type = models.CharField(max_length=30, choices=MethodType.choices)
+    usage_type = models.CharField(max_length=20, choices=UsageType.choices)
+    display_name = models.CharField(max_length=100, blank=True)
+    bank_bin = models.CharField(max_length=10, blank=True)
+    bank_code = models.CharField(max_length=30, blank=True)
+    bank_name = models.CharField(max_length=150, blank=True)
+    account_holder_name = models.CharField(max_length=150, blank=True)
+    account_number_encrypted = models.TextField(blank=True)
+    account_number_last4 = models.CharField(max_length=4, blank=True)
+    provider_reference = models.CharField(max_length=255, blank=True)
+    verification_status = models.CharField(
+        max_length=20,
+        choices=VerificationStatus.choices,
+        default=VerificationStatus.UNVERIFIED,
+    )
+    is_default = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_payment_methods'
+        ordering = ['-is_default', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'usage_type'],
+                condition=models.Q(is_default=True, is_active=True),
+                name='payment_methods_one_active_default',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['user', 'usage_type', 'is_active'],
+                name='payment_method_user_idx',
+            ),
+        ]
+
+    @property
+    def account_number_masked(self):
+        if not self.account_number_last4:
+            return ''
+        return f'******{self.account_number_last4}'
+
+    def __str__(self):
+        return f'{self.user} - {self.get_method_type_display()}'

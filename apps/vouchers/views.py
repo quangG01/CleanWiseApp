@@ -9,14 +9,16 @@ from apps.common.permissions import IsAdminRole, IsCustomerRole
 
 from .models import UserVoucher, Voucher
 from .serializers import (
+    AdminAssignedUserVoucherSerializer,
     UserVoucherSerializer,
+    VoucherAdminAssignSerializer,
     VoucherAdminSerializer,
     VoucherAdminWriteSerializer,
     VoucherCodeClaimSerializer,
     VoucherPublicSerializer,
     VoucherValidationSerializer,
 )
-from .voucher_service import claim_voucher_by_code, validate_and_calculate_voucher
+from .voucher_service import assign_voucher_to_customer, claim_voucher_by_code, validate_and_calculate_voucher
 
 from .schemas import (
     VOUCHER_CUSTOMER_LIST_SCHEMA,
@@ -27,6 +29,7 @@ from .schemas import (
     VOUCHER_ADMIN_LIST_CREATE_SCHEMA,
     VOUCHER_ADMIN_DETAIL_SCHEMA,
     VOUCHER_ADMIN_BY_CODE_SCHEMA,
+    VOUCHER_ADMIN_ASSIGN_SCHEMA,
 )
 
 @VOUCHER_CUSTOMER_LIST_SCHEMA
@@ -185,3 +188,23 @@ class AdminVoucherByCodeDetailView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         voucher = get_object_or_404(Voucher.objects.all(), code__iexact=self.kwargs['code'].strip())
         return Response({'message': 'Lấy chi tiết voucher theo mã thành công.', 'data': self.get_serializer(voucher).data})
+
+
+@VOUCHER_ADMIN_ASSIGN_SCHEMA
+class AdminVoucherAssignView(generics.GenericAPIView):
+    permission_classes = [IsAdminRole]
+    serializer_class = VoucherAdminAssignSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_voucher = assign_voucher_to_customer(
+            voucher_id=serializer.validated_data['voucher_id'],
+            customer_id=serializer.validated_data['customer_id'],
+            admin_user=request.user,
+            note=serializer.validated_data.get('note'),
+        )
+        return Response({
+            'message': 'Cấp voucher cho khách hàng thành công.',
+            'data': AdminAssignedUserVoucherSerializer(user_voucher).data,
+        }, status=status.HTTP_201_CREATED)
