@@ -106,6 +106,11 @@ class WorkerProfile(models.Model):
     )
     approved_at = models.DateTimeField(blank=True, null=True)
     rejection_reason = models.TextField(blank=True, null=True)
+    rejected_fields = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Map field_name -> ghi chú admin, chỉ có giá trị khi status=REJECTED.',
+    )
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     total_completed_jobs = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

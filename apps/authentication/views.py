@@ -294,30 +294,24 @@ class WorkerProfileSubmitView(generics.GenericAPIView):
 #========================================================================================================================
 @ADMIN_WORKER_PROFILE_LIST_SCHEMA
 class AdminWorkerProfileListView(generics.ListAPIView):
-    """GET /api/auth/admin/worker-profiles/"""
+    """GET /api/auth/admin/worker-profiles/?status=PENDING|ACTIVE|...|ALL"""
 
     permission_classes = [IsAdminRole]
     serializer_class = WorkerProfileUpdateSerializer
 
     def get_queryset(self):
-        requested_status = self.request.query_params.get(
-            "status",
-            WorkerProfile.Status.PENDING,
-        ).upper()
-        valid_statuses = set(WorkerProfile.Status.values)
-        if requested_status not in valid_statuses:
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({
-                "status": "Trạng thái không hợp lệ."
-            })
-
-        return (
+        requested_status = self.request.query_params.get("status", "ALL").upper()
+        queryset = (
             WorkerProfile.objects
-            .filter(status=requested_status)
             .select_related("user", "approved_by", "registered_service")
             .prefetch_related("user__verification_documents")
             .order_by("-created_at")
         )
+        if requested_status == "ALL":
+            return queryset
+        if requested_status not in WorkerProfile.Status.values:
+            raise ValidationError({"status": "Trạng thái không hợp lệ."})
+        return queryset.filter(status=requested_status)
 
 
 #========================================================================================================================

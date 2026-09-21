@@ -1,4 +1,16 @@
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
+from rest_framework import serializers
+from .serializers import CancelAssignmentSerializer, WorkerScheduleSerializer, WorkerMyScheduleSerializer
+from .constants import  MIN_CANCEL_HOURS
+
+_RESULT = inline_serializer(name='WorkerAssignmentResult', fields={
+    'message': serializers.CharField(),
+    'data': inline_serializer(name='WorkerAssignmentResultData', fields={
+        'assignment_id': serializers.IntegerField(),
+        'schedule_id': serializers.IntegerField(),
+        'status': serializers.CharField(),
+    }),
+})
 
 # --- NHÓM WORKER - AREAS & WORKING AREAS ---
 
@@ -36,8 +48,18 @@ WORKER_AVAILABLE_SCHEDULE_SCHEMA = extend_schema_view(
     get=extend_schema(
         operation_id='worker_available_schedule_list',
         summary='Danh sách buổi làm việc khả dụng',
-        description='Lấy danh sách các lịch trình/buổi làm việc phù hợp với khu vực và thời gian mà nhân viên có thể nhận.',
-        tags=['Worker - Schedules']
+        description=(
+            'Buổi còn trống thuộc dịch vụ nhân viên đã đăng ký, nằm trong khu vực làm việc, chưa bắt đầu '
+            'và không trùng giờ với việc đã nhận. Hồ sơ phải ACTIVE. Các buổi cùng booking_id thuộc cùng 1 đơn '
+            '(gói tháng), total_sessions là tổng số buổi chưa hủy của đơn.'
+        ),
+        parameters=[
+            OpenApiParameter('booking_id', int, description='Chỉ lấy các buổi của 1 đơn'),
+            OpenApiParameter('date_from', str, description='YYYY-MM-DD'),
+            OpenApiParameter('date_to', str, description='YYYY-MM-DD'),
+        ],
+        responses={200: WorkerScheduleSerializer(many=True)},
+        tags=['Worker - Schedules'],
     )
 )
 
@@ -45,8 +67,13 @@ WORKER_MY_SCHEDULE_SCHEMA = extend_schema_view(
     get=extend_schema(
         operation_id='worker_my_schedule_list',
         summary='Danh sách buổi làm việc của tôi',
-        description='Lấy danh sách các lịch trình mà nhân viên đã nhận hoặc được phân công, có hỗ trợ lọc theo trạng thái.',
-        tags=['Worker - Schedules']
+        description='Các buổi đã nhận (kèm địa chỉ chi tiết, SĐT khách, can_cancel, cancel_deadline).',
+        parameters=[OpenApiParameter(
+            'status', str,
+            enum=['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'MISSED'],
+        )],
+        responses={200: WorkerMyScheduleSerializer(many=True)},
+        tags=['Worker - Schedules'],
     )
 )
 
@@ -54,8 +81,13 @@ WORKER_CLAIM_SCHEDULE_SCHEMA = extend_schema_view(
     post=extend_schema(
         operation_id='worker_claim_schedule',
         summary='Nhận việc (Claim schedule)',
-        description='Nhân viên tự động nhận một buổi làm việc khả dụng trong hệ thống.',
-        tags=['Worker - Assignments']
+        description=(
+            'Điều kiện: hồ sơ ACTIVE, đúng dịch vụ, trong khu vực làm việc, buổi chưa bắt đầu, '
+            'chưa có người nhận, không trùng giờ.'
+        ),
+        request=None,
+        responses={201: _RESULT},
+        tags=['Worker - Assignments'],
     )
 )
 
@@ -63,8 +95,14 @@ WORKER_CANCEL_ASSIGNMENT_SCHEMA = extend_schema_view(
     post=extend_schema(
         operation_id='worker_cancel_assignment',
         summary='Hủy nhận việc',
-        description='Nhân viên hủy một phân công/nhận việc đã thực hiện trước đó kèm theo lý do cụ thể.',
-        tags=['Worker - Assignments']
+        description=(
+            f'Hủy tự do khi còn từ {MIN_CANCEL_HOURS} tiếng trở lên trước giờ bắt đầu; '
+            f'dưới {MIN_CANCEL_HOURS} tiếng sẽ bị chặn và phải liên hệ admin. '
+            'Buổi đã hủy quay lại danh sách khả dụng để nhân viên khác nhận.'
+        ),
+        request=CancelAssignmentSerializer,
+        responses={200: _RESULT},
+        tags=['Worker - Assignments'],
     )
 )
 
