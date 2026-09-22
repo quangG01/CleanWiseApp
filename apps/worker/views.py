@@ -33,8 +33,26 @@ from .schemas import (
 )
 
 
-def _prefetch_assignments(queryset):
-    return queryset.prefetch_related(Prefetch('assignments', queryset=BookingAssignment.objects.filter(status=BookingAssignment.Status.ACCEPTED)))
+# select_related dùng chung: customer_avatar/customer_name/payment_status/
+# service_data/form_schema đều đọc qua booking__customer và booking__service,
+# nếu không select_related trước sẽ bị N+1 query (1 query/booking) khi
+# serializer truy cập instance.booking.customer, instance.booking.service.
+def _base_select_related(queryset):
+    return queryset.select_related(
+        'booking', 'booking__customer', 'booking__service', 'booking__address',
+    )
+
+
+def _prefetch_assignments(queryset, *, with_images=False):
+    queryset = _base_select_related(queryset).prefetch_related(
+        Prefetch('assignments', queryset=BookingAssignment.objects.filter(status=BookingAssignment.Status.ACCEPTED)),
+    )
+    if with_images:
+        # Ảnh trước/sau chỉ cần ở my-schedules (WorkerMyScheduleSerializer),
+        # không cần ở available nên tách riêng bằng cờ with_images.
+        queryset = queryset.prefetch_related('images')
+    return queryset
+
 
 def _parse_date_param(request, name):
     raw = request.query_params.get(name)
@@ -119,7 +137,8 @@ class WorkerMyScheduleListView(generics.GenericAPIView):
             if schedule_status not in BookingSchedule.Status.values:
                 raise ValidationError({'status': 'Trạng thái buổi làm không hợp lệ.'})
         queryset = _prefetch_assignments(
-            assignment_service.list_my_schedules(request.user, schedule_status=schedule_status)
+            assignment_service.list_my_schedules(request.user, schedule_status=schedule_status),
+            with_images=True,
         )
         return Response({
             'message': 'Lấy danh sách buổi làm việc của tôi thành công.',

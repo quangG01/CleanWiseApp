@@ -1,8 +1,10 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.db import transaction
 from rest_framework import serializers
 
 from .models import Area, BookingAssignment, WorkerWorkingArea
-from apps.bookings.models import BookingSchedule
+from apps.bookings.models import BookingSchedule, BookingScheduleImage
 
 from django.utils import timezone
 from . import assignment_service
@@ -65,6 +67,13 @@ class WorkerWorkingAreaBulkUpdateSerializer(serializers.Serializer):
         return WorkerWorkingArea.objects.filter(worker=worker).select_related('area').order_by('area__city', 'area__name')
 
 
+class BookingScheduleImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingScheduleImage
+        fields = ['id', 'image', 'image_type', 'note', 'created_at']
+        read_only_fields = fields
+
+
 class WorkerScheduleSerializer(serializers.ModelSerializer):
     booking_id = serializers.IntegerField(read_only=True)
     booking_code = serializers.CharField(source='booking.booking_code', read_only=True)
@@ -74,6 +83,20 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
     total_sessions = serializers.IntegerField(read_only=True)
     address_city = serializers.CharField(source='booking.address.city', read_only=True)
     address_ward = serializers.CharField(source='booking.address.ward', read_only=True)
+    address_latitude = serializers.DecimalField(
+        source='booking.address.latitude', read_only=True, allow_null=True,
+        max_digits=14, decimal_places=7,
+    )
+    address_longitude = serializers.DecimalField(
+        source='booking.address.longitude', read_only=True, allow_null=True,
+        max_digits=14, decimal_places=7,
+    )
+    customer_avatar = serializers.CharField(source='booking.customer.avatar', read_only=True, allow_null=True)
+    customer_name = serializers.SerializerMethodField()
+    payment_status = serializers.CharField(source='booking.payment_status', read_only=True)
+    price = serializers.SerializerMethodField()
+    service_data = serializers.JSONField(source='booking.service_data', read_only=True)
+    form_schema = serializers.JSONField(source='booking.service.form_schema', read_only=True)
     assignment_id = serializers.SerializerMethodField()
 
     class Meta:
@@ -81,9 +104,16 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'booking_id', 'booking_code', 'service_id', 'service_name', 'booking_note',
             'sequence_no', 'total_sessions', 'scheduled_start', 'scheduled_end', 'status',
-            'address_city', 'address_ward', 'assignment_id',
+            'address_city', 'address_ward', 'address_latitude', 'address_longitude',
+            'customer_avatar', 'customer_name', 'payment_status', 'price',
+            'service_data', 'form_schema', 'assignment_id',
         ]
         read_only_fields = fields
+
+    def get_customer_name(self, instance):
+        customer = instance.booking.customer
+        full_name = f'{customer.first_name} {customer.last_name}'.strip()
+        return full_name or customer.username
 
     def get_assignment_id(self, instance):
         assignment = next(
@@ -92,19 +122,32 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
         )
         return assignment.id if assignment else None
 
+    def get_price(self, instance):
+        # booking.total_amount là tổng khách trả cho CẢ gói (có thể gồm nhiều
+        # buổi nếu là lịch định kỳ). total_sessions là số buổi chưa hủy của
+        # booking đó (đã annotate ở assignment_service._annotate_total_sessions).
+        # Dịch vụ theo giờ có đơn giá cố định -> chia đều cho từng buổi.
+        total = instance.booking.total_amount
+        sessions = getattr(instance, 'total_sessions', None)
+        if total is None or not sessions:
+            return None
+        per_session = (total / sessions).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+        return str(per_session)
+
 
 class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
-    """my-schedules: lộ thông tin liên hệ vì nhân viên đã nhận việc."""
+    """my-schedules: lộ thông tin liên hệ + ảnh vì nhân viên đã nhận việc."""
     address_line = serializers.CharField(source='booking.address.address_line', read_only=True)
     receiver_name = serializers.CharField(source='booking.address.receiver_name', read_only=True)
     receiver_phone = serializers.CharField(source='booking.address.receiver_phone', read_only=True)
     can_cancel = serializers.SerializerMethodField()
     cancel_deadline = serializers.SerializerMethodField()
+    images = BookingScheduleImageSerializer(many=True, read_only=True)
 
     class Meta(WorkerScheduleSerializer.Meta):
         fields = WorkerScheduleSerializer.Meta.fields + [
             'note', 'address_line', 'receiver_name', 'receiver_phone',
-            'can_cancel', 'cancel_deadline',
+            'can_cancel', 'cancel_deadline', 'images',
         ]
         read_only_fields = fields
 
