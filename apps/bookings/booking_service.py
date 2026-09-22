@@ -10,6 +10,7 @@ from apps.services.models import Service
 from apps.addresses.models import CustomerAddress
 from apps.vouchers.models import UserVoucher
 from apps.vouchers.voucher_service import validate_and_calculate_voucher
+from apps.payments.models import Payment
 
 from .models import Booking, BookingSchedule
 from .service_data_validation import validate_service_data
@@ -23,37 +24,55 @@ def _q(amount):
     """Làm tròn 2 chữ số thập phân."""
     if amount is None:
         return None
-    return Decimal(amount).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+
+    return Decimal(amount).quantize(
+        TWO_PLACES,
+        rounding=ROUND_HALF_UP,
+    )
 
 
 def is_computable_pricing(pricing_config):
-    return any(k in (pricing_config or {}) for k in PRICE_DRIVEN_KEYS)
+    return any(
+        key in (pricing_config or {})
+        for key in PRICE_DRIVEN_KEYS
+    )
 
 
-def _find_field_by_option_values(fields, candidate_values, exclude_key=None):
-    for f in fields:
-        if f.get('key') == exclude_key:
+def _find_field_by_option_values(
+    fields,
+    candidate_values,
+    exclude_key=None,
+):
+    for field in fields:
+        if field.get('key') == exclude_key:
             continue
 
-        options = f.get('options')
+        options = field.get('options')
 
         if not options or 'when' in options[0]:
             continue
 
-        if any(o.get('value') in candidate_values for o in options):
-            return f
+        if any(
+            option.get('value') in candidate_values
+            for option in options
+        ):
+            return field
 
     return None
 
 
-def get_unit_price_for_item(pricing_config, item_fields, item):
+def get_unit_price_for_item(
+    pricing_config,
+    item_fields,
+    item,
+):
     if not pricing_config.get('unit_prices'):
         return None
 
     node = pricing_config['unit_prices']
 
     for sub in item_fields:
-        # QUANTITY và BOOLEAN không dùng để lookup giá
+        # QUANTITY và BOOLEAN không dùng để lookup giá.
         if sub.get('type') in ('QUANTITY', 'BOOLEAN'):
             continue
 
@@ -74,7 +93,11 @@ def get_unit_price_for_item(pricing_config, item_fields, item):
         return None
 
 
-def get_item_total_price(pricing_config, item_fields, item):
+def get_item_total_price(
+    pricing_config,
+    item_fields,
+    item,
+):
     unit_price = get_unit_price_for_item(
         pricing_config,
         item_fields,
@@ -93,27 +116,45 @@ def get_item_total_price(pricing_config, item_fields, item):
 
     total = unit_price * qty
 
-    for f in item_fields:
-        if f.get('type') == 'BOOLEAN' and item.get(f['key']):
-            surcharge = pricing_config.get(f"{f['key']}_price")
+    for field in item_fields:
+        if (
+            field.get('type') == 'BOOLEAN'
+            and item.get(field['key'])
+        ):
+            surcharge = pricing_config.get(
+                f"{field['key']}_price"
+            )
 
             if surcharge is not None:
                 try:
-                    total += Decimal(str(surcharge)) * qty
-                except (TypeError, ValueError, ArithmeticError):
+                    total += (
+                        Decimal(str(surcharge)) * qty
+                    )
+                except (
+                    TypeError,
+                    ValueError,
+                    ArithmeticError,
+                ):
                     pass
 
     return _q(total)
 
 
-def calculate_booking_price(service, service_data):
+def calculate_booking_price(
+    service,
+    service_data,
+):
     """
     Tính giá booking dựa trên pricing_config của Service.
-    Trả về Decimal nếu tính được, None nếu chưa đủ thông tin.
+
+    Trả về Decimal nếu tính được,
+    None nếu chưa đủ thông tin.
     """
 
     pricing_config = service.pricing_config or {}
-    fields = (service.form_schema or {}).get('fields', [])
+    fields = (
+        service.form_schema or {}
+    ).get('fields', [])
 
     total = Decimal('0')
     has_base = False
@@ -161,9 +202,12 @@ def calculate_booking_price(service, service_data):
                 try:
                     total += Decimal(str(price))
                     has_base = True
-                except (TypeError, ValueError, ArithmeticError):
+                except (
+                    TypeError,
+                    ValueError,
+                    ArithmeticError,
+                ):
                     pass
-
 
     elif pricing_config.get('base_prices'):
         base_prices = pricing_config['base_prices']
@@ -185,40 +229,51 @@ def calculate_booking_price(service, service_data):
             try:
                 total += Decimal(str(price))
                 has_base = True
-            except (TypeError, ValueError, ArithmeticError):
+            except (
+                TypeError,
+                ValueError,
+                ArithmeticError,
+            ):
                 pass
 
-
-    for key, val in pricing_config.items():
-        if key.endswith('_surcharge') and isinstance(val, dict):
+    for key, value in pricing_config.items():
+        if (
+            key.endswith('_surcharge')
+            and isinstance(value, dict)
+        ):
             field = _find_field_by_option_values(
                 fields,
-                list(val.keys()),
+                list(value.keys()),
             )
 
-            value = (
+            selected_value = (
                 service_data.get(field['key'])
                 if field
                 else None
             )
 
-            price = val.get(value)
+            price = value.get(selected_value)
 
             if price is not None:
                 try:
                     total += Decimal(str(price))
-                except (TypeError, ValueError, ArithmeticError):
+                except (
+                    TypeError,
+                    ValueError,
+                    ArithmeticError,
+                ):
                     pass
 
-
     if pricing_config.get('additional_services'):
-        additional_services = pricing_config['additional_services']
+        additional_services = (
+            pricing_config['additional_services']
+        )
 
         field = next(
             (
-                f
-                for f in fields
-                if f.get('type') == 'MULTI_SELECT'
+                field
+                for field in fields
+                if field.get('type') == 'MULTI_SELECT'
             ),
             None,
         )
@@ -235,28 +290,37 @@ def calculate_booking_price(service, service_data):
             if price is not None:
                 try:
                     total += Decimal(str(price))
-                except (TypeError, ValueError, ArithmeticError):
+                except (
+                    TypeError,
+                    ValueError,
+                    ArithmeticError,
+                ):
                     pass
-
 
     if pricing_config.get('unit_prices'):
         group_field = next(
             (
-                f
-                for f in fields
-                if f.get('type') == 'REPEATABLE_GROUP'
+                field
+                for field in fields
+                if field.get('type') == 'REPEATABLE_GROUP'
             ),
             None,
         )
 
         if group_field:
             group_key = group_field['key']
-            items = service_data.get(group_key, [])
+            items = service_data.get(
+                group_key,
+                [],
+            )
 
             for item in items:
                 item_total = get_item_total_price(
                     pricing_config,
-                    group_field.get('item_fields', []),
+                    group_field.get(
+                        'item_fields',
+                        [],
+                    ),
                     item,
                 )
 
@@ -264,13 +328,10 @@ def calculate_booking_price(service, service_data):
                     total += item_total
                     has_base = True
 
-
     if not has_base and total == 0:
         return None
 
-    result = _q(total)
-
-    return result
+    return _q(total)
 
 
 def _generate_booking_code():
@@ -280,27 +341,53 @@ def _generate_booking_code():
 def _validate_schedules(schedules):
     if not schedules:
         raise serializers.ValidationError(
-            {'schedules': 'Cần ít nhất 1 buổi làm việc.'}
+            {
+                'schedules':
+                'Cần ít nhất 1 buổi làm việc.'
+            }
         )
 
     now = timezone.now()
 
-    for idx, sch in enumerate(schedules, start=1):
-        if sch['scheduled_start'] <= now:
+    for idx, schedule in enumerate(
+        schedules,
+        start=1,
+    ):
+        if schedule['scheduled_start'] <= now:
             raise serializers.ValidationError(
                 {
                     'schedules':
-                    f'Buổi {idx}: thời gian bắt đầu phải ở tương lai.'
+                    f'Buổi {idx}: thời gian bắt đầu '
+                    'phải ở tương lai.'
                 }
             )
 
-        if sch['scheduled_start'] >= sch['scheduled_end']:
+        if (
+            schedule['scheduled_start']
+            >= schedule['scheduled_end']
+        ):
             raise serializers.ValidationError(
                 {
                     'schedules':
-                    f'Buổi {idx}: giờ bắt đầu phải trước giờ kết thúc.'
+                    f'Buổi {idx}: giờ bắt đầu '
+                    'phải trước giờ kết thúc.'
                 }
             )
+
+
+def _validate_payment_method(payment_method):
+    allowed_methods = {
+        Payment.Method.CASH,
+        Payment.Method.BANK_TRANSFER,
+    }
+
+    if payment_method not in allowed_methods:
+        raise serializers.ValidationError(
+            {
+                'payment_method':
+                'Phương thức thanh toán không hợp lệ.'
+            }
+        )
 
 
 @transaction.atomic
@@ -313,7 +400,17 @@ def create_booking(
     schedules,
     note=None,
     voucher_code=None,
+    payment_method,
 ):
+    """
+    Tạo Booking và Payment trong cùng một transaction.
+
+    Nếu một trong hai thao tác thất bại,
+    toàn bộ transaction sẽ rollback.
+    """
+
+    _validate_payment_method(payment_method)
+
     service = get_object_or_404(
         Service.objects.select_for_update(),
         pk=service_id,
@@ -336,7 +433,9 @@ def create_booking(
 
     subtotal = None
 
-    if is_computable_pricing(service.pricing_config):
+    if is_computable_pricing(
+        service.pricing_config
+    ):
         subtotal = calculate_booking_price(
             service,
             service_data,
@@ -346,7 +445,8 @@ def create_booking(
             raise serializers.ValidationError(
                 {
                     'service_data':
-                    'Chưa đủ thông tin để tính giá dịch vụ.'
+                    'Chưa đủ thông tin để tính giá '
+                    'dịch vụ.'
                 }
             )
 
@@ -379,6 +479,27 @@ def create_booking(
         else None
     )
 
+    # Payment.amount bắt buộc > 0.
+    # Vì vậy chưa thể tạo Payment nếu booking
+    # chưa có giá.
+    if total is None:
+        raise serializers.ValidationError(
+            {
+                'payment_method':
+                'Booking chưa có giá thanh toán. '
+                'Vui lòng chỉ chọn phương thức thanh toán '
+                'sau khi dịch vụ có giá.'
+            }
+        )
+
+    if total <= 0:
+        raise serializers.ValidationError(
+            {
+                'payment_method':
+                'Tổng tiền thanh toán phải lớn hơn 0.'
+            }
+        )
+
     booking_code = _generate_booking_code()
 
     booking = Booking.objects.create(
@@ -390,12 +511,11 @@ def create_booking(
         address=address,
         note=note,
 
-        # Model hiện tại không còn PricingStatus.
-        # Booking mới luôn bắt đầu ở PENDING.
         status=Booking.Status.PENDING,
 
-        # payment_status không cần truyền,
-        # model sẽ tự default = UNPAID.
+        # Payment mới tạo ở trạng thái PENDING,
+        # nên Booking vẫn chưa thanh toán.
+        payment_status=Booking.PaymentStatus.UNPAID,
 
         subtotal_amount=subtotal,
         discount_amount=discount,
@@ -413,17 +533,40 @@ def create_booking(
                 if total is not None
                 else None
             ),
-            'pricing_config_snapshot': service.pricing_config,
+            'pricing_config_snapshot':
+                service.pricing_config,
         },
     )
 
-    for idx, sch in enumerate(schedules, start=1):
+    for idx, schedule in enumerate(
+        schedules,
+        start=1,
+    ):
         BookingSchedule.objects.create(
             booking=booking,
             sequence_no=idx,
-            scheduled_start=sch['scheduled_start'],
-            scheduled_end=sch['scheduled_end'],
+            scheduled_start=schedule[
+                'scheduled_start'
+            ],
+            scheduled_end=schedule[
+                'scheduled_end'
+            ],
         )
+
+    # Tạo Payment ngay khi tạo Booking.
+    #
+    # CASH:
+    #   PENDING -> khách chưa thanh toán tiền mặt.
+    #
+    # BANK_TRANSFER:
+    #   PENDING -> chờ khách chuyển khoản.
+    payment = Payment.objects.create(
+        customer=customer,
+        booking=booking,
+        amount=total,
+        method=payment_method,
+        status=Payment.Status.PENDING,
+    )
 
     if user_voucher:
         user_voucher.status = UserVoucher.Status.USED
@@ -436,5 +579,10 @@ def create_booking(
                 'updated_at',
             ]
         )
+
+    # Biến này không bắt buộc dùng ngay,
+    # nhưng giữ reference để dễ debug / mở rộng
+    # payment flow sau này.
+    _ = payment
 
     return booking

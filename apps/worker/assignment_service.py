@@ -1,8 +1,9 @@
+import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Q, Subquery
+from django.db.models import Count, Exists, OuterRef, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
@@ -60,8 +61,17 @@ def _get_claimable_profile(worker):
     return profile
 
 
+# Bỏ tiền tố hành chính ("Thành phố", "TP", "TP.", "Tỉnh") trước khi so
+# khớp, vì worker đăng ký khu vực kiểu "TP Hồ Chí Minh" nhưng địa chỉ
+# booking lại lưu kiểu "Thành phố Hồ Chí Minh" — hai chuỗi không so
+# __iexact khớp nhau được nếu không bỏ tiền tố trước.
+_CITY_PREFIX_RE = re.compile(r'^(thành phố|tp\.?|tỉnh)\s+', re.IGNORECASE)
+
+
 def _norm(value):
-    return (value or '').strip().lower()
+    v = (value or '').strip().lower()
+    v = _CITY_PREFIX_RE.sub('', v)
+    return v.strip()
 
 
 def _worker_area_keys(worker):
@@ -119,11 +129,57 @@ def get_cancel_deadline(schedule):
     return schedule.scheduled_start - timedelta(hours=MIN_CANCEL_HOURS)
 
 
+@transaction.atomic
+def expire_unclaimed_schedules():
+    """
+    Lazy expiry — được gọi ngay đầu các hàm list_* mỗi khi worker load
+    danh sách, KHÔNG cần cron/Celery. Chạy rất nhẹ vì chỉ động tới các
+    dòng đã thật sự quá hạn (status=PENDING và scheduled_start < now).
+
+    - Buổi quá scheduled_start mà chưa có assignment ACCEPTED -> MISSED.
+    - Nếu booking không còn buổi PENDING/IN_PROGRESS nào (toàn bộ đã
+      CANCELLED/MISSED) VÀ chưa từng có worker nào ACCEPTED buổi nào của
+      booking đó -> booking chuyển FAILED. (Booking gói tháng đã có ít
+      nhất 1 buổi được nhận thì KHÔNG tự FAILED chỉ vì 1 buổi lẻ trễ hạn.)
+    """
+    now = timezone.now()
+
+    stale_schedules = (
+        BookingSchedule.objects.select_for_update(of=('self',))
+        .filter(status=BookingSchedule.Status.PENDING, scheduled_start__lt=now)
+        .exclude(assignments__status=BookingAssignment.Status.ACCEPTED)
+        .select_related('booking')
+    )
+
+    for schedule in stale_schedules:
+        schedule.status = BookingSchedule.Status.MISSED
+        schedule.cancel_reason = 'Hết hạn, không có nhân viên nhận việc.'
+        schedule.cancelled_at = now
+        schedule.save(update_fields=['status', 'cancel_reason', 'cancelled_at', 'updated_at'])
+
+        booking = schedule.booking
+        if booking.status in (Booking.Status.PENDING, Booking.Status.ASSIGNED):
+            still_active = booking.schedules.filter(
+                status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),
+            ).exists()
+            ever_had_worker = BookingAssignment.objects.filter(
+                schedule__booking=booking, status=BookingAssignment.Status.ACCEPTED,
+            ).exists()
+
+            if not still_active and not ever_had_worker:
+                booking.status = Booking.Status.FAILED
+                booking.cancel_reason = 'Không có nhân viên nhận việc trong thời gian yêu cầu.'
+                booking.cancelled_at = now
+                booking.save(update_fields=['status', 'cancel_reason', 'cancelled_at', 'updated_at'])
+
+
 # ---------------------------------------------------------------- queries
 # Không prefetch 'assignments' ở đây: view đã Prefetch có filter ACCEPTED.
 
 def list_available_schedules_for_worker(worker, *, booking_id=None, date_from=None, date_to=None):
     """Buổi làm còn trống, đúng dịch vụ + khu vực của nhân viên, không trùng giờ."""
+    expire_unclaimed_schedules()
+
     profile = _get_worker_profile(worker)
     if profile is None or profile.status != 'ACTIVE' or not profile.registered_service_id:
         return BookingSchedule.objects.none()
@@ -131,9 +187,6 @@ def list_available_schedules_for_worker(worker, *, booking_id=None, date_from=No
     area_keys = _worker_area_keys(worker)
     if not area_keys:
         return BookingSchedule.objects.none()
-    area_q = Q()
-    for key in area_keys:
-        area_q |= Q(booking__address__city__iexact=key)
 
     my_overlapping = BookingSchedule.objects.filter(
         assignments__worker=worker,
@@ -150,21 +203,35 @@ def list_available_schedules_for_worker(worker, *, booking_id=None, date_from=No
             booking__status__in=OPEN_BOOKING_STATUSES,
             booking__service_id=profile.registered_service_id,
         )
-        .filter(area_q)
         .exclude(assignments__status=BookingAssignment.Status.ACCEPTED)
         .exclude(Exists(my_overlapping))
         .select_related('booking', 'booking__service', 'booking__address')
     )
+
     if booking_id:
         queryset = queryset.filter(booking_id=booking_id)
     if date_from:
         queryset = queryset.filter(scheduled_start__date__gte=date_from)
     if date_to:
         queryset = queryset.filter(scheduled_start__date__lte=date_to)
+
+    # DB không tự bỏ tiền tố "Thành phố"/"TP"/"Tỉnh" được nên lọc khu vực
+    # bằng Python sau khi đã lọc các điều kiện khác trên DB (dataset nhỏ
+    # ở quy mô hiện tại, không đáng lo hiệu năng).
+    matched_ids = [
+        s.id for s in queryset
+        if _norm(s.booking.address.city) in area_keys
+    ]
+    queryset = BookingSchedule.objects.filter(id__in=matched_ids).select_related(
+        'booking', 'booking__service', 'booking__address',
+    )
+
     return _annotate_total_sessions(queryset).order_by('scheduled_start')
 
 
 def list_my_schedules(worker, schedule_status=None):
+    expire_unclaimed_schedules()
+
     queryset = BookingSchedule.objects.filter(
         assignments__worker=worker,
         assignments__status=BookingAssignment.Status.ACCEPTED,

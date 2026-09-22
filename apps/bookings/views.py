@@ -1,9 +1,15 @@
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
+
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from apps.common.permissions import IsCustomerRole
+from apps.worker.assignment_service import expire_unclaimed_schedules
+from apps.worker.models import BookingAssignment
+
 from .schemas import (
     BOOKING_CUSTOMER_SCHEMA,
     BOOKING_DETAIL_CUSTOMER_SCHEMA,
@@ -14,8 +20,6 @@ from .serializers import (
     BookingDetailSerializer,
     BookingListSerializer,
 )
-
-from rest_framework.pagination import PageNumberPagination
 
 
 class BookingPagination(PageNumberPagination):
@@ -30,27 +34,55 @@ class BookingListCreateView(generics.GenericAPIView):
     pagination_class = BookingPagination
 
     def get_queryset(self):
-        queryset = Booking.objects.filter(
-            customer=self.request.user,
-        ).select_related('service').order_by('-created_at')
+        expire_unclaimed_schedules()
+
+        queryset = (
+            Booking.objects
+            .filter(
+                customer=self.request.user,
+            )
+            .select_related('service')
+            .order_by('-created_at')
+        )
 
         status_param = self.request.query_params.get('status')
+
         if status_param:
             status_param = status_param.upper()
+
             if status_param not in Booking.Status.values:
-                raise ValidationError({'status': 'Trạng thái đơn hàng không hợp lệ.'})
-            queryset = queryset.filter(status=status_param)
+                raise ValidationError({
+                    'status': 'Trạng thái đơn hàng không hợp lệ.',
+                })
+
+            queryset = queryset.filter(
+                status=status_param,
+            )
 
         return queryset
 
     def get_serializer_class(self):
-        return BookingCreateSerializer if self.request.method == 'POST' else BookingListSerializer
+        if self.request.method == 'POST':
+            return BookingCreateSerializer
+
+        return BookingListSerializer
 
     def get(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
         paginator = self.pagination_class()
-        page = paginator.paginate_queryset(queryset, request, view=self)
-        serialized = BookingListSerializer(page, many=True).data
+
+        page = paginator.paginate_queryset(
+            queryset,
+            request,
+            view=self,
+        )
+
+        serialized = BookingListSerializer(
+            page,
+            many=True,
+        ).data
+
         return Response({
             'message': 'Lấy danh sách đơn hàng thành công.',
             'data': {
@@ -65,13 +97,25 @@ class BookingListCreateView(generics.GenericAPIView):
         })
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        serializer = self.get_serializer(
+            data=request.data,
+        )
+
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
         booking = serializer.save()
-        return Response({
-            'message': 'Đặt dịch vụ thành công.',
-            'data': BookingDetailSerializer(booking).data,
-        }, status=status.HTTP_201_CREATED)
+
+        return Response(
+            {
+                'message': 'Đặt dịch vụ thành công.',
+                'data': BookingDetailSerializer(
+                    booking,
+                ).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @BOOKING_DETAIL_CUSTOMER_SCHEMA
@@ -80,15 +124,42 @@ class BookingDetailView(generics.GenericAPIView):
     serializer_class = BookingDetailSerializer
 
     def get_object(self):
+        expire_unclaimed_schedules()
+
+        accepted_assignments = (
+            BookingAssignment.objects
+            .filter(
+                status=BookingAssignment.Status.ACCEPTED,
+            )
+            .select_related(
+                'worker',
+                'worker__worker_profile',
+            )
+        )
+
         return get_object_or_404(
-            Booking.objects.select_related('service').prefetch_related('schedules'),
-            pk=self.kwargs['pk'],
-            customer=self.request.user,
+            Booking.objects
+            .filter(
+                pk=self.kwargs['pk'],
+                customer=self.request.user,
+            )
+            .select_related('service')
+            .prefetch_related(
+                Prefetch(
+                    'schedules__assignments',
+                    queryset=accepted_assignments,
+                ),
+            ),
         )
 
     def get(self, request, *args, **kwargs):
+        booking = self.get_object()
+
+        serializer = self.get_serializer(
+            booking,
+        )
+
         return Response({
             'message': 'Lấy chi tiết đơn hàng thành công.',
-            'data': self.get_serializer(self.get_object()).data,
+            'data': serializer.data,
         })
-
