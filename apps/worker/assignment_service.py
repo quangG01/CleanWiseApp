@@ -10,6 +10,7 @@ from rest_framework import serializers
 
 from apps.bookings.models import Booking, BookingSchedule
 from apps.notifications.models import Notification
+from apps.chat.service import ensure_chat_for_assignment
 
 from .constants import MIN_CANCEL_HOURS
 from .models import BookingAssignment, WorkerWorkingArea
@@ -281,6 +282,7 @@ def claim_schedule(*, schedule_id, worker):
         responded_at=now, updated_at=now,
     )
     _sync_booking_status_after_claim(booking)
+    ensure_chat_for_assignment(assignment)
     return assignment
 
 
@@ -361,4 +363,5 @@ def admin_assign_worker(*, schedule_id, worker_id, admin_user, note=None):
         status=BookingAssignment.Status.ACCEPTED, assigned_at=now, responded_at=now, response_note=note,
     )
     _sync_booking_status_after_claim(booking)
+    ensure_chat_for_assignment(assignment)
     return assignment

@@ -100,6 +100,8 @@ class BookingWorkerSerializer(serializers.ModelSerializer):
 
 class BookingScheduleSerializer(serializers.ModelSerializer):
     worker = serializers.SerializerMethodField()
+    assignment_id = serializers.SerializerMethodField()
+    conversation_id = serializers.SerializerMethodField()
 
     class Meta:
         model = BookingSchedule
@@ -113,7 +115,23 @@ class BookingScheduleSerializer(serializers.ModelSerializer):
             'status',
             'note',
             'worker',
+            'assignment_id',
+            'conversation_id',
         ]
+
+    def _accepted_assignment(self, obj):
+        return next(iter(obj.assignments.all()), None)
+
+    def get_assignment_id(self, obj):
+        assignment = self._accepted_assignment(obj)
+        return assignment.id if assignment else None
+
+    def get_conversation_id(self, obj):
+        assignment = self._accepted_assignment(obj)
+        if assignment is None:
+            return None
+        link = getattr(assignment, 'chat_link', None)
+        return link.conversation_id if link else None
 
     def get_worker(self, obj):
         """
@@ -125,12 +143,7 @@ class BookingScheduleSerializer(serializers.ModelSerializer):
             - đã có worker -> thông tin worker
         """
 
-        assignments = obj.assignments.all()
-
-        assignment = next(
-            iter(assignments),
-            None,
-        )
+        assignment = self._accepted_assignment(obj)
 
         if not assignment:
             return None

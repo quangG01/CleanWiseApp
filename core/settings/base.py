@@ -13,6 +13,8 @@ FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
 
 # # ============================================= Danh sách Django Apps & Third-party Packages # ============================================= 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
     # Django core apps
     'django.contrib.admin',
     'django.contrib.auth',
@@ -74,7 +76,20 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = 'core.asgi.application'
 AUTH_USER_MODEL = 'authentication.User'
+
+# Redis is required when multiple ASGI processes serve WebSocket clients.
+# The in-memory option is only for local development and tests.
+if os.environ.get('CHAT_USE_IN_MEMORY_LAYER') == '1':
+    CHANNEL_LAYERS = {'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {'hosts': [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')]},
+        },
+    }
 
 # ============================================= Password validation=============================================
 AUTH_PASSWORD_VALIDATORS = [

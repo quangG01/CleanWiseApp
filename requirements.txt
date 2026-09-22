@@ -1,11 +1,14 @@
 asgiref==3.12.1
 attrs==26.1.0
 certifi==2026.7.22
+channels==4.3.2
+channels-redis==4.3.0
 cffi==2.1.1
 charset-normalizer==3.5.1
 cloudinary==1.46.2
 cryptography==50.0.1
 Django==6.1
+daphne==4.2.3
 django-cors-headers==4.9.0
 django-environ==0.14.0
 djangorestframework==3.18.0
