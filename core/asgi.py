@@ -15,6 +15,15 @@ from dotenv import load_dotenv
 
 
 load_dotenv()  # Load environment variables from .env file
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', os.getenv('DJANGO_SETTINGS_MODULE', 'core.settings.prod.py'))
+if not os.environ.get('DJANGO_SETTINGS_MODULE'):
+    raise RuntimeError('Set DJANGO_SETTINGS_MODULE before starting the ASGI server.')
 
-application = get_asgi_application()
+django_asgi_application = get_asgi_application()
+
+from channels.routing import ProtocolTypeRouter, URLRouter
+from apps.chat.routing import websocket_urlpatterns
+
+application = ProtocolTypeRouter({
+    'http': django_asgi_application,
+    'websocket': URLRouter(websocket_urlpatterns),
+})

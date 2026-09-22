@@ -134,6 +134,7 @@ class BookingDetailView(generics.GenericAPIView):
             .select_related(
                 'worker',
                 'worker__worker_profile',
+                'chat_link',
             )
         )
 

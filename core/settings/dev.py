@@ -42,3 +42,10 @@ DATABASES = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
+
+# One local runserver process can deliver chat events without a Redis service.
+# Deployments with REDIS_URL keep the shared channel layer from base settings.
+if not os.environ.get('REDIS_URL'):
+    CHANNEL_LAYERS = {
+        'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
+    }
