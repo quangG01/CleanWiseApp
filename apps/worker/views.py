@@ -10,7 +10,7 @@ from .models import Area, BookingAssignment, WorkerWorkingArea
 
 from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
-from .serializers import WorkerMyScheduleSerializer  # thêm vào import
+from .serializers import WorkerMyScheduleSerializer 
 from apps.bookings.models import BookingSchedule
 
 from .serializers import (
@@ -20,6 +20,7 @@ from .serializers import (
     WorkerScheduleSerializer,
     WorkerWorkingAreaSerializer,
     WorkerWorkingAreaBulkUpdateSerializer,
+    ScheduleImageUploadSerializer
 )
 
 from .schemas import (
@@ -32,6 +33,9 @@ from .schemas import (
     ADMIN_ASSIGN_WORKER_SCHEMA,
 )
 
+from rest_framework.parsers import FormParser, MultiPartParser
+
+from . import checkin_service
 
 # select_related dùng chung: customer_avatar/customer_name/payment_status/
 # service_data/form_schema đều đọc qua booking__customer và booking__service,
@@ -198,3 +202,54 @@ class AdminAssignWorkerView(generics.GenericAPIView):
             note=serializer.validated_data.get('note'),
         )
         return Response({'message': 'Gán nhân viên thành công.', 'data': {'assignment_id': assignment.id}}, status=201)
+
+
+
+class WorkerCheckInView(generics.GenericAPIView):
+    permission_classes = [IsWorkerRole]
+
+    def post(self, request, *args, **kwargs):
+        schedule = checkin_service.check_in(
+            schedule_id=kwargs['schedule_id'],
+            worker=request.user,
+        )
+        return Response({
+            'message': 'Check-in thành công.',
+            'data': WorkerMyScheduleSerializer(schedule).data,
+        })
+
+
+class WorkerCheckOutView(generics.GenericAPIView):
+    permission_classes = [IsWorkerRole]
+
+    def post(self, request, *args, **kwargs):
+        schedule = checkin_service.check_out(
+            schedule_id=kwargs['schedule_id'],
+            worker=request.user,
+        )
+        return Response({
+            'message': 'Check-out thành công.',
+            'data': WorkerMyScheduleSerializer(schedule).data,
+        })
+
+
+class WorkerScheduleImageUploadView(generics.GenericAPIView):
+    permission_classes = [IsWorkerRole]
+    parser_classes = [MultiPartParser, FormParser]
+    serializer_class = ScheduleImageUploadSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        image = checkin_service.upload_schedule_image(
+            schedule_id=kwargs['schedule_id'],
+            worker=request.user,
+            file=serializer.validated_data['image'],
+            image_type=serializer.validated_data['image_type'],
+            note=serializer.validated_data.get('note'),
+        )
+        return Response({
+            'message': 'Tải ảnh thành công.',
+            'data': BookingScheduleImageSerializer(image).data,
+        })

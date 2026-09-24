@@ -21,11 +21,37 @@ from .serializers import (
     BookingListSerializer,
 )
 
+from django.conf import settings
+
+from apps.payments.models import Payment
+from apps.payments.payment_link_service import create_payos_payment_link
+
 
 class BookingPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 50
+
+
+# ĐỔI: gom logic prefetch schedules__assignments ra hàm dùng chung,
+# tránh lặp lại giữa post() và BookingDetailView.get_object() —
+# cả 2 chỗ đều cần prefetch giống hệt nhau trước khi đưa qua
+# BookingDetailSerializer (serializer này gọi obj.assignments.all()
+# 3 lần/schedule qua BookingScheduleSerializer, nếu không prefetch
+# sẽ tạo N+1 query rất chậm khi booking có nhiều buổi, vd. dịch vụ
+# định kỳ 13+ buổi -> 39+ query round-trip tới DB, dễ vượt timeout FE).
+def _accepted_assignments_queryset():
+    return (
+        BookingAssignment.objects
+        .filter(
+            status=BookingAssignment.Status.ACCEPTED,
+        )
+        .select_related(
+            'worker',
+            'worker__worker_profile',
+            'chat_link',
+        )
+    )
 
 
 @BOOKING_CUSTOMER_SCHEMA
@@ -107,6 +133,22 @@ class BookingListCreateView(generics.GenericAPIView):
 
         booking = serializer.save()
 
+        # ĐỔI: prefetch schedules__assignments trước khi serialize.
+        # create_booking() chỉ trả về đối tượng Booking vừa tạo,
+        # chưa prefetch gì -> nếu đưa thẳng vào BookingDetailSerializer
+        # sẽ gây N+1 query như giải thích ở _accepted_assignments_queryset().
+        booking = (
+            Booking.objects
+            .select_related('service', 'address', 'delivery_address')
+            .prefetch_related(
+                Prefetch(
+                    'schedules__assignments',
+                    queryset=_accepted_assignments_queryset(),
+                ),
+            )
+            .get(pk=booking.pk)
+        )
+
         return Response(
             {
                 'message': 'Đặt dịch vụ thành công.',
@@ -126,18 +168,6 @@ class BookingDetailView(generics.GenericAPIView):
     def get_object(self):
         expire_unclaimed_schedules()
 
-        accepted_assignments = (
-            BookingAssignment.objects
-            .filter(
-                status=BookingAssignment.Status.ACCEPTED,
-            )
-            .select_related(
-                'worker',
-                'worker__worker_profile',
-                'chat_link',
-            )
-        )
-
         return get_object_or_404(
             Booking.objects
             .filter(
@@ -148,7 +178,7 @@ class BookingDetailView(generics.GenericAPIView):
             .prefetch_related(
                 Prefetch(
                     'schedules__assignments',
-                    queryset=accepted_assignments,
+                    queryset=_accepted_assignments_queryset(),
                 ),
             ),
         )
@@ -163,4 +193,51 @@ class BookingDetailView(generics.GenericAPIView):
         return Response({
             'message': 'Lấy chi tiết đơn hàng thành công.',
             'data': serializer.data,
+        })
+
+
+from .booking_service import cancel_booking
+from .serializers import BookingCancelSerializer
+
+
+class BookingCancelView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]  # dùng đúng permission class hiện có
+    serializer_class = BookingCancelSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = cancel_booking(
+            booking_id=kwargs['pk'],
+            customer=request.user,
+            reason=serializer.validated_data['reason'],
+        )
+        return Response({
+            'message': 'Hủy đơn thành công.',
+            'data': {'id': booking.id, 'status': booking.status, 'payment_status': booking.payment_status},
+        })
+
+    
+class BookingPaymentLinkView(generics.GenericAPIView):
+    """Tạo (hoặc gọi lại) link/QR payOS cho Payment BANK_TRANSFER đang PENDING của booking."""
+    permission_classes = [IsCustomerRole]
+
+    def post(self, request, *args, **kwargs):
+        payment = get_object_or_404(
+            Payment.objects.select_related('booking'),
+            booking_id=kwargs['pk'],
+            booking__customer=request.user,
+            method=Payment.Method.BANK_TRANSFER,
+            status=Payment.Status.PENDING,
+        )
+
+        link = create_payos_payment_link(
+            payment,
+            return_url=f'{settings.PAYOS_RETURN_URL}?bookingId={payment.booking_id}',
+            cancel_url=f'{settings.PAYOS_CANCEL_URL}?bookingId={payment.booking_id}',
+        )
+
+        return Response({
+            'message': 'Tạo mã QR thanh toán thành công.',
+            'data': link,
         })

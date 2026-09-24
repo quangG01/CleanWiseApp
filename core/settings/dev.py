@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, urlparse
 from .base import *
 
 DEBUG = True
+DEBUG_PROPAGATE_EXCEPTIONS = True 
 ALLOWED_HOSTS = ['*']
 
 
@@ -19,8 +20,14 @@ def build_database_config():
             'PASSWORD': parsed_url.password,
             'HOST': parsed_url.hostname,
             'PORT': parsed_url.port or '5432',
+            'CONN_MAX_AGE': 60,
+            'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'sslmode': query_params.get('sslmode', ['require'])[0],
+                'keepalives': 1,
+                'keepalives_idle': 30,
+                'keepalives_interval': 10,
+                'keepalives_count': 5,
             },
         }
 
@@ -31,8 +38,14 @@ def build_database_config():
         'PASSWORD': os.environ.get('DB_PASSWORD'),
         'HOST': os.environ.get('DB_HOST'),
         'PORT': os.environ.get('DB_PORT', '5432'),
+        'CONN_MAX_AGE': 60,
+        'CONN_HEALTH_CHECKS': True,
         'OPTIONS': {
             'sslmode': os.environ.get('DB_SSLMODE', 'require'),
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5,
         },
     }
 

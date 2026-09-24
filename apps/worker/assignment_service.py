@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Subquery
+from django.db.models import Count, Exists, OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
@@ -11,6 +11,7 @@ from rest_framework import serializers
 from apps.bookings.models import Booking, BookingSchedule
 from apps.notifications.models import Notification
 from apps.chat.service import ensure_chat_for_assignment
+from apps.payments.models import Payment
 
 from .constants import MIN_CANCEL_HOURS
 from .models import BookingAssignment, WorkerWorkingArea
@@ -60,6 +61,15 @@ def _get_claimable_profile(worker):
     if not profile.registered_service_id:
         raise serializers.ValidationError({'profile': 'Bạn chưa chọn dịch vụ đăng ký.'})
     return profile
+
+
+def _has_cash_payment(booking):
+    return Payment.objects.filter(booking=booking, method=Payment.Method.CASH).exists()
+
+
+def _is_bookable(booking):
+    """CASH nhận việc bất cứ lúc nào; BANK_TRANSFER chỉ nhận được sau khi PAID."""
+    return booking.payment_status == Booking.PaymentStatus.PAID or _has_cash_payment(booking)
 
 
 # Bỏ tiền tố hành chính ("Thành phố", "TP", "TP.", "Tỉnh") trước khi so
@@ -168,22 +178,45 @@ def expire_unclaimed_schedules():
             ).exists()
 
             if not still_active and not ever_had_worker:
+                was_paid = booking.payment_status == Booking.PaymentStatus.PAID
                 booking.status = Booking.Status.FAILED
                 booking.cancel_reason = 'Không có nhân viên nhận việc trong thời gian yêu cầu.'
                 booking.cancelled_at = now
-                booking.save(update_fields=['status', 'cancel_reason', 'cancelled_at', 'updated_at'])
+                update_fields = ['status', 'cancel_reason', 'cancelled_at', 'updated_at']
+                if was_paid:
+                    booking.payment_status = Booking.PaymentStatus.REFUNDED
+                    update_fields.append('payment_status')
+                booking.save(update_fields=update_fields)
+
+                if was_paid:
+                    from apps.wallets import wallet_service
+                    wallet_service.credit_wallet(
+                        user=booking.customer,
+                        amount=booking.total_amount,
+                        booking=booking,
+                        note=f'Hoàn tiền do không tìm được nhân viên - {booking.booking_code}',
+                    )
 
 
 # ---------------------------------------------------------------- queries
 # Không prefetch 'assignments' ở đây: view đã Prefetch có filter ACCEPTED.
 
 def list_available_schedules_for_worker(worker, *, booking_id=None, date_from=None, date_to=None):
-    """Buổi làm còn trống, đúng dịch vụ + khu vực của nhân viên, không trùng giờ."""
+    """
+    Buổi làm còn trống, đúng NHÓM dịch vụ (section_code) + khu vực của
+    nhân viên, không trùng giờ.
+
+    So khớp theo `section_code` thay vì `service_id` cụ thể: 1 section
+    (vd HOME_CLEANING) có thể gồm nhiều Service cụ thể (ca lẻ / gói
+    tháng) mà nhân viên đã đăng ký được phép làm tất cả.
+    """
     expire_unclaimed_schedules()
 
     profile = _get_worker_profile(worker)
     if profile is None or profile.status != 'ACTIVE' or not profile.registered_service_id:
         return BookingSchedule.objects.none()
+
+    section_code = profile.registered_service.section_code
 
     area_keys = _worker_area_keys(worker)
     if not area_keys:
@@ -202,11 +235,16 @@ def list_available_schedules_for_worker(worker, *, booking_id=None, date_from=No
             status=BookingSchedule.Status.PENDING,
             scheduled_start__gt=timezone.now(),
             booking__status__in=OPEN_BOOKING_STATUSES,
-            booking__service_id=profile.registered_service_id,
+            booking__service__section_code=section_code,
         )
         .exclude(assignments__status=BookingAssignment.Status.ACCEPTED)
         .exclude(Exists(my_overlapping))
         .select_related('booking', 'booking__service', 'booking__address')
+    )
+
+    cash_payment_subquery = Payment.objects.filter(booking=OuterRef('booking'), method=Payment.Method.CASH)
+    queryset = queryset.annotate(has_cash=Exists(cash_payment_subquery)).filter(
+        Q(booking__payment_status=Booking.PaymentStatus.PAID) | Q(has_cash=True)
     )
 
     if booking_id:
@@ -248,19 +286,27 @@ def list_my_schedules(worker, schedule_status=None):
 def claim_schedule(*, schedule_id, worker):
     profile = _get_claimable_profile(worker)
     schedule = get_object_or_404(
-        BookingSchedule.objects.select_for_update(of=('self',)).select_related('booking', 'booking__address'),
+        BookingSchedule.objects.select_for_update(of=('self',))
+        .select_related('booking', 'booking__address', 'booking__service'),
         pk=schedule_id,
     )
     booking = schedule.booking
 
     if booking.status not in OPEN_BOOKING_STATUSES:
         raise serializers.ValidationError({'schedule': 'Đơn hàng không còn nhận nhân viên.'})
+    if not _is_bookable(booking):
+        raise serializers.ValidationError({'schedule': 'Đơn hàng chưa thanh toán, chưa thể nhận việc.'})
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không còn khả dụng.'})
     if schedule.scheduled_start <= timezone.now():
         raise serializers.ValidationError({'schedule': 'Buổi làm việc đã quá giờ bắt đầu.'})
-    if booking.service_id != profile.registered_service_id:
+
+    # So khớp theo section_code (nhóm dịch vụ) thay vì service_id cụ thể,
+    # để nhân viên đăng ký 1 nhóm (vd "Dọn dẹp nhà") nhận được cả buổi lẻ
+    # lẫn buổi trong gói tháng thuộc cùng nhóm đó.
+    if booking.service.section_code != profile.registered_service.section_code:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không thuộc dịch vụ bạn đã đăng ký.'})
+
     if _norm(booking.address.city) not in _worker_area_keys(worker):
         raise serializers.ValidationError({'schedule': 'Buổi làm việc nằm ngoài khu vực làm việc của bạn.'})
     if BookingAssignment.objects.filter(schedule=schedule, status=BookingAssignment.Status.ACCEPTED).exists():

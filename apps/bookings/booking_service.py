@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.wallets import wallet_service
 from apps.services.models import Service
 from apps.addresses.models import CustomerAddress
 from apps.vouchers.models import UserVoucher
@@ -14,323 +15,167 @@ from apps.payments.models import Payment
 
 from .models import Booking, BookingSchedule
 from .service_data_validation import validate_service_data
+from .schedule_builder import build_schedules
 
+CANCELLABLE_STATUSES = (Booking.Status.PENDING, Booking.Status.ASSIGNED)
 
 PRICE_DRIVEN_KEYS = ('base_prices', 'price_matrix', 'unit_prices')
 TWO_PLACES = Decimal('0.01')
 
 
 def _q(amount):
-    """Làm tròn 2 chữ số thập phân."""
     if amount is None:
         return None
-
-    return Decimal(amount).quantize(
-        TWO_PLACES,
-        rounding=ROUND_HALF_UP,
-    )
+    return Decimal(amount).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
 
 
 def is_computable_pricing(pricing_config):
-    return any(
-        key in (pricing_config or {})
-        for key in PRICE_DRIVEN_KEYS
-    )
+    return any(key in (pricing_config or {}) for key in PRICE_DRIVEN_KEYS)
 
 
-def _find_field_by_option_values(
-    fields,
-    candidate_values,
-    exclude_key=None,
-):
+def _resolve_flat_options(field, service_data):
+    options = field.get('options')
+    if not options:
+        return []
+    if 'when' not in options[0]:
+        return options
+    options_by = field.get('options_by')
+    if not options_by:
+        return []
+    current_value = service_data.get(options_by)
+    for group in options:
+        if group.get('when', {}).get(options_by) == current_value:
+            return group.get('items', [])
+    return []
+
+
+def _find_field_by_option_values(fields, candidate_values, service_data, exclude_key=None):
     for field in fields:
         if field.get('key') == exclude_key:
             continue
-
-        options = field.get('options')
-
-        if not options or 'when' in options[0]:
+        options = _resolve_flat_options(field, service_data)
+        if not options:
             continue
-
-        if any(
-            option.get('value') in candidate_values
-            for option in options
-        ):
+        if any(option.get('value') in candidate_values for option in options):
             return field
-
     return None
 
 
-def get_unit_price_for_item(
-    pricing_config,
-    item_fields,
-    item,
-):
+def get_unit_price_for_item(pricing_config, item_fields, item):
     if not pricing_config.get('unit_prices'):
         return None
-
     node = pricing_config['unit_prices']
-
     for sub in item_fields:
-        # QUANTITY và BOOLEAN không dùng để lookup giá.
         if sub.get('type') in ('QUANTITY', 'BOOLEAN'):
             continue
-
         if not isinstance(node, dict):
             return None
-
         key = sub['key']
         value = item.get(key)
-
         if value is not None and value in node:
             node = node[value]
         else:
             return None
-
     try:
         return Decimal(str(node))
     except (TypeError, ValueError, ArithmeticError):
         return None
 
 
-def get_item_total_price(
-    pricing_config,
-    item_fields,
-    item,
-):
-    unit_price = get_unit_price_for_item(
-        pricing_config,
-        item_fields,
-        item,
-    )
-
+def get_item_total_price(pricing_config, item_fields, item):
+    unit_price = get_unit_price_for_item(pricing_config, item_fields, item)
     if unit_price is None:
         return None
-
     qty = item.get('quantity', 1)
-
     try:
         qty = Decimal(str(qty))
     except (TypeError, ValueError, ArithmeticError):
         return None
-
     total = unit_price * qty
-
     for field in item_fields:
-        if (
-            field.get('type') == 'BOOLEAN'
-            and item.get(field['key'])
-        ):
-            surcharge = pricing_config.get(
-                f"{field['key']}_price"
-            )
-
+        if field.get('type') == 'BOOLEAN' and item.get(field['key']):
+            surcharge = pricing_config.get(f"{field['key']}_price")
             if surcharge is not None:
                 try:
-                    total += (
-                        Decimal(str(surcharge)) * qty
-                    )
-                except (
-                    TypeError,
-                    ValueError,
-                    ArithmeticError,
-                ):
+                    total += (Decimal(str(surcharge)) * qty)
+                except (TypeError, ValueError, ArithmeticError):
                     pass
-
     return _q(total)
 
 
-def calculate_booking_price(
-    service,
-    service_data,
-):
-    """
-    Tính giá booking dựa trên pricing_config của Service.
-
-    Trả về Decimal nếu tính được,
-    None nếu chưa đủ thông tin.
-    """
-
+def calculate_booking_price(service, service_data):
     pricing_config = service.pricing_config or {}
-    fields = (
-        service.form_schema or {}
-    ).get('fields', [])
-
+    fields = (service.form_schema or {}).get('fields', [])
     total = Decimal('0')
     has_base = False
 
     if pricing_config.get('price_matrix'):
         price_matrix = pricing_config['price_matrix']
-
-        outer_field = _find_field_by_option_values(
-            fields,
-            list(price_matrix.keys()),
-        )
-
-        outer_value = (
-            service_data.get(outer_field['key'])
-            if outer_field
-            else None
-        )
-
-        inner_map = (
-            price_matrix.get(outer_value)
-            if outer_value
-            else None
-        )
-
+        outer_field = _find_field_by_option_values(fields, list(price_matrix.keys()), service_data)
+        outer_value = service_data.get(outer_field['key']) if outer_field else None
+        inner_map = price_matrix.get(outer_value) if outer_value else None
         if inner_map:
             inner_field = _find_field_by_option_values(
-                fields,
-                list(inner_map.keys()),
-                exclude_key=(
-                    outer_field['key']
-                    if outer_field
-                    else None
-                ),
+                fields, list(inner_map.keys()), service_data,
+                exclude_key=(outer_field['key'] if outer_field else None),
             )
-
-            inner_value = (
-                service_data.get(inner_field['key'])
-                if inner_field
-                else None
-            )
-
+            inner_value = service_data.get(inner_field['key']) if inner_field else None
             price = inner_map.get(inner_value)
-
             if price is not None:
                 try:
                     total += Decimal(str(price))
                     has_base = True
-                except (
-                    TypeError,
-                    ValueError,
-                    ArithmeticError,
-                ):
+                except (TypeError, ValueError, ArithmeticError):
                     pass
 
     elif pricing_config.get('base_prices'):
         base_prices = pricing_config['base_prices']
-
-        field = _find_field_by_option_values(
-            fields,
-            list(base_prices.keys()),
-        )
-
-        value = (
-            service_data.get(field['key'])
-            if field
-            else None
-        )
-
+        field = _find_field_by_option_values(fields, list(base_prices.keys()), service_data)
+        value = service_data.get(field['key']) if field else None
         price = base_prices.get(value)
-
         if price is not None:
             try:
                 total += Decimal(str(price))
                 has_base = True
-            except (
-                TypeError,
-                ValueError,
-                ArithmeticError,
-            ):
+            except (TypeError, ValueError, ArithmeticError):
                 pass
 
     for key, value in pricing_config.items():
-        if (
-            key.endswith('_surcharge')
-            and isinstance(value, dict)
-        ):
-            field = _find_field_by_option_values(
-                fields,
-                list(value.keys()),
-            )
-
-            selected_value = (
-                service_data.get(field['key'])
-                if field
-                else None
-            )
-
+        if key.endswith('_surcharge') and isinstance(value, dict):
+            field = _find_field_by_option_values(fields, list(value.keys()), service_data)
+            selected_value = service_data.get(field['key']) if field else None
             price = value.get(selected_value)
-
             if price is not None:
                 try:
                     total += Decimal(str(price))
-                except (
-                    TypeError,
-                    ValueError,
-                    ArithmeticError,
-                ):
+                except (TypeError, ValueError, ArithmeticError):
                     pass
 
     if pricing_config.get('additional_services'):
-        additional_services = (
-            pricing_config['additional_services']
-        )
-
-        field = next(
-            (
-                field
-                for field in fields
-                if field.get('type') == 'MULTI_SELECT'
-            ),
-            None,
-        )
-
-        selected = (
-            service_data.get(field['key'], [])
-            if field
-            else []
-        )
-
+        additional_services = pricing_config['additional_services']
+        field = next((f for f in fields if f.get('type') == 'MULTI_SELECT'), None)
+        selected = service_data.get(field['key'], []) if field else []
         for value in selected:
             price = additional_services.get(value)
-
             if price is not None:
                 try:
                     total += Decimal(str(price))
-                except (
-                    TypeError,
-                    ValueError,
-                    ArithmeticError,
-                ):
+                except (TypeError, ValueError, ArithmeticError):
                     pass
 
     if pricing_config.get('unit_prices'):
-        group_field = next(
-            (
-                field
-                for field in fields
-                if field.get('type') == 'REPEATABLE_GROUP'
-            ),
-            None,
-        )
-
+        group_field = next((f for f in fields if f.get('type') == 'REPEATABLE_GROUP'), None)
         if group_field:
             group_key = group_field['key']
-            items = service_data.get(
-                group_key,
-                [],
-            )
-
+            items = service_data.get(group_key, [])
             for item in items:
-                item_total = get_item_total_price(
-                    pricing_config,
-                    group_field.get(
-                        'item_fields',
-                        [],
-                    ),
-                    item,
-                )
-
+                item_total = get_item_total_price(pricing_config, group_field.get('item_fields', []), item)
                 if item_total is not None:
                     total += item_total
                     has_base = True
 
     if not has_base and total == 0:
         return None
-
     return _q(total)
 
 
@@ -340,54 +185,25 @@ def _generate_booking_code():
 
 def _validate_schedules(schedules):
     if not schedules:
-        raise serializers.ValidationError(
-            {
-                'schedules':
-                'Cần ít nhất 1 buổi làm việc.'
-            }
-        )
+        raise serializers.ValidationError({'schedules': 'Cần ít nhất 1 buổi làm việc.'})
 
     now = timezone.now()
 
-    for idx, schedule in enumerate(
-        schedules,
-        start=1,
-    ):
+    for idx, schedule in enumerate(schedules, start=1):
         if schedule['scheduled_start'] <= now:
             raise serializers.ValidationError(
-                {
-                    'schedules':
-                    f'Buổi {idx}: thời gian bắt đầu '
-                    'phải ở tương lai.'
-                }
+                {'schedules': f'Buổi {idx}: thời gian bắt đầu phải ở tương lai.'}
             )
-
-        if (
-            schedule['scheduled_start']
-            >= schedule['scheduled_end']
-        ):
+        if schedule['scheduled_start'] >= schedule['scheduled_end']:
             raise serializers.ValidationError(
-                {
-                    'schedules':
-                    f'Buổi {idx}: giờ bắt đầu '
-                    'phải trước giờ kết thúc.'
-                }
+                {'schedules': f'Buổi {idx}: giờ bắt đầu phải trước giờ kết thúc.'}
             )
 
 
 def _validate_payment_method(payment_method):
-    allowed_methods = {
-        Payment.Method.CASH,
-        Payment.Method.BANK_TRANSFER,
-    }
-
+    allowed_methods = {Payment.Method.CASH, Payment.Method.BANK_TRANSFER}
     if payment_method not in allowed_methods:
-        raise serializers.ValidationError(
-            {
-                'payment_method':
-                'Phương thức thanh toán không hợp lệ.'
-            }
-        )
+        raise serializers.ValidationError({'payment_method': 'Phương thức thanh toán không hợp lệ.'})
 
 
 @transaction.atomic
@@ -396,8 +212,8 @@ def create_booking(
     customer,
     service_id,
     address_id,
+    delivery_address_id=None,
     service_data,
-    schedules,
     note=None,
     voucher_code=None,
     payment_method,
@@ -407,28 +223,57 @@ def create_booking(
 
     Nếu một trong hai thao tác thất bại,
     toàn bộ transaction sẽ rollback.
+
+    Lưu ý: không còn nhận `schedules` từ client — được BE tự sinh
+    bên dưới từ service_data + service.form_schema.schedule_type
+    (xem schedule_builder.py). Lý do: mỗi loại dịch vụ có cấu trúc
+    lịch khác nhau (1 buổi cụ thể / định kỳ theo thứ...), để FE tự
+    tính dễ lệch logic giữa các nơi dùng lại.
+
+    ĐỔI: bỏ select_for_update() trên Service và CustomerAddress —
+    hàm này chỉ ĐỌC 2 bảng này, không ghi/sửa gì lên chúng.
     """
 
     _validate_payment_method(payment_method)
 
     service = get_object_or_404(
-        Service.objects.select_for_update(),
+        Service.objects,
         pk=service_id,
         is_active=True,
     )
 
     address = get_object_or_404(
-        CustomerAddress.objects.select_for_update(),
+        CustomerAddress.objects,
         pk=address_id,
         customer=customer,
         is_active=True,
     )
+
+    address_count = (service.form_schema or {}).get('address_count', 1)
+    delivery_address = None
+
+    if address_count >= 2:
+        if not delivery_address_id:
+            raise serializers.ValidationError(
+                {'delivery_address_id': 'Dịch vụ này cần chọn địa chỉ chuyển đến.'}
+            )
+        delivery_address = get_object_or_404(
+            CustomerAddress.objects,
+            pk=delivery_address_id,
+            customer=customer,
+            is_active=True,
+        )
+    elif delivery_address_id:
+        raise serializers.ValidationError(
+            {'delivery_address_id': 'Dịch vụ này không cần địa chỉ chuyển đến.'}
+        )
 
     validate_service_data(
         service.form_schema,
         service_data,
     )
 
+    schedules = build_schedules(service.form_schema, service_data)
     _validate_schedules(schedules)
 
     subtotal = None
@@ -479,9 +324,6 @@ def create_booking(
         else None
     )
 
-    # Payment.amount bắt buộc > 0.
-    # Vì vậy chưa thể tạo Payment nếu booking
-    # chưa có giá.
     if total is None:
         raise serializers.ValidationError(
             {
@@ -509,12 +351,11 @@ def create_booking(
         user_voucher=user_voucher,
         service_data=service_data,
         address=address,
+        delivery_address=delivery_address,
         note=note,
 
         status=Booking.Status.PENDING,
 
-        # Payment mới tạo ở trạng thái PENDING,
-        # nên Booking vẫn chưa thanh toán.
         payment_status=Booking.PaymentStatus.UNPAID,
 
         subtotal_amount=subtotal,
@@ -538,35 +379,26 @@ def create_booking(
         },
     )
 
-    for idx, schedule in enumerate(
-        schedules,
-        start=1,
-    ):
-        BookingSchedule.objects.create(
+    BookingSchedule.objects.bulk_create([
+        BookingSchedule(
             booking=booking,
             sequence_no=idx,
-            scheduled_start=schedule[
-                'scheduled_start'
-            ],
-            scheduled_end=schedule[
-                'scheduled_end'
-            ],
+            scheduled_start=schedule['scheduled_start'],
+            scheduled_end=schedule['scheduled_end'],
         )
+        for idx, schedule in enumerate(schedules, start=1)
+    ])
 
-    # Tạo Payment ngay khi tạo Booking.
-    #
-    # CASH:
-    #   PENDING -> khách chưa thanh toán tiền mặt.
-    #
-    # BANK_TRANSFER:
-    #   PENDING -> chờ khách chuyển khoản.
     payment = Payment.objects.create(
         customer=customer,
         booking=booking,
         amount=total,
         method=payment_method,
         status=Payment.Status.PENDING,
-    )
+        transaction_code=(
+            booking_code if payment_method == Payment.Method.BANK_TRANSFER else None
+        ),
+    )       
 
     if user_voucher:
         user_voucher.status = UserVoucher.Status.USED
@@ -580,9 +412,55 @@ def create_booking(
             ]
         )
 
-    # Biến này không bắt buộc dùng ngay,
-    # nhưng giữ reference để dễ debug / mở rộng
-    # payment flow sau này.
     _ = payment
+
+    return booking
+
+
+@transaction.atomic
+def cancel_booking(*, booking_id, customer, reason):
+    booking = get_object_or_404(
+        Booking.objects.select_for_update(),
+        pk=booking_id,
+        customer=customer,
+    )
+
+    if booking.status not in CANCELLABLE_STATUSES:
+        raise serializers.ValidationError({'booking': 'Đơn hàng không thể hủy ở trạng thái hiện tại.'})
+
+    if booking.schedules.filter(status=BookingSchedule.Status.IN_PROGRESS).exists():
+        raise serializers.ValidationError({'booking': 'Đơn đang được thực hiện, không thể hủy.'})
+
+    was_paid = booking.payment_status == Booking.PaymentStatus.PAID
+    now = timezone.now()
+
+    booking.status = Booking.Status.CANCELLED
+    booking.cancelled_by = customer
+    booking.cancelled_at = now
+    booking.cancel_reason = reason
+    update_fields = ['status', 'cancelled_by', 'cancelled_at', 'cancel_reason', 'updated_at']
+
+    if was_paid:
+        booking.payment_status = Booking.PaymentStatus.REFUNDED
+        update_fields.append('payment_status')
+
+    booking.save(update_fields=update_fields)
+
+    booking.schedules.exclude(
+        status__in=(BookingSchedule.Status.COMPLETED, BookingSchedule.Status.CANCELLED),
+    ).update(
+        status=BookingSchedule.Status.CANCELLED,
+        cancelled_by=customer,
+        cancelled_at=now,
+        cancel_reason=reason,
+    )
+
+    if was_paid:
+        wallet_service.credit_wallet(
+            user=customer,
+            amount=booking.total_amount,
+            booking=booking,
+            note=f'Hoàn tiền hủy đơn {booking.booking_code}',
+        )
 
     return booking
