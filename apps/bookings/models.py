@@ -28,16 +28,23 @@ class Booking(models.Model):
     )
     service_data = models.JSONField()
     address = models.ForeignKey('addresses.CustomerAddress', on_delete=models.DO_NOTHING, related_name='bookings')
+    delivery_address = models.ForeignKey(
+        'addresses.CustomerAddress',
+        on_delete=models.DO_NOTHING,
+        related_name='delivery_bookings',
+        blank=True,
+        null=True,
+    )
     note = models.TextField(blank=True, null=True)
-    
+
     status = models.CharField(max_length=30, choices=Status.choices, default=Status.PENDING)
     payment_status = models.CharField(max_length=30, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID)
-    
+
     price_breakdown = models.JSONField(blank=True, null=True)
     subtotal_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-    
+
     cancelled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,
@@ -85,7 +92,7 @@ class BookingSchedule(models.Model):
     actual_end = models.DateTimeField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     note = models.TextField(blank=True, null=True)
-    
+
     cancelled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,
@@ -126,7 +133,7 @@ class BookingSchedule(models.Model):
             models.Index(fields=['scheduled_start'], name='bs_scheduled_start_idx'),
             models.Index(fields=['status', 'scheduled_start'], name='bs_status_start_idx'),
         ]
-        ordering = ['seo' if False else 'scheduled_start'] # Giữ nguyên ordering = ['scheduled_start']
+        ordering = ['scheduled_start']
 
     def __str__(self):
         return f"{self.booking} - buổi {self.sequence_no}"
@@ -155,9 +162,9 @@ class BookingScheduleImage(models.Model):
         db_table = 'booking_schedule_images'
         constraints = [
             models.CheckConstraint(
-                competition=models.Q(sort_order__gte=0),
+                condition=models.Q(sort_order__gte=0),
                 name='booking_schedule_images_sort_order_check',
-            ) if hasattr(models.Q, 'sort_order') else models.CheckConstraint(condition=models.Q(sort_order__gte=0), name='booking_schedule_images_sort_order_check')
+            ),
         ]
         ordering = ['schedule_id', 'sort_order', 'created_at', 'id']
 

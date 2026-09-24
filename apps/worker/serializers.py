@@ -168,3 +168,9 @@ class CancelAssignmentSerializer(serializers.Serializer):
 class AdminAssignWorkerSerializer(serializers.Serializer):
     worker_id = serializers.IntegerField()
     note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class ScheduleImageUploadSerializer(serializers.Serializer):
+    image = serializers.ImageField()
+    image_type = serializers.ChoiceField(choices=BookingScheduleImage.ImageType.choices)
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)

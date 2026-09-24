@@ -11,6 +11,12 @@ PASSWORD_RESET_OTP_TTL_MINUTES = int(os.environ.get("PASSWORD_RESET_OTP_TTL_MINU
 PASSWORD_RESET_OTP_MAX_ATTEMPTS = int(os.environ.get("PASSWORD_RESET_OTP_MAX_ATTEMPTS", 5))
 FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
 
+PAYOS_CLIENT_ID = os.environ.get("PAYOS_CLIENT_ID", "")
+PAYOS_API_KEY = os.environ.get("PAYOS_API_KEY", "")
+PAYOS_CHECKSUM_KEY = os.environ.get("PAYOS_CHECKSUM_KEY", "")
+PAYOS_RETURN_URL = os.environ.get("PAYOS_RETURN_URL", "https://cleanwise.vn/payment/return")
+PAYOS_CANCEL_URL = os.environ.get("PAYOS_CANCEL_URL", "https://cleanwise.vn/payment/cancel")
+
 # # ============================================= Danh sách Django Apps & Third-party Packages # ============================================= 
 INSTALLED_APPS = [
     'daphne',
@@ -44,10 +50,11 @@ INSTALLED_APPS = [
     'apps.ai_engine',
     'apps.analytics',
     'apps.common',
+    'apps.wallets',
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Đặt lên trên cùng để xử lý CORS
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

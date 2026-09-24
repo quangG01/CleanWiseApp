@@ -140,15 +140,3 @@ def validate_service_data(form_schema, service_data):
 
     if errors:
         raise serializers.ValidationError({'service_data': errors})
-    """Đối chiếu service_data với form_schema; raise ValidationError nếu sai
-    field nào (giá trị không thuộc option hợp lệ, thiếu field bắt buộc,
-    sai kiểu dữ liệu...). Gọi trước khi tính giá."""
-    if not isinstance(service_data, dict):
-        raise serializers.ValidationError({'service_data': 'Phải là object JSON.'})
-
-    errors = {}
-    for field in (form_schema or {}).get('fields', []):
-        _validate_field(field, service_data.get(field['key']), service_data, field['key'], errors)
-
-    if errors:
-        raise serializers.ValidationError({'service_data': errors})

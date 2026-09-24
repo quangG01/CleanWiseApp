@@ -13,6 +13,12 @@ from .serializers import (
     UserPaymentMethodUpdateSerializer,
 )
 
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from . import webhook_service
+
 
 class CustomerPaymentMethodListCreateView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
@@ -146,3 +152,19 @@ class WorkerPaymentMethodOptionsView(CustomerPaymentMethodOptionsView):
 
 class WorkerBankCatalogView(CustomerBankCatalogView):
     permission_classes = [IsWorkerRole]
+
+
+from payos import WebhookError
+
+
+class PayOSWebhookView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            webhook_data = webhook_service.verify_and_parse_payos_webhook(request.body)
+        except WebhookError:
+            return Response({'success': False, 'message': 'Chữ ký không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment = webhook_service.handle_payos_webhook(webhook_data)
+        return Response({'success': True, 'payment_status': payment.status if payment else None})
