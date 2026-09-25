@@ -6,11 +6,9 @@ from apps.payments.models import Payment
 from apps.worker.models import BookingAssignment, CustomerFavoriteWorker
 
 from .booking_service import create_booking
-from .models import Booking, BookingSchedule
+from .models import Booking, BookingSchedule, BookingScheduleImage  
 
 
-# ĐỔI: xoá BookingScheduleInputSerializer — không còn nhận `schedules` từ
-# client nữa, BE tự sinh lịch từ service_data qua schedule_builder.py.
 
 
 class BookingAddressSerializer(serializers.ModelSerializer):
@@ -135,25 +133,24 @@ class BookingWorkerSerializer(serializers.ModelSerializer):
         return obj.worker_id in getattr(request, cache_name)
 
 
+class BookingScheduleImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingScheduleImage
+        fields = ['id', 'image', 'image_type', 'note', 'created_at']
+
+
 class BookingScheduleSerializer(serializers.ModelSerializer):
     worker = serializers.SerializerMethodField()
     assignment_id = serializers.SerializerMethodField()
     conversation_id = serializers.SerializerMethodField()
+    images = BookingScheduleImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = BookingSchedule
         fields = [
-            'id',
-            'sequence_no',
-            'scheduled_start',
-            'scheduled_end',
-            'actual_start',
-            'actual_end',
-            'status',
-            'note',
-            'worker',
-            'assignment_id',
-            'conversation_id',
+            'id', 'sequence_no', 'scheduled_start', 'scheduled_end',
+            'actual_start', 'actual_end', 'status', 'note', 'worker',
+            'assignment_id', 'conversation_id', 'images',  # ← thêm
         ]
 
     def _accepted_assignment(self, obj):

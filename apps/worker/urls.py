@@ -5,18 +5,22 @@ from .views import (
     WorkerAvailableScheduleListView,
     WorkerCancelAssignmentView,
     WorkerClaimScheduleView,
+    WorkerClaimBookingPackageView,
     WorkerMyScheduleListView,
     WorkerWorkingAreaView,
     WorkerCheckInView,
     WorkerCheckOutView,
-    WorkerScheduleImageUploadView
+    WorkerScheduleImageUploadView,
+    WorkerBookingScheduleListView,
 )
 
 
 urlpatterns = [
     path('schedules/available/', WorkerAvailableScheduleListView.as_view(), name='worker-schedule-available'),
     path('schedules/my-schedules/', WorkerMyScheduleListView.as_view(), name='worker-schedule-my'),
+    path('bookings/<int:booking_id>/schedules/', WorkerBookingScheduleListView.as_view(), name='worker-booking-schedules'),  # THÊM DÒNG NÀY
     path('schedules/<int:schedule_id>/claim/', WorkerClaimScheduleView.as_view(), name='worker-schedule-claim'),
+    path('bookings/<int:booking_id>/claim/', WorkerClaimBookingPackageView.as_view(), name='worker-booking-claim-package'),
     path('assignments/<int:assignment_id>/cancel/', WorkerCancelAssignmentView.as_view(), name='worker-assignment-cancel'),
     path('areas/', WorkerActiveAreaListView.as_view(), name='worker-active-area-list'),
     path('working-areas/', WorkerWorkingAreaView.as_view(), name='worker-working-area'),

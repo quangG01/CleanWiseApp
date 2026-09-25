@@ -9,6 +9,7 @@ from apps.notifications.models import Notification
 from apps.vouchers.voucher_service import mark_user_voucher_used
 
 from .models import BookingAssignment
+from .assignment_service import OPEN_BOOKING_STATUSES
 from apps.wallets import earning_service
 
 
@@ -34,7 +35,17 @@ def check_in(*, schedule_id, worker):
 
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không ở trạng thái chờ thực hiện.'})
-    if booking.status not in (Booking.Status.ASSIGNED, Booking.Status.IN_PROGRESS):
+
+    # SỬA: trước đây yêu cầu booking.status phải là ASSIGNED, nghĩa là TOÀN
+    # BỘ buổi của booking phải có người nhận (_sync_booking_status_after_claim
+    # chỉ chuyển ASSIGNED khi accepted >= total). Với gói định kỳ nhiều buổi,
+    # worker thường chỉ nhận một phần -> booking.status kẹt mãi ở PENDING,
+    # khiến check-in KHÔNG BAO GIỜ thành công dù buổi hôm nay đã ACCEPTED.
+    # Chỉ cần buổi NÀY đã được nhận (đã đảm bảo ở _get_my_accepted_schedule)
+    # và đơn còn đang "sống" (chưa hủy/thất bại/hoàn thành) là đủ điều kiện
+    # bắt đầu, khớp với comment thiết kế ở assignment_service.py: "Gói
+    # tháng: booking có thể đã IN_PROGRESS mà buổi sau vẫn trống."
+    if booking.status not in OPEN_BOOKING_STATUSES:
         raise serializers.ValidationError({'schedule': 'Đơn hàng không ở trạng thái có thể bắt đầu.'})
 
     now = timezone.now()
@@ -42,7 +53,10 @@ def check_in(*, schedule_id, worker):
     schedule.status = BookingSchedule.Status.IN_PROGRESS
     schedule.save(update_fields=['actual_start', 'status', 'updated_at'])
 
-    if booking.status == Booking.Status.ASSIGNED:
+    # SỬA: cho phép chuyển PENDING -> IN_PROGRESS luôn (không chỉ từ
+    # ASSIGNED), vì với gói định kỳ booking có thể vẫn đang PENDING (do
+    # chưa nhận hết buổi) ngay cả khi buổi đầu tiên đã bắt đầu làm.
+    if booking.status in (Booking.Status.PENDING, Booking.Status.ASSIGNED):
         booking.status = Booking.Status.IN_PROGRESS
         booking.save(update_fields=['status', 'updated_at'])
 
@@ -83,7 +97,7 @@ def check_out(*, schedule_id, worker):
         booking.save(update_fields=['status', 'updated_at'])
 
     earning_service.record_schedule_earning(schedule=schedule, booking=booking, worker=worker)
-    
+
     Notification.objects.create(
         user=booking.customer,
         title='Dịch vụ đã hoàn thành',

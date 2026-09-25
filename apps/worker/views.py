@@ -16,10 +16,13 @@ from .models import Area, BookingAssignment, WorkerWorkingArea
 from .serializers import (
     AdminAssignWorkerSerializer,
     AreaSummarySerializer,
+    BookingScheduleImageSerializer,
     CancelAssignmentSerializer,
+    ClaimBookingPackageSerializer,
     CustomerWorkerProfileSerializer,
     FavoriteWorkerSerializer,
     ScheduleImageUploadSerializer,
+    WorkerBookingScheduleSerializer,
     WorkerMyScheduleSerializer,
     WorkerScheduleSerializer,
     WorkerWorkingAreaBulkUpdateSerializer,
@@ -32,6 +35,7 @@ from .schemas import (
     WORKER_AVAILABLE_SCHEDULE_SCHEMA,
     WORKER_MY_SCHEDULE_SCHEMA,
     WORKER_CLAIM_SCHEDULE_SCHEMA,
+    WORKER_CLAIM_BOOKING_PACKAGE_SCHEMA,
     WORKER_CANCEL_ASSIGNMENT_SCHEMA,
     ADMIN_ASSIGN_WORKER_SCHEMA,
     CUSTOMER_FAVORITE_WORKER_DETAIL_SCHEMA,
@@ -146,6 +150,49 @@ def _parse_date_param(request, name):
     return parsed
 
 
+def _parse_booking_id_param(request):
+    raw = request.query_params.get('booking_id')
+    if not raw:
+        return None
+    if not raw.isdigit():
+        raise ValidationError({'booking_id': 'booking_id phải là số nguyên.'})
+    return int(raw)
+
+
+class WorkerSchedulePagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
+def _paginate_or_full(request, view, queryset, serializer_class, booking_id, message):
+    """
+    booking_id có giá trị -> đang xem chi tiết 1 gói (màn chọn buổi để
+    claim), FE cần thấy TOÀN BỘ buổi cùng lúc để tick chọn, không phân
+    trang. Không có booking_id -> danh sách chính, phân trang để tránh
+    tải hết mọi buổi (gói tháng có thể 20-30 buổi) trong 1 lần.
+    """
+    if booking_id:
+        serializer = serializer_class(queryset, many=True)
+        return Response({'message': message, 'data': serializer.data})
+
+    paginator = WorkerSchedulePagination()
+    page = paginator.paginate_queryset(queryset, request, view=view)
+    serializer = serializer_class(page, many=True)
+    return Response({
+        'message': message,
+        'data': {
+            'results': serializer.data,
+            'count': paginator.page.paginator.count,
+            'page': paginator.page.number,
+            'total_pages': paginator.page.paginator.num_pages,
+            'has_next': paginator.page.has_next(),
+            'has_previous': paginator.page.has_previous(),
+            'page_size': paginator.get_page_size(request),
+        },
+    })
+
+
 @WORKER_ACTIVE_AREA_SCHEMA
 class WorkerActiveAreaListView(generics.ListAPIView):
     permission_classes = [IsWorkerRole]
@@ -193,19 +240,18 @@ class WorkerAvailableScheduleListView(generics.GenericAPIView):
     serializer_class = WorkerScheduleSerializer
 
     def get(self, request, *args, **kwargs):
-        booking_id = request.query_params.get('booking_id')
-        if booking_id and not booking_id.isdigit():
-            raise ValidationError({'booking_id': 'booking_id phải là số nguyên.'})
+        booking_id = _parse_booking_id_param(request)
         queryset = _prefetch_assignments(assignment_service.list_available_schedules_for_worker(
             request.user,
-            booking_id=int(booking_id) if booking_id else None,
+            booking_id=booking_id,
             date_from=_parse_date_param(request, 'date_from'),
             date_to=_parse_date_param(request, 'date_to'),
+            group_by_booking=request.query_params.get('group_by') == 'booking',
         ))
-        return Response({
-            'message': 'Lấy danh sách buổi làm việc khả dụng thành công.',
-            'data': self.get_serializer(queryset, many=True).data,
-        })
+        return _paginate_or_full(
+            request, self, queryset, self.get_serializer_class(), booking_id,
+            'Lấy danh sách buổi làm việc khả dụng thành công.',
+        )
 
 @WORKER_MY_SCHEDULE_SCHEMA
 class WorkerMyScheduleListView(generics.GenericAPIView):
@@ -218,13 +264,37 @@ class WorkerMyScheduleListView(generics.GenericAPIView):
             schedule_status = schedule_status.upper()
             if schedule_status not in BookingSchedule.Status.values:
                 raise ValidationError({'status': 'Trạng thái buổi làm không hợp lệ.'})
+
+        booking_id = _parse_booking_id_param(request)
+
         queryset = _prefetch_assignments(
-            assignment_service.list_my_schedules(request.user, schedule_status=schedule_status),
+            assignment_service.list_my_schedules(
+                request.user, schedule_status=schedule_status, booking_id=booking_id,
+            ),
             with_images=True,
         )
+        return _paginate_or_full(
+            request, self, queryset, self.get_serializer_class(), booking_id,
+            'Lấy danh sách buổi làm việc của tôi thành công.',
+        )
+
+
+
+class WorkerBookingScheduleListView(generics.GenericAPIView):
+    """Toàn bộ buổi của 1 gói, kèm claim_state — cho màn chi tiết gói."""
+    permission_classes = [IsWorkerRole]
+    serializer_class = WorkerBookingScheduleSerializer
+
+    def get(self, request, *args, **kwargs):
+        queryset = _prefetch_assignments(
+            assignment_service.list_booking_schedules_for_worker(
+                request.user, booking_id=kwargs['booking_id'],
+            ),
+        )
+        serializer = self.get_serializer(queryset, many=True)
         return Response({
-            'message': 'Lấy danh sách buổi làm việc của tôi thành công.',
-            'data': self.get_serializer(queryset, many=True).data,
+            'message': 'Lấy danh sách buổi làm việc của gói thành công.',
+            'data': serializer.data,
         })
 
 
@@ -239,6 +309,62 @@ class WorkerClaimScheduleView(APIView):
                 'assignment_id': assignment.id,
                 'schedule_id': assignment.schedule_id,
                 'status': assignment.status,
+            },
+        }, status=201)
+
+
+@WORKER_CLAIM_BOOKING_PACKAGE_SCHEMA
+class WorkerClaimBookingPackageView(generics.GenericAPIView):
+    """
+    Nhận buổi trong 1 booking (đơn định kỳ nhiều buổi).
+
+    Body rỗng hoặc không có `schedule_ids` -> nhận TOÀN BỘ buổi PENDING
+    còn trống của đơn (hành vi cũ).
+    Body có `schedule_ids: [id, ...]` -> chỉ nhận đúng các buổi đó, cho
+    phép nhân viên nhận 1 buổi hoặc 1 phần buổi trong gói.
+
+    Buổi nào trùng khung giờ với buổi khác của chính nhân viên (kể cả
+    buổi vừa nhận trong cùng request) sẽ bị bỏ qua (skipped) kèm lý do,
+    không làm fail toàn bộ request — FE dùng đó để báo cho nhân viên biết
+    vì sao không nhận được buổi đó.
+    """
+    permission_classes = [IsWorkerRole]
+    serializer_class = ClaimBookingPackageSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        schedule_ids = serializer.validated_data.get('schedule_ids')  # None = nhận toàn bộ
+
+        result = assignment_service.claim_booking_package(
+            booking_id=kwargs['booking_id'], worker=request.user, schedule_ids=schedule_ids,
+        )
+        claimed, skipped = result['claimed'], result['skipped']
+
+        # ĐỔI: tạo chat SAU KHI transaction claim đã commit xong (nằm
+        # ngoài assignment_service.claim_booking_package), để phần ghi DB
+        # cốt lõi trả lời nhanh nhất có thể — giảm khả năng client bị
+        # ERR_NETWORK giữa lúc server vẫn đang xử lý. Lỗi tạo chat (nếu
+        # có) không được để làm hỏng response nhận việc, vì buổi đã claim
+        # thành công rồi, không nên rollback hay báo lỗi oan cho worker.
+        from apps.chat.service import ensure_chat_for_assignment
+        for assignment in claimed:
+            try:
+                ensure_chat_for_assignment(assignment)
+            except Exception:
+                pass
+
+        message = f'Đã nhận {len(claimed)} buổi.'
+        if skipped:
+            message += f' Bỏ qua {len(skipped)} buổi (đã có người nhận, trùng lịch, hoặc không hợp lệ).'
+        return Response({
+            'message': message,
+            'data': {
+                'claimed': [
+                    {'assignment_id': a.id, 'schedule_id': a.schedule_id}
+                    for a in claimed
+                ],
+                'skipped': skipped,
             },
         }, status=201)
 

@@ -133,10 +133,6 @@ class BookingListCreateView(generics.GenericAPIView):
 
         booking = serializer.save()
 
-        # ĐỔI: prefetch schedules__assignments trước khi serialize.
-        # create_booking() chỉ trả về đối tượng Booking vừa tạo,
-        # chưa prefetch gì -> nếu đưa thẳng vào BookingDetailSerializer
-        # sẽ gây N+1 query như giải thích ở _accepted_assignments_queryset().
         booking = (
             Booking.objects
             .select_related('service', 'address', 'delivery_address')
@@ -145,6 +141,7 @@ class BookingListCreateView(generics.GenericAPIView):
                     'schedules__assignments',
                     queryset=_accepted_assignments_queryset(),
                 ),
+                'schedules__images',
             )
             .get(pk=booking.pk)
         )
@@ -180,6 +177,7 @@ class BookingDetailView(generics.GenericAPIView):
                     'schedules__assignments',
                     queryset=_accepted_assignments_queryset(),
                 ),
+                'schedules__images',
             ),
         )
 
