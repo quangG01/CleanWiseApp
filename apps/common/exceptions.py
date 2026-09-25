@@ -1,9 +1,13 @@
+import logging
+
 from rest_framework.views import exception_handler
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import Http404
 from django.core.exceptions import PermissionDenied, ValidationError as DjangoValidationError
 from datetime import datetime
+
+logger = logging.getLogger("apps.common.exceptions")
 
 
 def custom_exception_handler(exc, context):
@@ -48,6 +52,23 @@ def custom_exception_handler(exc, context):
         return Response(custom_data, status=response.status_code)
 
     # 3. Xử lý Unhandled Exceptions / Crash Server (Mã 500)
+    # QUAN TRỌNG: response=None nghĩa là DRF's exception_handler không
+    # nhận diện được exc (không phải APIException) -> đây chính xác là
+    # nhánh chạy khi có bug thật trong code (AttributeError, KeyError,
+    # DoesNotExist không bắt, lỗi DB...). Trước đây nhánh này chỉ trả
+    # response chung chung mà KHÔNG log gì cả -> traceback bị nuốt mất,
+    # không cách nào biết lỗi gì dù có cấu hình LOGGING ở settings.
+    # logger.exception() tự động đính kèm traceback đầy đủ vào log.
+    request = context.get("request")
+    view = context.get("view")
+    logger.exception(
+        "Unhandled exception tại %s %s (view=%s): %s",
+        getattr(request, "method", "?"),
+        getattr(request, "path", "?"),
+        view.__class__.__name__ if view else "?",
+        exc,
+    )
+
     return Response(
         {
             "success": False,

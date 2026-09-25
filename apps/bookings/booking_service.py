@@ -104,6 +104,13 @@ def get_item_total_price(pricing_config, item_fields, item):
 
 
 def calculate_booking_price(service, service_data):
+    """
+    Trả về:
+    - Nếu pricing_config.pricing_unit == 'PER_SESSION': giá của MỘT buổi
+      (base_prices[duration] + additional_services đã chọn). Việc nhân
+      với số buổi và trừ % giảm gói được xử lý riêng ở create_booking().
+    - Ngược lại: tổng giá trọn gói như trước (price_matrix / unit_prices...).
+    """
     pricing_config = service.pricing_config or {}
     fields = (service.form_schema or {}).get('fields', [])
     total = Decimal('0')
@@ -179,6 +186,32 @@ def calculate_booking_price(service, service_data):
     return _q(total)
 
 
+def get_package_discount_percent(service, service_data):
+    """
+    % giảm theo thời hạn gói, đọc từ pricing_config.package_discount_percent
+    (key khớp option value của field package_duration, vd "2_MONTHS": 5).
+
+    Chỉ áp dụng cho dịch vụ pricing_unit == 'PER_SESSION'. Dịch vụ không
+    khai báo package_discount_percent, hoặc không match được field/giá trị
+    -> trả về 0% (không giảm), không raise lỗi.
+    """
+    pricing_config = service.pricing_config or {}
+    discount_map = pricing_config.get('package_discount_percent')
+    if not discount_map:
+        return Decimal('0')
+
+    fields = (service.form_schema or {}).get('fields', [])
+    field = _find_field_by_option_values(fields, list(discount_map.keys()), service_data)
+    value = service_data.get(field['key']) if field else None
+    percent = discount_map.get(value)
+    if percent is None:
+        return Decimal('0')
+    try:
+        return Decimal(str(percent))
+    except (TypeError, ValueError, ArithmeticError):
+        return Decimal('0')
+
+
 def _generate_booking_code():
     return f"CW-{uuid.uuid4().hex[:10].upper()}"
 
@@ -232,6 +265,20 @@ def create_booking(
 
     ĐỔI: bỏ select_for_update() trên Service và CustomerAddress —
     hàm này chỉ ĐỌC 2 bảng này, không ghi/sửa gì lên chúng.
+
+    ĐỔI: dịch vụ pricing_unit == 'PER_SESSION' (dọn dẹp định kỳ) tính giá
+    = unit_price (giá 1 buổi) × sessions_count × (1 - package_discount_percent/100),
+    thay vì trước đây dùng price_matrix cố định theo package_duration mà
+    không phụ thuộc số ngày/tuần khách chọn (lỗ hổng giá đã sửa).
+
+    ĐỔI: price_breakdown['unit_price'] giờ lưu giá/buổi ĐÃ TRỪ
+    package_discount_percent (= subtotal / sessions_count), không còn là
+    giá gốc trước giảm. Lý do: giảm giá gói (cam kết dài hạn) là mức giá
+    thật của buổi làm, worker cùng chịu — khác với voucher (ưu đãi riêng
+    cho khách, app gánh, không trừ vào lương worker vì unit_price tính từ
+    subtotal chứ không phải total_amount). Giá trị này chốt 1 lần lúc tạo
+    booking nên không đổi khi khách hủy bớt buổi khác trong gói. Giá gốc
+    trước giảm được lưu riêng ở 'base_unit_price' để tham khảo/đối soát.
     """
 
     _validate_payment_method(payment_method)
@@ -276,17 +323,19 @@ def create_booking(
     schedules = build_schedules(service.form_schema, service_data)
     _validate_schedules(schedules)
 
+    pricing_config = service.pricing_config or {}
+    per_session = pricing_config.get('pricing_unit') == 'PER_SESSION'
+    sessions_count = len(schedules)
+
     subtotal = None
+    unit_price = None
+    effective_unit_price = None
+    package_discount_percent = Decimal('0')
 
-    if is_computable_pricing(
-        service.pricing_config
-    ):
-        subtotal = calculate_booking_price(
-            service,
-            service_data,
-        )
+    if is_computable_pricing(pricing_config):
+        computed = calculate_booking_price(service, service_data)
 
-        if subtotal is None:
+        if computed is None:
             raise serializers.ValidationError(
                 {
                     'service_data':
@@ -294,6 +343,25 @@ def create_booking(
                     'dịch vụ.'
                 }
             )
+
+        if per_session:
+            # computed = giá gốc 1 buổi (base_prices[duration] + additional_services),
+            # CHƯA trừ giảm giá gói — chỉ dùng để tính subtotal, KHÔNG dùng
+            # để trả lương worker.
+            unit_price = computed
+            package_discount_percent = get_package_discount_percent(service, service_data)
+            gross_subtotal = unit_price * sessions_count
+            subtotal = _q(
+                gross_subtotal * (Decimal('1') - package_discount_percent / Decimal('100'))
+            )
+            # Giá/buổi THẬT SỰ dùng để trả worker: đã trừ giảm giá gói,
+            # chia đều trên subtotal (không dùng total vì total còn trừ
+            # thêm voucher, voucher app gánh riêng, worker không chịu).
+            effective_unit_price = (
+                _q(subtotal / sessions_count) if sessions_count else unit_price
+            )
+        else:
+            subtotal = computed
 
     discount = Decimal('0')
     user_voucher = None
@@ -363,6 +431,14 @@ def create_booking(
         total_amount=total,
 
         price_breakdown={
+            'unit_price': (
+                str(effective_unit_price)
+                if effective_unit_price is not None
+                else (str(unit_price) if unit_price is not None else None)
+            ),
+            'base_unit_price': str(unit_price) if unit_price is not None else None,
+            'sessions_count': sessions_count,
+            'package_discount_percent': str(package_discount_percent),
             'subtotal_amount': (
                 str(subtotal)
                 if subtotal is not None

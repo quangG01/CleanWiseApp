@@ -1,6 +1,6 @@
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers
-from .serializers import CancelAssignmentSerializer, WorkerScheduleSerializer, WorkerMyScheduleSerializer
+from .serializers import CancelAssignmentSerializer, ClaimBookingPackageSerializer, WorkerScheduleSerializer, WorkerMyScheduleSerializer
 from .constants import  MIN_CANCEL_HOURS
 
 _RESULT = inline_serializer(name='WorkerAssignmentResult', fields={
@@ -9,6 +9,20 @@ _RESULT = inline_serializer(name='WorkerAssignmentResult', fields={
         'assignment_id': serializers.IntegerField(),
         'schedule_id': serializers.IntegerField(),
         'status': serializers.CharField(),
+    }),
+})
+
+_CLAIM_PACKAGE_RESULT = inline_serializer(name='WorkerClaimBookingPackageResult', fields={
+    'message': serializers.CharField(),
+    'data': inline_serializer(name='WorkerClaimBookingPackageResultData', fields={
+        'claimed': inline_serializer(name='WorkerClaimBookingPackageClaimedItem', fields={
+            'assignment_id': serializers.IntegerField(),
+            'schedule_id': serializers.IntegerField(),
+        }, many=True),
+        'skipped': inline_serializer(name='WorkerClaimBookingPackageSkippedItem', fields={
+            'schedule_id': serializers.IntegerField(),
+            'reason': serializers.CharField(),
+        }, many=True),
     }),
 })
 
@@ -51,12 +65,16 @@ WORKER_AVAILABLE_SCHEDULE_SCHEMA = extend_schema_view(
         description=(
             'Buổi còn trống thuộc dịch vụ nhân viên đã đăng ký, nằm trong khu vực làm việc, chưa bắt đầu '
             'và không trùng giờ với việc đã nhận. Hồ sơ phải ACTIVE. Các buổi cùng booking_id thuộc cùng 1 đơn '
-            '(gói tháng), total_sessions là tổng số buổi chưa hủy của đơn.'
+            '(gói tháng), total_sessions là tổng số buổi chưa hủy của đơn.\n\n'
+            'Mặc định phân trang (20 buổi/trang). Khi truyền booking_id, trả về TOÀN BỘ buổi của đơn đó '
+            '(không phân trang) — dùng cho màn chi tiết gói để chọn từng buổi.'
         ),
         parameters=[
-            OpenApiParameter('booking_id', int, description='Chỉ lấy các buổi của 1 đơn'),
+            OpenApiParameter('booking_id', int, description='Chỉ lấy các buổi của 1 đơn — khi có, trả full list không phân trang'),
             OpenApiParameter('date_from', str, description='YYYY-MM-DD'),
             OpenApiParameter('date_to', str, description='YYYY-MM-DD'),
+            OpenApiParameter('page', int, description='Số trang (bỏ qua nếu có booking_id)'),
+            OpenApiParameter('page_size', int, description='Số buổi/trang, tối đa 50 (bỏ qua nếu có booking_id)'),
         ],
         responses={200: WorkerScheduleSerializer(many=True)},
         tags=['Worker - Schedules'],
@@ -67,11 +85,20 @@ WORKER_MY_SCHEDULE_SCHEMA = extend_schema_view(
     get=extend_schema(
         operation_id='worker_my_schedule_list',
         summary='Danh sách buổi làm việc của tôi',
-        description='Các buổi đã nhận (kèm địa chỉ chi tiết, SĐT khách, can_cancel, cancel_deadline).',
-        parameters=[OpenApiParameter(
-            'status', str,
-            enum=['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'MISSED'],
-        )],
+        description=(
+            'Các buổi đã nhận (kèm địa chỉ chi tiết, SĐT khách, can_cancel, cancel_deadline).\n\n'
+            'Mặc định phân trang (20 buổi/trang). Khi truyền booking_id, trả về TOÀN BỘ buổi của đơn đó '
+            '(không phân trang) — dùng cho màn xem các buổi đã nhận trong 1 gói.'
+        ),
+        parameters=[
+            OpenApiParameter(
+                'status', str,
+                enum=['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'MISSED'],
+            ),
+            OpenApiParameter('booking_id', int, description='Chỉ lấy các buổi của 1 đơn — khi có, trả full list không phân trang'),
+            OpenApiParameter('page', int, description='Số trang (bỏ qua nếu có booking_id)'),
+            OpenApiParameter('page_size', int, description='Số buổi/trang, tối đa 50 (bỏ qua nếu có booking_id)'),
+        ],
         responses={200: WorkerMyScheduleSerializer(many=True)},
         tags=['Worker - Schedules'],
     )
@@ -87,6 +114,26 @@ WORKER_CLAIM_SCHEDULE_SCHEMA = extend_schema_view(
         ),
         request=None,
         responses={201: _RESULT},
+        tags=['Worker - Assignments'],
+    )
+)
+
+WORKER_CLAIM_BOOKING_PACKAGE_SCHEMA = extend_schema_view(
+    post=extend_schema(
+        operation_id='worker_claim_booking_package',
+        summary='Nhận buổi trong gói (1 buổi / 1 phần / toàn bộ)',
+        description=(
+            'Nhận buổi thuộc 1 booking (đơn định kỳ nhiều buổi).\n\n'
+            '- Không truyền `schedule_ids` (hoặc bỏ trống body): nhận TOÀN BỘ buổi PENDING còn trống của đơn.\n'
+            '- Truyền `schedule_ids`: chỉ nhận đúng các buổi đó — dùng để nhận 1 buổi hoặc 1 phần buổi trong gói.\n\n'
+            'Điều kiện ở mức đơn: hồ sơ ACTIVE, đúng dịch vụ, đơn đã thanh toán/CASH, trong khu vực làm việc. '
+            'Buổi nào không hợp lệ (không thuộc đơn, không còn PENDING, đã qua giờ), đã có người nhận, hoặc '
+            'trùng giờ với buổi khác của bạn (kể cả buổi vừa nhận trong cùng request) sẽ bị bỏ qua (skipped) '
+            'kèm lý do cụ thể để FE báo cho nhân viên, không làm fail toàn bộ request. '
+            'Nếu không nhận được buổi nào thì mới trả lỗi.'
+        ),
+        request=ClaimBookingPackageSerializer,
+        responses={201: _CLAIM_PACKAGE_RESULT},
         tags=['Worker - Assignments'],
     )
 )
