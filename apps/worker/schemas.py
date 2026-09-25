@@ -1,7 +1,20 @@
-from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
 from rest_framework import serializers
-from .serializers import CancelAssignmentSerializer, WorkerScheduleSerializer, WorkerMyScheduleSerializer
-from .constants import  MIN_CANCEL_HOURS
+
+from .constants import MIN_CANCEL_HOURS
+from .serializers import (
+    CancelAssignmentSerializer,
+    CustomerWorkerProfileSerializer,
+    FavoriteWorkerSerializer,
+    WorkerMyScheduleSerializer,
+    WorkerScheduleSerializer,
+)
 
 _RESULT = inline_serializer(name='WorkerAssignmentResult', fields={
     'message': serializers.CharField(),
@@ -11,6 +24,49 @@ _RESULT = inline_serializer(name='WorkerAssignmentResult', fields={
         'status': serializers.CharField(),
     }),
 })
+
+
+CUSTOMER_WORKER_PROFILE_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        operation_id='customer_worker_profile_retrieve',
+        summary='Hồ sơ công khai của nhân viên',
+        description='Chỉ xem được nhân viên đang hoạt động đã được phân công cho đơn của khách hàng.',
+        responses={200: CustomerWorkerProfileSerializer},
+        tags=['Customer - Favorite Workers'],
+    ),
+)
+
+CUSTOMER_FAVORITE_WORKER_LIST_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        operation_id='customer_favorite_worker_list',
+        summary='Danh sách nhân viên yêu thích',
+        responses={200: FavoriteWorkerSerializer(many=True)},
+        tags=['Customer - Favorite Workers'],
+    ),
+)
+
+CUSTOMER_FAVORITE_WORKER_DETAIL_SCHEMA = extend_schema_view(
+    put=extend_schema(
+        operation_id='customer_favorite_worker_add',
+        summary='Thêm nhân viên vào danh sách yêu thích',
+        description='Thao tác idempotent; gọi lại không tạo bản ghi trùng.',
+        request=None,
+        responses={200: FavoriteWorkerSerializer, 201: FavoriteWorkerSerializer},
+        tags=['Customer - Favorite Workers'],
+    ),
+    delete=extend_schema(
+        operation_id='customer_favorite_worker_remove',
+        summary='Bỏ yêu thích nhân viên',
+        description='Xóa cứng quan hệ yêu thích. Thao tác idempotent.',
+        request=None,
+        responses={
+            204: OpenApiResponse(
+                description='Đã bỏ yêu thích hoặc bản ghi không còn tồn tại.',
+            ),
+        },
+        tags=['Customer - Favorite Workers'],
+    ),
+)
 
 # --- NHÓM WORKER - AREAS & WORKING AREAS ---
 

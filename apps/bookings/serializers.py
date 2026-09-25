@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from apps.addresses.models import CustomerAddress
 from apps.payments.models import Payment
-from apps.worker.models import BookingAssignment
+from apps.worker.models import BookingAssignment, CustomerFavoriteWorker
 
 from .booking_service import create_booking
 from .models import Booking, BookingSchedule
@@ -85,6 +85,7 @@ class BookingWorkerSerializer(serializers.ModelSerializer):
         source='worker.worker_profile.total_completed_jobs',
         read_only=True,
     )
+    is_favorite = serializers.SerializerMethodField()
 
     class Meta:
         model = BookingAssignment
@@ -97,6 +98,7 @@ class BookingWorkerSerializer(serializers.ModelSerializer):
             'experience_years',
             'average_rating',
             'total_completed_jobs',
+            'is_favorite',
         ]
 
     def get_avatar(self, obj):
@@ -114,6 +116,23 @@ class BookingWorkerSerializer(serializers.ModelSerializer):
 
         # Fallback avatar của User
         return worker.avatar
+
+    def get_is_favorite(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        cache_name = '_favorite_worker_ids_cache'
+        if not hasattr(request, cache_name):
+            setattr(
+                request,
+                cache_name,
+                set(
+                    CustomerFavoriteWorker.objects.filter(customer=request.user)
+                    .values_list('worker_id', flat=True)
+                ),
+            )
+        return obj.worker_id in getattr(request, cache_name)
 
 
 class BookingScheduleSerializer(serializers.ModelSerializer):

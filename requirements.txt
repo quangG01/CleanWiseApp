@@ -13,6 +13,7 @@ django-cors-headers==4.9.0
 django-environ==0.14.0
 djangorestframework==3.18.0
 djangorestframework_simplejwt==5.5.1
+payos==1.1.0
 drf-spectacular==0.30.0
 google-auth==2.57.1
 idna==3.19

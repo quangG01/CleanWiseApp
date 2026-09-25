@@ -8,6 +8,11 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .models import UserVoucher, Voucher
+from .voucher_service import (
+    mark_user_voucher_used,
+    release_user_voucher,
+    reserve_user_voucher,
+)
 
 
 User = get_user_model()
@@ -81,6 +86,7 @@ class AdminVoucherAssignmentTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
         self.assertFalse(UserVoucher.objects.exists())
 
+
     def test_admin_cannot_assign_public_voucher(self):
         self.voucher.distribution_type = Voucher.DistributionType.PUBLIC
         self.voucher.save(update_fields=['distribution_type'])
@@ -130,3 +136,66 @@ class AdminVoucherAssignmentTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
         self.assertFalse(UserVoucher.objects.exists())
+
+
+class CustomerVoucherLifecycleTests(APITestCase):
+    def setUp(self):
+        self.customer = User.objects.create_user(
+            username='voucher-lifecycle-customer',
+            email='voucher-lifecycle@example.com',
+            password='CleanWise@2026!',
+            role=User.Role.CUSTOMER,
+        )
+        self.voucher = Voucher.objects.create(
+            code='LIFECYCLE50',
+            name='Giảm 50% tối đa 30K',
+            distribution_type=Voucher.DistributionType.PUBLIC,
+            discount_type=Voucher.DiscountType.PERCENT,
+            discount_value=Decimal('50'),
+            max_discount_amount=Decimal('30000'),
+            min_order_amount=Decimal('100000'),
+            start_at=timezone.now() - timedelta(days=1),
+            end_at=timezone.now() + timedelta(days=1),
+        )
+        self.user_voucher = UserVoucher.objects.create(
+            user=self.customer,
+            voucher=self.voucher,
+            source=UserVoucher.Source.PUBLIC,
+        )
+        self.client.force_authenticate(self.customer)
+
+    def test_validate_calculates_discount_without_changing_status(self):
+        response = self.client.post(
+            reverse('customer-voucher-validate'),
+            {'code': self.voucher.code, 'subtotal_amount': '100000'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(Decimal(str(response.data['data']['discount_amount'])), Decimal('30000'))
+        self.assertEqual(Decimal(str(response.data['data']['total_amount'])), Decimal('70000'))
+        self.user_voucher.refresh_from_db()
+        self.assertEqual(self.user_voucher.status, UserVoucher.Status.AVAILABLE)
+        self.assertIsNone(self.user_voucher.reserved_at)
+        self.assertIsNone(self.user_voucher.used_at)
+
+    def test_state_transition_services_are_idempotent(self):
+        reserve_user_voucher(user_voucher_id=self.user_voucher.id)
+        reserve_user_voucher(user_voucher_id=self.user_voucher.id)
+        mark_user_voucher_used(user_voucher_id=self.user_voucher.id)
+        mark_user_voucher_used(user_voucher_id=self.user_voucher.id)
+
+        self.user_voucher.refresh_from_db()
+        self.assertEqual(self.user_voucher.status, UserVoucher.Status.USED)
+        self.assertIsNotNone(self.user_voucher.reserved_at)
+        self.assertIsNotNone(self.user_voucher.used_at)
+
+        release_user_voucher(
+            user_voucher_id=self.user_voucher.id,
+            allow_used=True,
+        )
+        release_user_voucher(user_voucher_id=self.user_voucher.id)
+        self.user_voucher.refresh_from_db()
+        self.assertEqual(self.user_voucher.status, UserVoucher.Status.AVAILABLE)
+        self.assertIsNone(self.user_voucher.reserved_at)
+        self.assertIsNone(self.user_voucher.used_at)

@@ -42,6 +42,7 @@ urlauthpatterns = [
     path('api/customer/', include('apps.wallets.urls')),
     path('api/customer/', include('apps.reviews.urls')),
     path('api/customer/', include('apps.payments.urls')),
+    path('api/customer/', include('apps.worker.customer_urls')),
     path('api/worker/', include('apps.worker.urls')),
     path('api/worker/', include('apps.reviews.worker_urls')),
     path('api/worker/', include('apps.payments.worker_urls')),
