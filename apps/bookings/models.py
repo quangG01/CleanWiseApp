@@ -19,10 +19,10 @@ class Booking(models.Model):
     booking_code = models.CharField(max_length=30, unique=True)
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='bookings')
     service = models.ForeignKey('services.Service', on_delete=models.DO_NOTHING, related_name='bookings')
-    user_voucher = models.OneToOneField(
+    user_voucher = models.ForeignKey(
         'vouchers.UserVoucher',
         on_delete=models.DO_NOTHING,
-        related_name='booking',
+        related_name='bookings',
         blank=True,
         null=True,
     )

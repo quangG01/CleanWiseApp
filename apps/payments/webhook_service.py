@@ -4,6 +4,10 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.bookings.models import Booking
+from apps.vouchers.voucher_service import (
+    mark_user_voucher_used,
+    release_user_voucher,
+)
 
 from .models import Payment
 from .payment_link_service import get_payos_client
@@ -21,8 +25,17 @@ def handle_payos_webhook(webhook_data):
     order_code = webhook_data.order_code
     amount = webhook_data.amount
 
+    candidate = Payment.objects.filter(pk=order_code).values('booking_id').first()
+    if not candidate:
+        logger.info('payOS webhook: không có Payment orderCode=%s', order_code)
+        return None
+
+    # Luôn khóa theo thứ tự Booking -> Payment -> UserVoucher. Luồng hủy
+    # booking cũng dùng thứ tự này để tránh deadlock khi webhook đến đồng thời.
+    booking = Booking.objects.select_for_update().get(pk=candidate['booking_id'])
+
     try:
-        payment = Payment.objects.select_for_update().select_related('booking').get(
+        payment = Payment.objects.select_for_update().get(
             pk=order_code,
             status=Payment.Status.PENDING,
         )
@@ -35,6 +48,8 @@ def handle_payos_webhook(webhook_data):
         payment.status = Payment.Status.FAILED
         payment.failure_reason = f'Số tiền chuyển ({amount}) nhỏ hơn số tiền cần ({payment.amount}).'
         payment.save(update_fields=['status', 'failure_reason', 'updated_at'])
+        if booking.user_voucher_id:
+            release_user_voucher(user_voucher_id=booking.user_voucher_id)
         return payment
 
     payment.status = Payment.Status.SUCCESS
@@ -42,7 +57,8 @@ def handle_payos_webhook(webhook_data):
     payment.paid_at = timezone.now()
     payment.save(update_fields=['status', 'transaction_code', 'paid_at', 'updated_at'])
 
-    booking = Booking.objects.select_for_update().get(pk=payment.booking_id)
     booking.payment_status = Booking.PaymentStatus.PAID
     booking.save(update_fields=['payment_status', 'updated_at'])
+    if booking.user_voucher_id:
+        mark_user_voucher_used(user_voucher_id=booking.user_voucher_id)
     return payment

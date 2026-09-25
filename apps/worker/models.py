@@ -86,3 +86,34 @@ class BookingAssignment(models.Model):
 
     def __str__(self):
         return f'{self.schedule} - {self.worker}'
+
+
+class CustomerFavoriteWorker(models.Model):
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favorite_worker_links',
+    )
+    worker = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favorited_by_links',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'customer_favorite_workers'
+        ordering = ['-created_at', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer', 'worker'],
+                name='customer_favorite_workers_unique',
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(customer=models.F('worker')),
+                name='customer_favorite_workers_distinct_users',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.customer} yêu thích {self.worker}'
