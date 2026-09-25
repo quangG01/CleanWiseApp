@@ -12,6 +12,10 @@ from apps.bookings.models import Booking, BookingSchedule
 from apps.notifications.models import Notification
 from apps.chat.service import ensure_chat_for_assignment
 from apps.payments.models import Payment
+from apps.vouchers.voucher_service import (
+    mark_user_voucher_used,
+    release_user_voucher,
+)
 
 from .constants import MIN_CANCEL_HOURS
 from .models import BookingAssignment, WorkerWorkingArea
@@ -145,6 +149,8 @@ def _sync_booking_status_after_claim(booking):
     if total and accepted >= total and booking.status == Booking.Status.PENDING:
         booking.status = Booking.Status.ASSIGNED
         booking.save(update_fields=['status', 'updated_at'])
+        if booking.user_voucher_id:
+            mark_user_voucher_used(user_voucher_id=booking.user_voucher_id)
 
 
 def get_cancel_deadline(schedule):
@@ -207,6 +213,12 @@ def expire_unclaimed_schedules():
                         amount=booking.total_amount,
                         booking=booking,
                         note=f'Hoàn tiền do không tìm được nhân viên - {booking.booking_code}',
+                    )
+
+                if booking.user_voucher_id:
+                    release_user_voucher(
+                        user_voucher_id=booking.user_voucher_id,
+                        allow_used=True,
                     )
 
 

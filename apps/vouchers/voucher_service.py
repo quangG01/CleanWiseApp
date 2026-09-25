@@ -115,10 +115,17 @@ def calculate_voucher_discount(voucher, subtotal_amount):
     return {'subtotal_amount': subtotal, 'discount_amount': discount, 'total_amount': total}
 
 
-def validate_and_calculate_voucher(*, code, customer, subtotal_amount, lock=False):
+def validate_and_calculate_voucher(
+    *,
+    code,
+    customer,
+    subtotal_amount,
+    lock=False,
+    error_field='code',
+):
     normalized_code = (code or '').strip().upper()
     if not normalized_code:
-        raise serializers.ValidationError({'code': 'Vui lòng nhập mã voucher.'})
+        raise serializers.ValidationError({error_field: 'Vui lòng nhập mã voucher.'})
     if lock and not transaction.get_connection().in_atomic_block:
         raise RuntimeError('lock=True phải được gọi bên trong transaction.atomic().')
 
@@ -127,24 +134,98 @@ def validate_and_calculate_voucher(*, code, customer, subtotal_amount, lock=Fals
         queryset = queryset.select_for_update()
     user_voucher = queryset.filter(user=customer, voucher__code__iexact=normalized_code).first()
     if not user_voucher:
-        raise serializers.ValidationError({'code': 'Voucher chưa có trong ví của bạn.'})
+        raise serializers.ValidationError({error_field: 'Voucher chưa có trong ví của bạn.'})
     if user_voucher.status != UserVoucher.Status.AVAILABLE:
         status_messages = {
             UserVoucher.Status.RESERVED: 'Voucher đang được giữ cho một booking khác.',
             UserVoucher.Status.USED: 'Voucher đã được sử dụng.',
             UserVoucher.Status.REVOKED: 'Voucher đã bị thu hồi.',
         }
-        raise serializers.ValidationError({'code': status_messages.get(user_voucher.status, 'Voucher không thể sử dụng.')})
+        raise serializers.ValidationError({
+            error_field: status_messages.get(
+                user_voucher.status,
+                'Voucher không thể sử dụng.',
+            ),
+        })
 
     voucher = user_voucher.voucher
     now = timezone.now()
     if not voucher.is_active:
-        raise serializers.ValidationError({'code': 'Voucher đã ngừng hoạt động.'})
+        raise serializers.ValidationError({error_field: 'Voucher đã ngừng hoạt động.'})
     if now < voucher.start_at:
-        raise serializers.ValidationError({'code': 'Voucher chưa đến thời gian sử dụng.'})
+        raise serializers.ValidationError({error_field: 'Voucher chưa đến thời gian sử dụng.'})
     if now > voucher.end_at:
-        raise serializers.ValidationError({'code': 'Voucher đã hết hạn.'})
+        raise serializers.ValidationError({error_field: 'Voucher đã hết hạn.'})
     subtotal = _to_money(subtotal_amount)
     if subtotal < voucher.min_order_amount:
-        raise serializers.ValidationError({'subtotal_amount': f'Đơn hàng tối thiểu phải đạt {voucher.min_order_amount}.'})
+        raise serializers.ValidationError({
+            error_field: f'Đơn hàng tối thiểu phải đạt {voucher.min_order_amount}.',
+        })
     return {'user_voucher': user_voucher, 'voucher': voucher, **calculate_voucher_discount(voucher, subtotal)}
+
+
+def _locked_user_voucher(user_voucher_id):
+    try:
+        return UserVoucher.objects.select_for_update().get(pk=user_voucher_id)
+    except UserVoucher.DoesNotExist:
+        raise serializers.ValidationError({'voucher_code': 'Voucher của khách hàng không tồn tại.'})
+
+
+@transaction.atomic
+def reserve_user_voucher(*, user_voucher_id):
+    """Giữ voucher cho booking vừa được tạo; gọi lặp khi đã RESERVED là an toàn."""
+    user_voucher = _locked_user_voucher(user_voucher_id)
+    if user_voucher.status == UserVoucher.Status.RESERVED:
+        return user_voucher
+    if user_voucher.status != UserVoucher.Status.AVAILABLE:
+        raise serializers.ValidationError({'voucher_code': 'Voucher không còn khả dụng.'})
+
+    user_voucher.status = UserVoucher.Status.RESERVED
+    user_voucher.reserved_at = timezone.now()
+    user_voucher.used_at = None
+    user_voucher.save(update_fields=['status', 'reserved_at', 'used_at', 'updated_at'])
+    return user_voucher
+
+
+@transaction.atomic
+def mark_user_voucher_used(*, user_voucher_id):
+    """Chốt sử dụng voucher sau thanh toán hoặc khi booking được xác nhận."""
+    user_voucher = _locked_user_voucher(user_voucher_id)
+    if user_voucher.status == UserVoucher.Status.USED:
+        return user_voucher
+    if user_voucher.status != UserVoucher.Status.RESERVED:
+        raise serializers.ValidationError({
+            'voucher_code': 'Chỉ voucher đang được giữ mới có thể chuyển sang đã sử dụng.',
+        })
+
+    user_voucher.status = UserVoucher.Status.USED
+    user_voucher.used_at = timezone.now()
+    user_voucher.save(update_fields=['status', 'used_at', 'updated_at'])
+    return user_voucher
+
+
+@transaction.atomic
+def release_user_voucher(*, user_voucher_id, allow_used=False):
+    """Hoàn voucher cho ví; không thay đổi issued_count vì quyền sở hữu vẫn còn."""
+    user_voucher = _locked_user_voucher(user_voucher_id)
+    if user_voucher.status == UserVoucher.Status.AVAILABLE:
+        return user_voucher
+
+    releasable_statuses = {UserVoucher.Status.RESERVED}
+    if allow_used:
+        releasable_statuses.add(UserVoucher.Status.USED)
+    if user_voucher.status not in releasable_statuses:
+        raise serializers.ValidationError({
+            'voucher_code': 'Voucher không thể được hoàn ở trạng thái hiện tại.',
+        })
+
+    user_voucher.status = UserVoucher.Status.AVAILABLE
+    user_voucher.reserved_at = None
+    user_voucher.used_at = None
+    user_voucher.save(update_fields=[
+        'status',
+        'reserved_at',
+        'used_at',
+        'updated_at',
+    ])
+    return user_voucher

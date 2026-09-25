@@ -1,30 +1,32 @@
 from django.db.models import Prefetch, Q
-from rest_framework import generics
+from django.utils.dateparse import parse_date
+from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.common.permissions import IsAdminRole, IsWorkerRole
-
-from . import assignment_service
-from .models import Area, BookingAssignment, WorkerWorkingArea
-
-from django.utils.dateparse import parse_date
-from rest_framework.exceptions import ValidationError
-from .serializers import WorkerMyScheduleSerializer 
 from apps.bookings.models import BookingSchedule
+from apps.common.permissions import IsAdminRole, IsCustomerRole, IsWorkerRole
+
+from . import assignment_service, checkin_service, favorite_worker_service
+from .models import Area, BookingAssignment, WorkerWorkingArea
 
 from .serializers import (
     AdminAssignWorkerSerializer,
     AreaSummarySerializer,
+    BookingScheduleImageSerializer,
     CancelAssignmentSerializer,
     ClaimBookingPackageSerializer,
-    WorkerScheduleSerializer,
-    WorkerWorkingAreaSerializer,
-    WorkerWorkingAreaBulkUpdateSerializer,
+    CustomerWorkerProfileSerializer,
+    FavoriteWorkerSerializer,
     ScheduleImageUploadSerializer,
-    BookingScheduleImageSerializer,
-    WorkerBookingScheduleSerializer
+    WorkerBookingScheduleSerializer,
+    WorkerMyScheduleSerializer,
+    WorkerScheduleSerializer,
+    WorkerWorkingAreaBulkUpdateSerializer,
+    WorkerWorkingAreaSerializer,
 )
 
 from .schemas import (
@@ -36,11 +38,86 @@ from .schemas import (
     WORKER_CLAIM_BOOKING_PACKAGE_SCHEMA,
     WORKER_CANCEL_ASSIGNMENT_SCHEMA,
     ADMIN_ASSIGN_WORKER_SCHEMA,
+    CUSTOMER_FAVORITE_WORKER_DETAIL_SCHEMA,
+    CUSTOMER_FAVORITE_WORKER_LIST_SCHEMA,
+    CUSTOMER_WORKER_PROFILE_SCHEMA,
 )
 
-from rest_framework.parsers import FormParser, MultiPartParser
 
-from . import checkin_service
+class FavoriteWorkerPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
+@CUSTOMER_WORKER_PROFILE_SCHEMA
+class CustomerWorkerProfileView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]
+    serializer_class = CustomerWorkerProfileSerializer
+
+    def get(self, request, *args, **kwargs):
+        worker = favorite_worker_service.get_worker_for_customer(
+            customer=request.user,
+            worker_id=kwargs['worker_id'],
+        )
+        return Response({
+            'message': 'Lấy hồ sơ nhân viên thành công.',
+            'data': self.get_serializer(worker).data,
+        })
+
+
+@CUSTOMER_FAVORITE_WORKER_LIST_SCHEMA
+class CustomerFavoriteWorkerListView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]
+    serializer_class = FavoriteWorkerSerializer
+    pagination_class = FavoriteWorkerPagination
+
+    def get(self, request, *args, **kwargs):
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(
+            favorite_worker_service.list_favorite_workers(customer=request.user),
+            request,
+            view=self,
+        )
+        return Response({
+            'message': 'Lấy danh sách nhân viên yêu thích thành công.',
+            'data': {
+                'results': self.get_serializer(page, many=True).data,
+                'count': paginator.page.paginator.count,
+                'page': paginator.page.number,
+                'total_pages': paginator.page.paginator.num_pages,
+                'has_next': paginator.page.has_next(),
+                'has_previous': paginator.page.has_previous(),
+                'page_size': paginator.get_page_size(request),
+            },
+        })
+
+
+@CUSTOMER_FAVORITE_WORKER_DETAIL_SCHEMA
+class CustomerFavoriteWorkerDetailView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]
+    serializer_class = FavoriteWorkerSerializer
+
+    def put(self, request, *args, **kwargs):
+        favorite, created = favorite_worker_service.add_favorite_worker(
+            customer=request.user,
+            worker_id=kwargs['worker_id'],
+        )
+        return Response({
+            'message': (
+                'Thêm nhân viên yêu thích thành công.'
+                if created
+                else 'Nhân viên đã có trong danh sách yêu thích.'
+            ),
+            'data': self.get_serializer(favorite).data,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        favorite_worker_service.remove_favorite_worker(
+            customer=request.user,
+            worker_id=kwargs['worker_id'],
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 # select_related dùng chung: customer_avatar/customer_name/payment_status/
 # service_data/form_schema đều đọc qua booking__customer và booking__service,

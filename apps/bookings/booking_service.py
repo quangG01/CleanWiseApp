@@ -9,8 +9,11 @@ from rest_framework import serializers
 from apps.wallets import wallet_service
 from apps.services.models import Service
 from apps.addresses.models import CustomerAddress
-from apps.vouchers.models import UserVoucher
-from apps.vouchers.voucher_service import validate_and_calculate_voucher
+from apps.vouchers.voucher_service import (
+    release_user_voucher,
+    reserve_user_voucher,
+    validate_and_calculate_voucher,
+)
 from apps.payments.models import Payment
 
 from .models import Booking, BookingSchedule
@@ -381,6 +384,7 @@ def create_booking(
             customer=customer,
             subtotal_amount=subtotal,
             lock=True,
+            error_field='voucher_code',
         )
 
         user_voucher = result['user_voucher']
@@ -452,6 +456,14 @@ def create_booking(
             ),
             'pricing_config_snapshot':
                 service.pricing_config,
+            'voucher': (
+                {
+                    'code': user_voucher.voucher.code,
+                    'name': user_voucher.voucher.name,
+                }
+                if user_voucher
+                else None
+            ),
         },
     )
 
@@ -477,16 +489,7 @@ def create_booking(
     )       
 
     if user_voucher:
-        user_voucher.status = UserVoucher.Status.USED
-        user_voucher.used_at = timezone.now()
-
-        user_voucher.save(
-            update_fields=[
-                'status',
-                'used_at',
-                'updated_at',
-            ]
-        )
+        reserve_user_voucher(user_voucher_id=user_voucher.id)
 
     _ = payment
 
@@ -531,12 +534,24 @@ def cancel_booking(*, booking_id, customer, reason):
         cancel_reason=reason,
     )
 
+    booking.payments.filter(status=Payment.Status.PENDING).update(
+        status=Payment.Status.CANCELLED,
+        failure_reason='Booking đã bị khách hàng hủy.',
+        updated_at=now,
+    )
+
     if was_paid:
         wallet_service.credit_wallet(
             user=customer,
             amount=booking.total_amount,
             booking=booking,
             note=f'Hoàn tiền hủy đơn {booking.booking_code}',
+        )
+
+    if booking.user_voucher_id:
+        release_user_voucher(
+            user_voucher_id=booking.user_voucher_id,
+            allow_used=True,
         )
 
     return booking

@@ -6,6 +6,7 @@ from rest_framework import serializers
 from apps.bookings.models import Booking, BookingSchedule, BookingScheduleImage
 from apps.common.cloudinary_storage import upload_image
 from apps.notifications.models import Notification
+from apps.vouchers.voucher_service import mark_user_voucher_used
 
 from .models import BookingAssignment
 from .assignment_service import OPEN_BOOKING_STATUSES
@@ -58,6 +59,9 @@ def check_in(*, schedule_id, worker):
     if booking.status in (Booking.Status.PENDING, Booking.Status.ASSIGNED):
         booking.status = Booking.Status.IN_PROGRESS
         booking.save(update_fields=['status', 'updated_at'])
+
+    if booking.user_voucher_id:
+        mark_user_voucher_used(user_voucher_id=booking.user_voucher_id)
 
     Notification.objects.create(
         user=booking.customer,

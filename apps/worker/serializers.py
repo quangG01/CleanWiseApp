@@ -1,15 +1,95 @@
 from decimal import Decimal, ROUND_HALF_UP
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Area, BookingAssignment, WorkerWorkingArea
 from apps.bookings.models import BookingSchedule, BookingScheduleImage
 
-from django.utils import timezone
 from . import assignment_service
 from .constants import MIN_CANCEL_HOURS
-from . import assignment_service
+from .models import Area, BookingAssignment, CustomerFavoriteWorker, WorkerWorkingArea
+
+
+User = get_user_model()
+
+
+def _worker_avatar(worker):
+    profile = getattr(worker, 'worker_profile', None)
+    return profile.avatar if profile and profile.avatar else worker.avatar
+
+
+class CustomerWorkerProfileSerializer(serializers.ModelSerializer):
+    worker_id = serializers.IntegerField(source='id', read_only=True)
+    avatar = serializers.SerializerMethodField()
+    bio = serializers.CharField(source='worker_profile.bio', read_only=True, allow_null=True)
+    experience_years = serializers.IntegerField(source='worker_profile.experience_years', read_only=True)
+    average_rating = serializers.DecimalField(
+        source='worker_profile.average_rating',
+        max_digits=3,
+        decimal_places=2,
+        read_only=True,
+    )
+    total_completed_jobs = serializers.IntegerField(
+        source='worker_profile.total_completed_jobs',
+        read_only=True,
+    )
+    is_favorite = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'worker_id', 'first_name', 'last_name', 'avatar', 'bio',
+            'experience_years', 'average_rating', 'total_completed_jobs',
+            'is_favorite',
+        ]
+        read_only_fields = fields
+
+    def get_avatar(self, worker):
+        return _worker_avatar(worker)
+
+    def get_is_favorite(self, worker):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return CustomerFavoriteWorker.objects.filter(
+            customer=request.user,
+            worker=worker,
+        ).exists()
+
+
+class FavoriteWorkerSerializer(serializers.ModelSerializer):
+    worker_id = serializers.IntegerField(source='worker.id', read_only=True)
+    first_name = serializers.CharField(source='worker.first_name', read_only=True)
+    last_name = serializers.CharField(source='worker.last_name', read_only=True)
+    avatar = serializers.SerializerMethodField()
+    bio = serializers.CharField(source='worker.worker_profile.bio', read_only=True, allow_null=True)
+    experience_years = serializers.IntegerField(source='worker.worker_profile.experience_years', read_only=True)
+    average_rating = serializers.DecimalField(
+        source='worker.worker_profile.average_rating',
+        max_digits=3,
+        decimal_places=2,
+        read_only=True,
+    )
+    total_completed_jobs = serializers.IntegerField(
+        source='worker.worker_profile.total_completed_jobs',
+        read_only=True,
+    )
+    is_favorite = serializers.BooleanField(default=True, read_only=True)
+
+    class Meta:
+        model = CustomerFavoriteWorker
+        fields = [
+            'worker_id', 'first_name', 'last_name', 'avatar', 'bio',
+            'experience_years', 'average_rating', 'total_completed_jobs',
+            'is_favorite', 'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_avatar(self, favorite):
+        return _worker_avatar(favorite.worker)
+
 
 class AreaSummarySerializer(serializers.ModelSerializer):
     class Meta:
