@@ -43,12 +43,14 @@ urlauthpatterns = [
     path('api/customer/', include('apps.reviews.urls')),
     path('api/customer/', include('apps.payments.urls')),
     path('api/customer/', include('apps.worker.customer_urls')),
+    path('api/customer/', include('apps.complaints.urls')),
     path('api/worker/', include('apps.worker.urls')),
     path('api/worker/', include('apps.reviews.worker_urls')),
     path('api/worker/', include('apps.payments.worker_urls')),
     path('api/admin/', include('apps.vouchers.admin_urls')),
     path('api/admin/', include('apps.worker.admin_urls')),
     path('api/admin/', include('apps.reviews.admin_urls')),
+    path('api/admin/', include('apps.complaints.admin_urls')),
     path('api/worker/earnings/', include('apps.wallets.worker_urls')),
 ]
 
