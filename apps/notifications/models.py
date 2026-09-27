@@ -25,3 +25,16 @@ class Notification(models.Model):
 
     def __str__(self):
         return self.title
+    
+class DeviceToken(models.Model):
+    class Platform(models.TextChoices):
+        IOS = 'IOS', 'iOS'
+        ANDROID = 'ANDROID', 'Android'
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='device_tokens')
+    token = models.CharField(max_length=255, unique=True)
+    platform = models.CharField(max_length=10, choices=Platform.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'device_tokens'

@@ -1,6 +1,7 @@
 import re
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q, Subquery
@@ -16,14 +17,13 @@ from apps.vouchers.voucher_service import (
     mark_user_voucher_used,
     release_user_voucher,
 )
+from apps.wallets import earning_service
 
 from .constants import MIN_CANCEL_HOURS
 from .models import BookingAssignment, WorkerWorkingArea
 
 User = get_user_model()
 
-# Booking còn "sống": buổi nào chưa có người nhận thì vẫn nhận được.
-# Gói tháng: booking có thể đã IN_PROGRESS mà buổi sau vẫn trống.
 OPEN_BOOKING_STATUSES = (
     Booking.Status.PENDING,
     Booking.Status.ASSIGNED,
@@ -33,6 +33,9 @@ ACTIVE_SCHEDULE_STATUSES = (
     BookingSchedule.Status.PENDING,
     BookingSchedule.Status.IN_PROGRESS,
 )
+
+CHECKOUT_GRACE_MINUTES = getattr(settings, 'CHECKOUT_GRACE_MINUTES', 60)
+CHECKIN_MISSED_GRACE_MINUTES = getattr(settings, 'CHECKIN_MISSED_GRACE_MINUTES', 60)
 
 
 # ---------------------------------------------------------------- helpers
@@ -53,8 +56,6 @@ def _notify_admins(*, title, message, related_booking=None):
 
 
 def _get_worker_profile(worker):
-    # Reverse OneToOne: thiếu hồ sơ thì ném RelatedObjectDoesNotExist
-    # (là con của AttributeError) nên getattr có default vẫn an toàn.
     return getattr(worker, 'worker_profile', None)
 
 
@@ -72,14 +73,9 @@ def _has_cash_payment(booking):
 
 
 def _is_bookable(booking):
-    """CASH nhận việc bất cứ lúc nào; BANK_TRANSFER chỉ nhận được sau khi PAID."""
     return booking.payment_status == Booking.PaymentStatus.PAID or _has_cash_payment(booking)
 
 
-# Bỏ tiền tố hành chính ("Thành phố", "TP", "TP.", "Tỉnh") trước khi so
-# khớp, vì worker đăng ký khu vực kiểu "TP Hồ Chí Minh" nhưng địa chỉ
-# booking lại lưu kiểu "Thành phố Hồ Chí Minh" — hai chuỗi không so
-# __iexact khớp nhau được nếu không bỏ tiền tố trước.
 _CITY_PREFIX_RE = re.compile(r'^(thành phố|tp\.?|tỉnh)\s+', re.IGNORECASE)
 
 
@@ -90,10 +86,6 @@ def _norm(value):
 
 
 def _worker_area_keys(worker):
-    """
-    Tên khu vực (đã chuẩn hóa) mà nhân viên đăng ký. Booking chỉ có
-    address.city nên so khớp với area.city hoặc area.name.
-    """
     keys = set()
     rows = WorkerWorkingArea.objects.filter(
         worker=worker, area__is_active=True,
@@ -106,11 +98,10 @@ def _worker_area_keys(worker):
 
 
 def _annotate_total_sessions(queryset):
-    """Tổng số buổi chưa hủy của booking, để FE hiện 'buổi 3/8'."""
     sessions = (
         BookingSchedule.objects.filter(booking=OuterRef('booking'))
         .exclude(status=BookingSchedule.Status.CANCELLED)
-        .order_by()  # bỏ Meta.ordering, nếu không GROUP BY bị sai
+        .order_by()
         .values('booking')
         .annotate(c=Count('id'))
         .values('c')
@@ -119,7 +110,6 @@ def _annotate_total_sessions(queryset):
 
 
 def _annotate_available_sessions(queryset, available_ids):
-    """Số buổi còn trống (đúng bộ lọc của nhân viên) của cùng booking."""
     counts = (
         BookingSchedule.objects.filter(booking=OuterRef('booking'), id__in=available_ids)
         .order_by()
@@ -154,23 +144,70 @@ def _sync_booking_status_after_claim(booking):
 
 
 def get_cancel_deadline(schedule):
-    """Hạn chót để worker tự hủy (dùng cho FE hiển thị)."""
     return schedule.scheduled_start - timedelta(hours=MIN_CANCEL_HOURS)
 
 
 @transaction.atomic
-def expire_unclaimed_schedules():
+def handle_missed_checkins():
     """
-    Lazy expiry — được gọi ngay đầu các hàm list_* mỗi khi worker load
-    danh sách, KHÔNG cần cron/Celery. Chạy rất nhẹ vì chỉ động tới các
-    dòng đã thật sự quá hạn (status=PENDING và scheduled_start < now).
+    Lazy check — gọi ngay đầu expire_unclaimed_schedules(), trước khi quét
+    MISSED, để giải phóng các assignment bị "bỏ rơi": worker đã ACCEPTED
+    nhưng quá scheduled_start + CHECKIN_MISSED_GRACE_MINUTES vẫn chưa
+    Check-in (schedule vẫn PENDING, actual_start vẫn NULL).
 
-    - Buổi quá scheduled_start mà chưa có assignment ACCEPTED -> MISSED.
-    - Nếu booking không còn buổi PENDING/IN_PROGRESS nào (toàn bộ đã
-      CANCELLED/MISSED) VÀ chưa từng có worker nào ACCEPTED buổi nào của
-      booking đó -> booking chuyển FAILED. (Booking gói tháng đã có ít
-      nhất 1 buổi được nhận thì KHÔNG tự FAILED chỉ vì 1 buổi lẻ trễ hạn.)
+    Không tự chuyển schedule sang MISSED ở đây — chỉ hủy assignment và
+    trả schedule về trống. Nếu không ai nhận lại kịp, lượt quét
+    expire_unclaimed_schedules() ngay sau đó (cùng 1 lần gọi) sẽ tự xử lý
+    tiếp thành MISSED/FAILED như bình thường.
     """
+    now = timezone.now()
+    cutoff = now - timedelta(minutes=CHECKIN_MISSED_GRACE_MINUTES)
+
+    stale_assignments = (
+        BookingAssignment.objects.select_for_update(of=('self',))
+        .filter(
+            status=BookingAssignment.Status.ACCEPTED,
+            schedule__status=BookingSchedule.Status.PENDING,
+            schedule__scheduled_start__lt=cutoff,
+        )
+        .select_related('schedule', 'schedule__booking', 'worker')
+    )
+
+    for assignment in stale_assignments:
+        schedule = assignment.schedule
+        booking = schedule.booking
+
+        assignment.status = BookingAssignment.Status.CANCELLED
+        assignment.response_note = 'Tự động hủy do nhân viên không check-in đúng hạn.'
+        assignment.responded_at = now
+        assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
+
+        if booking.status == Booking.Status.ASSIGNED:
+            booking.status = Booking.Status.PENDING
+            booking.save(update_fields=['status', 'updated_at'])
+
+        Notification.objects.create(
+            user=booking.customer,
+            title='Đang tìm nhân viên khác',
+            message=f'Nhân viên không xác nhận đến làm đúng giờ cho buổi '
+                     f'{schedule.sequence_no} của đơn {booking.booking_code}. '
+                     f'CleanWise đang tìm nhân viên khác cho bạn.',
+            type=Notification.Type.ASSIGNMENT,
+            related_booking=booking,
+        )
+
+        _notify_admins(
+            title='Worker không check-in đúng hạn',
+            message=f'{assignment.worker.username} đã nhận nhưng không check-in '
+                     f'buổi {schedule.sequence_no} của đơn {booking.booking_code}.',
+            related_booking=booking,
+        )
+
+
+@transaction.atomic
+def expire_unclaimed_schedules():
+    handle_missed_checkins() 
+
     now = timezone.now()
 
     stale_schedules = (
@@ -222,22 +259,56 @@ def expire_unclaimed_schedules():
                     )
 
 
+@transaction.atomic
+def handle_missed_checkouts():
+    now = timezone.now()
+    cutoff = now - timedelta(minutes=CHECKOUT_GRACE_MINUTES)
+
+    overdue_schedules = (
+        BookingSchedule.objects.select_for_update(of=('self',))
+        .filter(status=BookingSchedule.Status.IN_PROGRESS, scheduled_end__lt=cutoff)
+        .select_related('booking', 'booking__customer')
+    )
+
+    for schedule in overdue_schedules:
+        assignment = schedule.assignments.filter(
+            status=BookingAssignment.Status.ACCEPTED,
+        ).select_related('worker').first()
+        if not assignment:
+            continue
+
+        worker = assignment.worker
+
+        schedule.actual_end = max(schedule.scheduled_end, schedule.actual_start or schedule.scheduled_end)
+        schedule.status = BookingSchedule.Status.COMPLETED
+        schedule.save(update_fields=['actual_end', 'status', 'updated_at'])
+
+        booking = schedule.booking
+        still_active = booking.schedules.filter(
+            status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),
+        ).exclude(pk=schedule.pk).exists()
+
+        if not still_active and booking.status == Booking.Status.IN_PROGRESS:
+            booking.status = Booking.Status.COMPLETED
+            booking.save(update_fields=['status', 'updated_at'])
+
+        earning_service.record_schedule_earning(schedule=schedule, booking=booking, worker=worker)
+
+        Notification.objects.create(
+            user=booking.customer,
+            title='Dịch vụ đã hoàn thành',
+            message=f'Buổi {schedule.sequence_no} của đơn {booking.booking_code} đã hoàn thành.',
+            type=Notification.Type.ASSIGNMENT,
+            related_booking=booking,
+        )
+
+
 # ---------------------------------------------------------------- queries
 
 
 def list_available_schedules_for_worker(
     worker, *, booking_id=None, date_from=None, date_to=None, group_by_booking=False,
 ):
-    """
-    Buổi làm còn trống, đúng NHÓM dịch vụ (section_code) + khu vực của
-    nhân viên, không trùng giờ.
-
-    group_by_booking=True (và không có booking_id): mỗi booking chỉ trả 1 dòng
-    là buổi trống GẦN NHẤT (trong khoảng ngày date_from..date_to nếu có), kèm
-    annotation `available_sessions` = TỔNG số buổi trống của booking đó,
-    KHÔNG phụ thuộc bộ lọc ngày (để card hiện "Còn 5/8 buổi" đúng dù đang
-    lọc 1 ngày). Dùng cho danh sách chính để gộp gói định kỳ.
-    """
     expire_unclaimed_schedules()
 
     profile = _get_worker_profile(worker)
@@ -278,10 +349,6 @@ def list_available_schedules_for_worker(
     if booking_id:
         queryset = queryset.filter(booking_id=booking_id)
 
-    # Lọc khu vực bằng Python (cần bỏ tiền tố "Thành phố"/"TP"/"Tỉnh").
-    # order_by ở đây để buổi đầu tiên của mỗi booking chính là buổi gần nhất.
-    # CHƯA lọc ngày ở DB: cần giữ lại tất cả buổi trống để đếm
-    # available_sessions đúng cho từng booking.
     all_matched = [
         s for s in queryset.order_by('scheduled_start', 'id')
         if _norm(s.booking.address.city) in area_keys
@@ -290,8 +357,6 @@ def list_available_schedules_for_worker(
 
     if date_from or date_to:
         def _in_range(s):
-            # Đổi sang giờ local (settings.TIME_ZONE) trước khi lấy ngày,
-            # giống hành vi của lookup __date cũ. Cần TIME_ZONE = 'Asia/Ho_Chi_Minh'.
             d = timezone.localtime(s.scheduled_start).date()
             return (not date_from or d >= date_from) and (not date_to or d <= date_to)
 
@@ -308,19 +373,17 @@ def list_available_schedules_for_worker(
             seen.add(s.booking_id)
             nearest_ids.append(s.id)
         result = BookingSchedule.objects.filter(id__in=nearest_ids)
-        # Đếm trên TẤT CẢ buổi trống của booking, không phụ thuộc bộ lọc ngày.
         result = _annotate_available_sessions(result, all_ids)
     else:
         result = BookingSchedule.objects.filter(id__in=matched_ids)
 
     result = result.select_related('booking', 'booking__service', 'booking__address')
-    # 'id' là tie-breaker: order_by chỉ theo scheduled_start có thể làm
-    # trùng/thiếu dòng giữa các trang khi nhiều buổi cùng giờ bắt đầu.
     return _annotate_total_sessions(result).order_by('scheduled_start', 'id')
 
 
 def list_my_schedules(worker, schedule_status=None, booking_id=None):
     expire_unclaimed_schedules()
+    handle_missed_checkouts()
 
     queryset = BookingSchedule.objects.filter(
         assignments__worker=worker,
@@ -334,18 +397,6 @@ def list_my_schedules(worker, schedule_status=None, booking_id=None):
 
 
 def list_booking_schedules_for_worker(worker, *, booking_id):
-    """
-    Toàn bộ buổi (trừ CANCELLED) của 1 booking, KHÔNG loại buổi đã có
-    người nhận — dùng cho màn chi tiết gói để worker thấy đủ bức tranh:
-    buổi mình đã nhận, buổi người khác đã nhận (không lộ danh tính), buổi
-    còn trống. claim_state được serializer tính dựa trên assignments đã
-    prefetch (ACCEPTED) + request.user.
-
-    Điều kiện xem được: đúng nhóm dịch vụ + khu vực đăng ký của worker
-    (như available), HOẶC worker đã có buổi ACCEPTED nào đó trong chính
-    booking này (để dù khu vực/hồ sơ có đổi, worker vẫn xem lại được gói
-    mình đang làm).
-    """
     expire_unclaimed_schedules()
 
     profile = _get_worker_profile(worker)
@@ -393,9 +444,6 @@ def claim_schedule(*, schedule_id, worker):
     if schedule.scheduled_start <= timezone.now():
         raise serializers.ValidationError({'schedule': 'Buổi làm việc đã quá giờ bắt đầu.'})
 
-    # So khớp theo section_code (nhóm dịch vụ) thay vì service_id cụ thể,
-    # để nhân viên đăng ký 1 nhóm (vd "Dọn dẹp nhà") nhận được cả buổi lẻ
-    # lẫn buổi trong gói tháng thuộc cùng nhóm đó.
     if booking.service.section_code != profile.registered_service.section_code:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không thuộc dịch vụ bạn đã đăng ký.'})
 
@@ -419,6 +467,15 @@ def claim_schedule(*, schedule_id, worker):
         response_note='Tự động hủy do đã có nhân viên khác nhận việc.',
         responded_at=now, updated_at=now,
     )
+
+    # Đơn tiền mặt: giữ chỗ hoa hồng ngay -> nếu ví không đủ, raise ở đây
+    # sẽ làm toàn bộ transaction rollback (nhờ @transaction.atomic), tức
+    # là KHÔNG nhận được việc luôn, không cần dọn dẹp gì thêm.
+    if _has_cash_payment(booking):
+        earning_service.reserve_cash_commission(
+            schedule=schedule, booking=booking, worker=worker, assignment=assignment,
+        )
+
     _sync_booking_status_after_claim(booking)
     ensure_chat_for_assignment(assignment)
     return assignment
@@ -426,33 +483,6 @@ def claim_schedule(*, schedule_id, worker):
 
 @transaction.atomic
 def claim_booking_package(*, booking_id, worker, schedule_ids=None):
-    """
-    Nhận buổi trong 1 booking (gói định kỳ nhiều buổi).
-
-    - schedule_ids=None -> nhận TOÀN BỘ buổi PENDING còn trống (hành vi cũ,
-      dùng khi worker bấm "Nhận cả gói").
-    - schedule_ids=[...] -> chỉ nhận đúng các buổi đó (worker tick chọn 1
-      buổi hoặc 1 phần buổi trong gói ở màn chi tiết). id nào không thuộc
-      booking này / không còn PENDING / đã qua giờ bắt đầu sẽ bị SKIP kèm
-      lý do, KHÔNG raise lỗi ngay để các id còn lại vẫn được xử lý.
-
-    Validate ở mức booking (payment/section_code/khu vực) một lần, rồi
-    lock từng schedule để tránh race với claim_schedule() hoặc
-    claim_booking_package() khác chạy song song trên cùng buổi.
-
-    Trùng lịch: buổi nào trùng khung giờ với buổi khác đã ACCEPTED của
-    worker (kể cả buổi vừa được ACCEPTED trong chính vòng lặp này, vì cùng
-    nằm trong 1 transaction nên _has_time_conflict nhìn thấy được) sẽ bị
-    SKIP kèm lý do 'Trùng khung giờ với buổi khác của bạn.' để FE báo cho
-    nhân viên, thay vì cho nhận rồi mới phát hiện trùng.
-
-    ĐỔI: KHÔNG còn gọi ensure_chat_for_assignment() ở đây — việc tạo chat
-    được chuyển ra view, chạy SAU khi transaction này đã commit. Lý do:
-    claim càng nhiều buổi thì vòng lặp tạo chat tuần tự càng kéo dài thời
-    gian giữ transaction + giữ kết nối HTTP, tăng khả năng client bị rớt
-    mạng (ERR_NETWORK) trước khi nhận được response dù DB đã ghi thành
-    công. Tách ra để phần ghi DB cốt lõi (claim) trả lời nhanh nhất có thể.
-    """
     profile = _get_claimable_profile(worker)
 
     booking = get_object_or_404(
@@ -478,8 +508,6 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
     skipped = []
 
     if schedule_ids is not None:
-        # Bỏ id trùng nhưng giữ thứ tự người dùng chọn để message/skipped
-        # trả về theo đúng thứ tự FE gửi lên, dễ đối chiếu trên UI.
         schedule_ids = list(dict.fromkeys(schedule_ids))
         found = {s.id: s for s in base_qs.filter(id__in=schedule_ids)}
         schedules = []
@@ -501,7 +529,8 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
 
     now = timezone.now()
     claimed = []
-
+    is_cash = _has_cash_payment(booking)
+    
     for schedule in schedules:
         if BookingAssignment.objects.filter(
             schedule=schedule, status=BookingAssignment.Status.ACCEPTED,
@@ -512,11 +541,18 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
             skipped.append({'schedule_id': schedule.id, 'reason': 'Trùng khung giờ với buổi khác của bạn.'})
             continue
 
-        assignment = BookingAssignment.objects.create(
+        # Dùng .save() thay vì .create() để gắn được cờ _skip_assignment_notify
+        # trước khi post_save fire — tránh signal bắn N thông báo lẻ khi
+        # nhận cả gói nhiều buổi (xem notify_customer_worker_assigned_batch
+        # ở cuối hàm, gửi 1 thông báo gộp thay thế).
+        assignment = BookingAssignment(
             schedule=schedule, worker=worker,
             assigned_method=BookingAssignment.AssignedMethod.MANUAL,
             status=BookingAssignment.Status.ACCEPTED, assigned_at=now, responded_at=now,
         )
+        assignment._skip_assignment_notify = True
+        assignment.save()
+
         BookingAssignment.objects.filter(
             schedule=schedule, status=BookingAssignment.Status.PENDING,
         ).exclude(pk=assignment.pk).update(
@@ -524,12 +560,34 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
             response_note='Tự động hủy do đã có nhân viên khác nhận việc.',
             responded_at=now, updated_at=now,
         )
+
+        if is_cash:
+            try:
+                earning_service.reserve_cash_commission(
+                    schedule=schedule, booking=booking, worker=worker, assignment=assignment,
+                )
+            except serializers.ValidationError:
+                # Không đủ ví cho buổi này -> hủy ngay assignment vừa tạo,
+                # bỏ qua buổi này, KHÔNG làm hỏng các buổi khác trong gói.
+                assignment.status = BookingAssignment.Status.CANCELLED
+                assignment.response_note = 'Không đủ số dư ví để giữ chỗ hoa hồng.'
+                assignment.responded_at = now
+                assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
+                skipped.append({
+                    'schedule_id': schedule.id,
+                    'reason': 'Không đủ số dư ví ký quỹ để nhận buổi tiền mặt này.',
+                })
+                continue
+
         claimed.append(assignment)
 
     if not claimed:
         raise serializers.ValidationError(
             {'booking': 'Không nhận được buổi nào (đã có người nhận, trùng lịch của bạn, hoặc buổi không hợp lệ).'}
         )
+
+    from apps.notifications.services import notify_customer_worker_assigned_batch
+    notify_customer_worker_assigned_batch(booking, worker, len(claimed))
 
     _sync_booking_status_after_claim(booking)
 
@@ -566,14 +624,16 @@ def cancel_assignment(*, assignment_id, worker, reason):
             ),
         })
 
-    # Buổi vẫn PENDING -> nhân viên khác thấy lại và claim được
     assignment.status = BookingAssignment.Status.CANCELLED
     assignment.response_note = reason
     assignment.responded_at = now
     assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
 
-    # Đơn đã đủ người (ASSIGNED) nay lại thiếu -> về PENDING.
-    # Đơn IN_PROGRESS (gói tháng đang chạy) giữ nguyên.
+    earning_service.release_cash_commission(assignment=assignment)
+
+    from apps.notifications.services import notify_customer_worker_cancelled_schedule
+    notify_customer_worker_cancelled_schedule(schedule, reason)
+
     if booking.status == Booking.Status.ASSIGNED:
         booking.status = Booking.Status.PENDING
         booking.save(update_fields=['status', 'updated_at'])
@@ -599,19 +659,39 @@ def admin_assign_worker(*, schedule_id, worker_id, admin_user, note=None):
         raise serializers.ValidationError({'schedule': 'Đơn hàng đã kết thúc hoặc đã hủy.'})
 
     now = timezone.now()
-    BookingAssignment.objects.filter(
-        schedule=schedule,
-        status__in=[BookingAssignment.Status.ACCEPTED, BookingAssignment.Status.PENDING],
-    ).update(
+
+    old_assignments = list(
+        BookingAssignment.objects.select_for_update(of=('self',)).filter(
+            schedule=schedule,
+            status__in=[BookingAssignment.Status.ACCEPTED, BookingAssignment.Status.PENDING],
+        ).select_related('worker')
+    )
+    for old in old_assignments:
+        if old.status == BookingAssignment.Status.ACCEPTED:
+            earning_service.release_cash_commission(assignment=old)
+            from apps.notifications.services import notify_worker_removed_from_schedule
+            notify_worker_removed_from_schedule(schedule, old.worker)
+
+    BookingAssignment.objects.filter(pk__in=[o.pk for o in old_assignments]).update(
         status=BookingAssignment.Status.CANCELLED,
         response_note='Admin gán lại nhân viên khác.',
         responded_at=now, updated_at=now,
     )
+
     assignment = BookingAssignment.objects.create(
         schedule=schedule, worker=worker, assigned_by=admin_user,
         assigned_method=BookingAssignment.AssignedMethod.MANUAL,
         status=BookingAssignment.Status.ACCEPTED, assigned_at=now, responded_at=now, response_note=note,
     )
+
+    if _has_cash_payment(booking):
+        earning_service.reserve_cash_commission(
+            schedule=schedule, booking=booking, worker=worker, assignment=assignment,
+        )
+
+    from apps.notifications.services import notify_worker_new_job
+    notify_worker_new_job(assignment)
+
     _sync_booking_status_after_claim(booking)
     ensure_chat_for_assignment(assignment)
     return assignment

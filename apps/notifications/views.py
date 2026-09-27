@@ -7,7 +7,14 @@ from rest_framework.views import APIView
 
 from apps.common.permissions import IsCustomerOrWorkerRole
 
-from .models import Notification
+from .models import DeviceToken, Notification
+
+from .schemas import (
+    notification_list_schema,
+    notification_mark_all_read_schema,
+    notification_mark_read_schema,
+    notification_unread_count_schema,
+)
 from .serializers import NotificationSerializer
 
 
@@ -17,6 +24,7 @@ class NotificationPagination(PageNumberPagination):
     max_page_size = 50
 
 
+@notification_list_schema
 class NotificationListView(generics.GenericAPIView):
     permission_classes = [IsCustomerOrWorkerRole]
     serializer_class = NotificationSerializer
@@ -54,6 +62,7 @@ class NotificationListView(generics.GenericAPIView):
         })
 
 
+@notification_mark_read_schema
 class NotificationMarkReadView(APIView):
     permission_classes = [IsCustomerOrWorkerRole]
 
@@ -71,6 +80,7 @@ class NotificationMarkReadView(APIView):
         return Response({'message': 'Đã đánh dấu đã đọc.'})
 
 
+@notification_mark_all_read_schema
 class NotificationMarkAllReadView(APIView):
     permission_classes = [IsCustomerOrWorkerRole]
 
@@ -85,9 +95,28 @@ class NotificationMarkAllReadView(APIView):
         })
 
 
+@notification_unread_count_schema
 class NotificationUnreadCountView(APIView):
     permission_classes = [IsCustomerOrWorkerRole]
 
     def get(self, request, *args, **kwargs):
         count = Notification.objects.filter(user=request.user, is_read=False).count()
         return Response({'message': 'Lấy số thông báo chưa đọc thành công.', 'data': {'unread_count': count}})
+    
+
+class RegisterPushTokenView(APIView):
+    permission_classes = [IsCustomerOrWorkerRole]
+
+    def post(self, request, *args, **kwargs):
+        token = request.data.get('token')
+        platform = request.data.get('platform', '').upper()
+
+        if not token:
+            return Response({'message': 'Thiếu token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        DeviceToken.objects.update_or_create(
+            token=token,
+            defaults={'user': request.user, 'platform': platform},
+        )
+        return Response({'message': 'Đã đăng ký push token.'})
+    
