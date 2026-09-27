@@ -27,6 +27,7 @@ from .serializers import (
     WorkerScheduleSerializer,
     WorkerWorkingAreaBulkUpdateSerializer,
     WorkerWorkingAreaSerializer,
+    CheckOutSerializer
 )
 
 from .schemas import (
@@ -425,11 +426,16 @@ class WorkerCheckInView(generics.GenericAPIView):
 
 class WorkerCheckOutView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
+    serializer_class = CheckOutSerializer
 
     def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         schedule = checkin_service.check_out(
             schedule_id=kwargs['schedule_id'],
             worker=request.user,
+            completion_note=serializer.validated_data.get('completion_note'),  # THÊM
         )
         return Response({
             'message': 'Check-out thành công.',

@@ -1,0 +1,146 @@
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
+
+from apps.authentication.models import WorkerProfile
+from apps.bookings.models import Booking, BookingSchedule
+from apps.complaints.models import Complaint
+from apps.payments.models import Payment
+from apps.worker.models import BookingAssignment
+
+from .services import (
+    notify_customer_booking_cancelled,
+    notify_customer_booking_completed,
+    notify_customer_booking_failed,
+    notify_customer_complaint_resolved,
+    notify_customer_worker_assigned,
+    notify_payment_failed,
+    notify_payment_success,
+    notify_worker_booking_cancelled,
+    notify_worker_profile_approved,
+    notify_worker_profile_rejected,
+)
+
+
+def _cache_old_status(sender_model):
+    def wrapper(sender, instance, **kwargs):
+        if instance.pk:
+            try:
+                instance._old_status = sender_model.objects.get(pk=instance.pk).status
+            except sender_model.DoesNotExist:
+                instance._old_status = None
+        else:
+            instance._old_status = None
+    return wrapper
+
+
+# ===================== BOOKING =====================
+
+pre_save.connect(_cache_old_status(Booking), sender=Booking)
+
+
+@receiver(post_save, sender=Booking)
+def handle_booking_status_change(sender, instance, created, **kwargs):
+    old_status = getattr(instance, '_old_status', None)
+    new_status = instance.status
+
+    if old_status == new_status:
+        return
+
+    if new_status == Booking.Status.CANCELLED:
+    # Chỉ báo cho khách khi KHÔNG PHẢI khách tự hủy
+    # (worker hủy, admin hủy, hoặc hệ thống tự hủy do hết hạn)
+        if instance.cancelled_by_id != instance.customer_id:
+            notify_customer_booking_cancelled(instance)
+
+        # Luôn báo cho worker đã nhận việc, vì worker không tự hủy
+        accepted_assignments = BookingAssignment.objects.filter(
+            schedule__booking=instance,
+            status=BookingAssignment.Status.ACCEPTED,
+        ).select_related('worker', 'schedule')
+
+        for assignment in accepted_assignments:
+            notify_worker_booking_cancelled(assignment.schedule, assignment.worker)
+
+    elif new_status == Booking.Status.COMPLETED:
+        notify_customer_booking_completed(instance)
+
+    elif new_status == Booking.Status.FAILED:
+        notify_customer_booking_failed(instance)
+
+
+# ===================== BOOKING ASSIGNMENT (worker nhận lịch) =====================
+
+pre_save.connect(_cache_old_status(BookingAssignment), sender=BookingAssignment)
+
+
+@receiver(post_save, sender=BookingAssignment)
+def handle_assignment_status_change(sender, instance, created, **kwargs):
+    # Cờ do claim_booking_package gắn tạm trên instance (không lưu DB) để
+    # bỏ qua thông báo lẻ từng buổi khi nhận nhiều buổi cùng lúc — nơi gọi
+    # tự gửi 1 thông báo gộp sau vòng lặp (notify_customer_worker_assigned_batch).
+    if getattr(instance, '_skip_assignment_notify', False):
+        return
+
+    old_status = getattr(instance, '_old_status', None)
+    new_status = instance.status
+
+    if old_status == new_status:
+        return
+
+    if new_status == BookingAssignment.Status.ACCEPTED:
+        notify_customer_worker_assigned(instance)
+
+
+# ===================== PAYMENT =====================
+
+pre_save.connect(_cache_old_status(Payment), sender=Payment)
+
+
+@receiver(post_save, sender=Payment)
+def handle_payment_status_change(sender, instance, created, **kwargs):
+    old_status = getattr(instance, '_old_status', None)
+    new_status = instance.status
+
+    if old_status == new_status:
+        return
+
+    if new_status == Payment.Status.SUCCESS:
+        notify_payment_success(instance)
+    elif new_status == Payment.Status.FAILED:
+        notify_payment_failed(instance)
+
+
+# ===================== COMPLAINT =====================
+
+pre_save.connect(_cache_old_status(Complaint), sender=Complaint)
+
+
+@receiver(post_save, sender=Complaint)
+def handle_complaint_status_change(sender, instance, created, **kwargs):
+    old_status = getattr(instance, '_old_status', None)
+    new_status = instance.status
+
+    if old_status == new_status:
+        return
+
+    if new_status == Complaint.Status.RESOLVED:
+        notify_customer_complaint_resolved(instance)
+
+
+# ===================== WORKER PROFILE =====================
+
+pre_save.connect(_cache_old_status(WorkerProfile), sender=WorkerProfile)
+
+
+@receiver(post_save, sender=WorkerProfile)
+def handle_worker_profile_status_change(sender, instance, created, **kwargs):
+    old_status = getattr(instance, '_old_status', None)
+    new_status = instance.status
+
+    if old_status == new_status:
+        return
+
+    if new_status == WorkerProfile.Status.ACTIVE:
+        notify_worker_profile_approved(instance)
+    elif new_status == WorkerProfile.Status.REJECTED:
+        notify_worker_profile_rejected(instance)

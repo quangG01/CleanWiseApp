@@ -75,6 +75,11 @@ class BookingAssignment(models.Model):
     expired_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Số hoa hồng đã trừ ví (giữ chỗ) lúc worker nhận đơn tiền mặt.
+    # None = chưa giữ chỗ (đơn chuyển khoản, hoặc dữ liệu cũ trước bản vá này).
+    commission_reserved = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+    )
 
     class Meta:
         db_table = 'booking_assignments'

@@ -247,7 +247,7 @@ class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
     class Meta(WorkerScheduleSerializer.Meta):
         fields = WorkerScheduleSerializer.Meta.fields + [
             'note', 'address_line', 'receiver_name', 'receiver_phone',
-            'can_cancel', 'cancel_deadline', 'images',
+            'can_cancel', 'cancel_deadline', 'images','completion_note',
         ]
         read_only_fields = fields
 
@@ -341,3 +341,7 @@ class ScheduleImageUploadSerializer(serializers.Serializer):
     image = serializers.ImageField()
     image_type = serializers.ChoiceField(choices=BookingScheduleImage.ImageType.choices)
     note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    
+
+class CheckOutSerializer(serializers.Serializer):
+    completion_note = serializers.CharField(required=False, allow_blank=True, allow_null=True)

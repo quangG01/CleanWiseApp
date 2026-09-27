@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -12,9 +15,13 @@ from .models import BookingAssignment
 from .assignment_service import OPEN_BOOKING_STATUSES
 from apps.wallets import earning_service
 
+CHECKIN_EARLY_MINUTES = getattr(settings, 'CHECKIN_EARLY_MINUTES', 60)
+CHECKIN_LATE_MINUTES = getattr(settings, 'CHECKIN_LATE_MINUTES', 60)
+CHECKOUT_GRACE_MINUTES = getattr(settings, 'CHECKOUT_GRACE_MINUTES', 60)
+
+MAX_IMAGES_PER_TYPE = getattr(settings, 'MAX_SCHEDULE_IMAGES_PER_TYPE', 5)
 
 def _get_my_accepted_schedule(*, schedule_id, worker, for_update=True):
-    """Lấy schedule + đảm bảo worker chính là người đã nhận (ACCEPTED) buổi này."""
     if not BookingAssignment.objects.filter(
         schedule_id=schedule_id, worker=worker,
         status=BookingAssignment.Status.ACCEPTED,
@@ -36,26 +43,28 @@ def check_in(*, schedule_id, worker):
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không ở trạng thái chờ thực hiện.'})
 
-    # SỬA: trước đây yêu cầu booking.status phải là ASSIGNED, nghĩa là TOÀN
-    # BỘ buổi của booking phải có người nhận (_sync_booking_status_after_claim
-    # chỉ chuyển ASSIGNED khi accepted >= total). Với gói định kỳ nhiều buổi,
-    # worker thường chỉ nhận một phần -> booking.status kẹt mãi ở PENDING,
-    # khiến check-in KHÔNG BAO GIỜ thành công dù buổi hôm nay đã ACCEPTED.
-    # Chỉ cần buổi NÀY đã được nhận (đã đảm bảo ở _get_my_accepted_schedule)
-    # và đơn còn đang "sống" (chưa hủy/thất bại/hoàn thành) là đủ điều kiện
-    # bắt đầu, khớp với comment thiết kế ở assignment_service.py: "Gói
-    # tháng: booking có thể đã IN_PROGRESS mà buổi sau vẫn trống."
     if booking.status not in OPEN_BOOKING_STATUSES:
         raise serializers.ValidationError({'schedule': 'Đơn hàng không ở trạng thái có thể bắt đầu.'})
 
     now = timezone.now()
+    earliest = schedule.scheduled_start - timedelta(minutes=CHECKIN_EARLY_MINUTES)
+    latest = schedule.scheduled_start + timedelta(minutes=CHECKIN_LATE_MINUTES)
+
+    if now < earliest:
+        raise serializers.ValidationError({
+            'schedule': f'Chưa đến giờ check-in. Bạn chỉ có thể check-in từ '
+                        f'{CHECKIN_EARLY_MINUTES} phút trước giờ hẹn.'
+        })
+    if now > latest:
+        raise serializers.ValidationError({
+            'schedule': f'Đã quá {CHECKIN_LATE_MINUTES} phút so với giờ hẹn, '
+                        f'không thể check-in. Vui lòng liên hệ khách hàng/CleanWise.'
+        })
+
     schedule.actual_start = now
     schedule.status = BookingSchedule.Status.IN_PROGRESS
     schedule.save(update_fields=['actual_start', 'status', 'updated_at'])
 
-    # SỬA: cho phép chuyển PENDING -> IN_PROGRESS luôn (không chỉ từ
-    # ASSIGNED), vì với gói định kỳ booking có thể vẫn đang PENDING (do
-    # chưa nhận hết buổi) ngay cả khi buổi đầu tiên đã bắt đầu làm.
     if booking.status in (Booking.Status.PENDING, Booking.Status.ASSIGNED):
         booking.status = Booking.Status.IN_PROGRESS
         booking.save(update_fields=['status', 'updated_at'])
@@ -74,7 +83,7 @@ def check_in(*, schedule_id, worker):
 
 
 @transaction.atomic
-def check_out(*, schedule_id, worker):
+def check_out(*, schedule_id, worker, completion_note=None):
     schedule = _get_my_accepted_schedule(schedule_id=schedule_id, worker=worker)
     booking = Booking.objects.select_for_update(of=('self',)).get(pk=schedule.booking_id)
 
@@ -82,12 +91,26 @@ def check_out(*, schedule_id, worker):
         raise serializers.ValidationError({'schedule': 'Buổi làm việc chưa được Check-in hoặc đã hoàn thành.'})
 
     now = timezone.now()
+    checkout_deadline = schedule.scheduled_end + timedelta(minutes=CHECKOUT_GRACE_MINUTES)
+    if now > checkout_deadline:
+        raise serializers.ValidationError({
+            'schedule': f'Đã quá {CHECKOUT_GRACE_MINUTES} phút so với giờ kết thúc dự kiến, '
+                        f'không thể tự check-out. Hệ thống sẽ tự động hoàn thành buổi làm này.'
+        })
+
+    
+    before_count = schedule.images.filter(image_type=BookingScheduleImage.ImageType.BEFORE).count()
+    after_count = schedule.images.filter(image_type=BookingScheduleImage.ImageType.AFTER).count()
+    if before_count == 0:
+        raise serializers.ValidationError({'images': 'Cần ít nhất 1 ảnh trước khi làm.'})
+    if after_count == 0:
+        raise serializers.ValidationError({'images': 'Cần ít nhất 1 ảnh sau khi làm.'})
+
     schedule.actual_end = now
     schedule.status = BookingSchedule.Status.COMPLETED
-    schedule.save(update_fields=['actual_end', 'status', 'updated_at'])
+    schedule.completion_note = completion_note  # THÊM
+    schedule.save(update_fields=['actual_end', 'status', 'completion_note', 'updated_at'])  # SỬA thêm field
 
-    # Còn buổi nào chưa xong (PENDING/IN_PROGRESS) -> booking vẫn IN_PROGRESS.
-    # Hết buổi -> booking COMPLETED.
     still_active = booking.schedules.filter(
         status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),
     ).exclude(pk=schedule.pk).exists()
@@ -115,6 +138,10 @@ def upload_schedule_image(*, schedule_id, worker, file, image_type, note=None):
     if schedule.status != BookingSchedule.Status.IN_PROGRESS:
         raise serializers.ValidationError({'schedule': 'Chỉ được thêm ảnh khi buổi làm việc đang thực hiện.'})
 
+    current_count = BookingScheduleImage.objects.filter(schedule=schedule, image_type=image_type).count()
+    if current_count >= MAX_IMAGES_PER_TYPE:
+        raise serializers.ValidationError({'image': f'Mỗi loại ảnh tối đa {MAX_IMAGES_PER_TYPE} ảnh.'})
+    
     uploaded = upload_image(
         file,
         folder=f'schedules/{schedule.id}',
