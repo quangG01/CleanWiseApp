@@ -1,0 +1,43 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: cleanwise-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: cleanwise-rabbitmq
+    restart: "no"
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: cleanwise
+      RABBITMQ_DEFAULT_PASS: cleanwise
+    mem_limit: 400m
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # ===== Postgres local =====
+  # postgres:
+  #   image: postgres:17-alpine
+  #   container_name: cleanwise-postgres
+  #   restart: unless-stopped
+  #   ports:
+  #     - "127.0.0.1:5432:5432"
+  #   environment:
+  #     POSTGRES_DB: cleanwise
+  #     POSTGRES_USER: cleanwise
+  #     POSTGRES_PASSWORD: cleanwise
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  rabbitmq_data:
+  # postgres_data:

@@ -4,6 +4,21 @@ from django.conf import settings
 import time
 from .models import Payment
 
+
+from apps.common.retry import retry_on
+import httpx
+
+
+def _payos_retryable(exc):
+    return isinstance(exc, (httpx.TimeoutException, httpx.ConnectError,
+                            httpx.ReadError, httpx.RemoteProtocolError))
+
+
+@retry_on(_payos_retryable)
+def _create_link(client, request):
+    return client.payment_requests.create(payment_data=request)
+
+
 _client = None
 
 
@@ -22,16 +37,17 @@ def create_payos_payment_link(payment: Payment, *, return_url: str, cancel_url: 
     """orderCode dùng luôn payment.id (đã unique) để khỏi phải thêm field mới.
     description payOS giới hạn tối đa 25 ký tự."""
     client = get_payos_client()
-    result = client.payment_requests.create(payment_data=CreatePaymentLinkRequest(
+    request = CreatePaymentLinkRequest(
         order_code=payment.id,
         amount=int(payment.amount),
         description=f'DH{payment.booking_id}'[:25],
         return_url=return_url,
         cancel_url=cancel_url,
-        expired_at=int(time.time()) + 5 * 60,  # hết hạn sau 5 phút
-    ))
+        expired_at=int(time.time()) + 5 * 60,
+    )
+    result = _create_link(client, request)
     return {
         'checkout_url': result.checkout_url,
-        'qr_code': result.qr_code,          # render thành ảnh QR ở FE (vd: qrcode.react)
+        'qr_code': result.qr_code,       
         'payment_link_id': result.payment_link_id,
     }

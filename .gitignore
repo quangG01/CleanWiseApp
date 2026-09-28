@@ -6,8 +6,10 @@ env/
 *.pyc
 __pycache__/
 
-# Environments & Passwords
+# Environment variables & secrets
 .env
+.env.*
+!.env.example
 
 # IDE / Editor Settings
 .vscode/
@@ -17,3 +19,5 @@ __pycache__/
 media/
 staticfiles/
 
+# Celery Beat
+celerybeat-schedule*

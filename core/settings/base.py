@@ -17,6 +17,22 @@ PAYOS_CHECKSUM_KEY = os.environ.get("PAYOS_CHECKSUM_KEY", "")
 PAYOS_RETURN_URL = os.environ.get("PAYOS_RETURN_URL", "https://cleanwise.vn/payment/return")
 PAYOS_CANCEL_URL = os.environ.get("PAYOS_CANCEL_URL", "https://cleanwise.vn/payment/cancel")
 
+REDIS_URL = os.environ.get('REDIS_URL')
+
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'KEY_PREFIX': 'cw',
+            'TIMEOUT': 300,
+        }
+    }
+else:
+    CACHES = {
+        'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}
+    }
+    
 # # ============================================= Danh sách Django Apps & Third-party Packages # ============================================= 
 INSTALLED_APPS = [
     'daphne',
@@ -172,7 +188,7 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer', # Giữ lại giao diện DRF Web
     ),
     'DEFAULT_THROTTLE_RATES': {
-        'auth': '10/min',
+        'auth': '15/min',
         'otp': '10/min',
     },
     'NUM_PROXIES': int(os.environ.get('NUM_PROXIES', 0)),
@@ -248,5 +264,29 @@ SPECTACULAR_SETTINGS = {
     'ENUM_NAME_OVERRIDES': {
         'WorkerProfileStatusEnum': 'apps.authentication.models.WorkerProfile.Status',
         'UserVoucherStatusEnum': 'apps.vouchers.models.UserVoucher.Status',
+    },
+}
+
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://cleanwise:cleanwise@127.0.0.1:5672//')
+CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_EAGER') == '1'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
+
+CELERY_BEAT_SCHEDULE = {
+    'expire-unclaimed-schedules': {
+        'task': 'apps.worker.tasks.expire_unclaimed_schedules_task',
+        'schedule': 60.0,
+        'options': {'expires': 55},
+    },
+    'handle-missed-checkouts': {
+        'task': 'apps.worker.tasks.handle_missed_checkouts_task',
+        'schedule': 60.0,
+        'options': {'expires': 55},
+    },
+    'send-schedule-reminders': {
+        'task': 'apps.worker.tasks.send_schedule_reminders_task',
+        'schedule': 300.0,
+        'options': {'expires': 290},
     },
 }

@@ -302,6 +302,15 @@ def handle_missed_checkouts():
             related_booking=booking,
         )
 
+def run_lazy_expiry(*, checkouts=False):
+    """Dọn dẹp kiểu lazy trong request, CHỈ khi không có Celery Beat lo
+    (dev với CELERY_EAGER=1 và test). Có worker + beat thật thì các task
+    trong apps/worker/tasks.py chạy định kỳ, request không phải gánh."""
+    if not getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+        return
+    expire_unclaimed_schedules()
+    if checkouts:
+        handle_missed_checkouts()
 
 # ---------------------------------------------------------------- queries
 
@@ -309,7 +318,7 @@ def handle_missed_checkouts():
 def list_available_schedules_for_worker(
     worker, *, booking_id=None, date_from=None, date_to=None, group_by_booking=False,
 ):
-    expire_unclaimed_schedules()
+    run_lazy_expiry()
 
     profile = _get_worker_profile(worker)
     if profile is None or profile.status != 'ACTIVE' or not profile.registered_service_id:
@@ -382,8 +391,7 @@ def list_available_schedules_for_worker(
 
 
 def list_my_schedules(worker, schedule_status=None, booking_id=None):
-    expire_unclaimed_schedules()
-    handle_missed_checkouts()
+    run_lazy_expiry(checkouts=True)
 
     queryset = BookingSchedule.objects.filter(
         assignments__worker=worker,
@@ -397,7 +405,7 @@ def list_my_schedules(worker, schedule_status=None, booking_id=None):
 
 
 def list_booking_schedules_for_worker(worker, *, booking_id):
-    expire_unclaimed_schedules()
+    run_lazy_expiry()
 
     profile = _get_worker_profile(worker)
     if profile is None or profile.status != 'ACTIVE' or not profile.registered_service_id:
