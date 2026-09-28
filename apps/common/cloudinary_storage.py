@@ -44,6 +44,7 @@ def upload_file(
     return {
         "url": result["secure_url"],
         "public_id": result["public_id"],
+        "resource_type": result.get("resource_type", resource_type),
     }
 
 
@@ -54,4 +55,20 @@ def upload_image(file, folder, public_id_prefix="image", field_name="file"):
         public_id_prefix=public_id_prefix,
         field_name=field_name,
         resource_type="image",
+    )
+
+
+def delete_uploaded_file(
+    public_id,
+    resource_type="image",
+):
+    if not public_id:
+        return
+
+    ensure_cloudinary_configured()
+
+    return cloudinary.uploader.destroy(
+        public_id,
+        resource_type=resource_type,
+        invalidate=True,
     )

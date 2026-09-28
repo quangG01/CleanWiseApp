@@ -17,6 +17,10 @@ from apps.services.models import Service
 from .models import PasswordResetOTP, WorkerProfile, WorkerVerificationDocument
 from .worker_profile import get_worker_profile_completeness
 
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken, OutstandingToken,
+)
+
 User = get_user_model()
 
 
@@ -739,6 +743,8 @@ class ResetPasswordSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save(update_fields=['password'])
         self.validated_data['otp'].mark_used()
+        for t in OutstandingToken.objects.filter(user=user):
+            BlacklistedToken.objects.get_or_create(token=t)
         return user
 
 

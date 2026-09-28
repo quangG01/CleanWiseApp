@@ -4,6 +4,8 @@ from rest_framework.response import Response
 
 from apps.common.permissions import IsCustomerRole, IsWorkerRole
 
+from apps.common.idempotency import idempotent
+
 from . import wallet_service
 from .models import Wallet, WalletTransaction
 from .serializers import (
@@ -27,7 +29,7 @@ class WalletDetailView(generics.GenericAPIView):
     serializer_class = WalletSerializer
 
     def get(self, request, *args, **kwargs):
-        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        wallet, _ = wallet_service.get_or_create_wallet(request.user)
         return Response({
             'message': 'Lấy thông tin ví thành công.',
             'data': self.get_serializer(wallet).data,
@@ -68,6 +70,7 @@ class WalletWithdrawRequestView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     serializer_class = WithdrawRequestSerializer
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -89,7 +92,7 @@ class WorkerWalletDetailView(generics.GenericAPIView):
     serializer_class = WalletSerializer
 
     def get(self, request, *args, **kwargs):
-        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        wallet, _ = wallet_service.get_or_create_wallet(request.user)
         return Response({
             'message': 'Lấy thông tin ví thành công.',
             'data': self.get_serializer(wallet).data,
@@ -130,6 +133,7 @@ class WorkerWalletWithdrawRequestView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = WithdrawRequestSerializer
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)

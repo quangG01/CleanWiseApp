@@ -30,8 +30,6 @@ def handle_payos_webhook(webhook_data):
         logger.info('payOS webhook: không có Payment orderCode=%s', order_code)
         return None
 
-    # Luôn khóa theo thứ tự Booking -> Payment -> UserVoucher. Luồng hủy
-    # booking cũng dùng thứ tự này để tránh deadlock khi webhook đến đồng thời.
     booking = Booking.objects.select_for_update().get(pk=candidate['booking_id'])
 
     try:
@@ -40,7 +38,6 @@ def handle_payos_webhook(webhook_data):
             status=Payment.Status.PENDING,
         )
     except Payment.DoesNotExist:
-        # payOS gọi 1 lần với orderCode giả khi bạn confirm webhook URL -> bỏ qua, không lỗi
         logger.info('payOS webhook: không có Payment PENDING orderCode=%s', order_code)
         return None
 

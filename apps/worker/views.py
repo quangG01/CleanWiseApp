@@ -13,6 +13,8 @@ from apps.common.permissions import IsAdminRole, IsCustomerRole, IsWorkerRole
 from . import assignment_service, checkin_service, favorite_worker_service
 from .models import Area, BookingAssignment, WorkerWorkingArea
 
+from apps.common.idempotency import idempotent
+
 from .serializers import (
     AdminAssignWorkerSerializer,
     AreaSummarySerializer,
@@ -302,6 +304,7 @@ class WorkerBookingScheduleListView(generics.GenericAPIView):
 class WorkerClaimScheduleView(APIView):
     permission_classes = [IsWorkerRole]
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         assignment = assignment_service.claim_schedule(schedule_id=kwargs['schedule_id'], worker=request.user)
         return Response({
@@ -332,6 +335,7 @@ class WorkerClaimBookingPackageView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = ClaimBookingPackageSerializer
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -375,6 +379,7 @@ class WorkerCancelAssignmentView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = CancelAssignmentSerializer
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -397,6 +402,7 @@ class AdminAssignWorkerView(generics.GenericAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = AdminAssignWorkerSerializer
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)

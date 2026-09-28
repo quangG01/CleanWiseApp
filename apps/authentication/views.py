@@ -10,6 +10,17 @@ from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import timedelta
+
+import jwt as pyjwt
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+from rest_framework.throttling import ScopedRateThrottle
+from apps.notifications.models import DeviceToken
+
 import secrets
 from .schemas import (
     USER_LIST_SCHEMA,
@@ -146,6 +157,8 @@ class LoginView(generics.GenericAPIView):
     POST /api/auth/login/
     API Đăng nhập tài khoản.
     """
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
     permission_classes = [permissions.AllowAny]  # Cho phép tất cả người dùng chưa đăng nhập gọi API này
     serializer_class = LoginSerializer
 
@@ -374,6 +387,8 @@ class ForgotPasswordView(generics.GenericAPIView):
     POST /api/auth/forgot-password/
     API gửi email khôi phục mật khẩu.
     """
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'otp'
     permission_classes = [permissions.AllowAny]
     serializer_class = ForgotPasswordSerializer
 
@@ -429,6 +444,8 @@ class VerifyPasswordResetOTPView(generics.GenericAPIView):
     POST /api/auth/verify-reset-otp/
     API xác minh mã OTP trước khi đặt lại mật khẩu.
     """
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'otp'
     permission_classes = [permissions.AllowAny]
     serializer_class = VerifyPasswordResetOTPSerializer
 
@@ -460,3 +477,89 @@ class ResetPasswordView(generics.GenericAPIView):
         return Response({
             "message": "Đặt lại mật khẩu thành công."
         }, status=status.HTTP_200_OK)
+
+
+def _extract_jti_unverified(raw_token):
+    """
+    Giải mã payload để LẤY jti, KHÔNG dùng để tin tưởng nội dung token
+    (chưa verify chữ ký ở bước này). Chỉ dùng jti để biết cần khóa dòng
+    OutstandingToken nào trước khi cho simplejwt verify/rotate thật sự.
+    Token giả mạo/sai định dạng sẽ bị chính simplejwt bắt lỗi ở bước
+    is_valid() ngay sau, không lọt qua được.
+    """
+    try:
+        payload = pyjwt.decode(raw_token, options={'verify_signature': False})
+        return payload.get('jti')
+    except Exception:
+        return None
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    """
+    Thay thế TokenRefreshView mặc định của simplejwt.
+
+    Vấn đề gốc: với ROTATE_REFRESH_TOKENS=True + BLACKLIST_AFTER_ROTATION=True,
+    bước "check token đã bị blacklist chưa" và bước "ghi blacklist token cũ"
+    không nằm trong 1 khối có lock -> 2 request refresh cùng lúc với CÙNG
+    1 refresh token có thể cùng pass check trước khi cái đầu tiên kịp ghi
+    blacklist, dẫn tới cả 2 cùng tạo được token mới hợp lệ (rotation không
+    còn đảm bảo "1 lần dùng").
+
+    Cách vá: khóa (select_for_update) đúng dòng OutstandingToken tương ứng
+    với jti của token TRƯỚC khi cho simplejwt verify/rotate. Request thứ 2
+    phải chờ request thứ 1 commit xong (đã ghi blacklist) mới được đọc tiếp
+    -> lúc đó check_blacklist() của simplejwt sẽ thấy token đã bị chặn và
+    raise lỗi đúng như mong đợi.
+    """
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        raw_token = request.data.get('refresh')
+
+        if raw_token:
+            jti = _extract_jti_unverified(raw_token)
+            if jti:
+                # Khóa dòng OutstandingToken nếu tồn tại. Token không tồn
+                # tại trong bảng này (case hiếm, thiếu OUTSTANDING record)
+                # thì bỏ qua lock, để simplejwt tự xử lý báo lỗi bình thường.
+                OutstandingToken.objects.select_for_update().filter(jti=jti).first()
+
+        serializer = TokenRefreshSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0])
+
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+    
+
+class LogoutView(APIView):
+    """POST /api/auth/logout/
+    body: {"refresh": "...", "push_token": "..." (tùy chọn)}
+    """
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        raw = request.data.get("refresh")
+        push_token = request.data.get("push_token")
+        user_id = None
+
+        if raw:
+            try:
+                token = RefreshToken(raw)
+                user_id = token.get("user_id")
+                token.blacklist()
+            except TokenError:
+                pass  # hết hạn hoặc đã bị blacklist: coi như đã logout
+
+        # Chỉ xóa push token khi khớp đúng user sở hữu refresh token,
+        # tránh người lạ biết push token là xóa được của người khác
+        if push_token and user_id:
+            DeviceToken.objects.filter(
+                token=push_token, user_id=user_id
+            ).delete()
+
+        return Response({"message": "Đăng xuất thành công."}, status=status.HTTP_200_OK)

@@ -10,6 +10,8 @@ from apps.common.permissions import IsCustomerRole
 from apps.worker.assignment_service import expire_unclaimed_schedules
 from apps.worker.models import BookingAssignment
 
+from apps.common.idempotency import idempotent
+
 from .schemas import (
     BOOKING_CUSTOMER_SCHEMA,
     BOOKING_DETAIL_CUSTOMER_SCHEMA,
@@ -122,6 +124,7 @@ class BookingListCreateView(generics.GenericAPIView):
             },
         })
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(
             data=request.data,
@@ -199,9 +202,10 @@ from .serializers import BookingCancelSerializer
 
 
 class BookingCancelView(generics.GenericAPIView):
-    permission_classes = [IsCustomerRole]  # dùng đúng permission class hiện có
+    permission_classes = [IsCustomerRole]
     serializer_class = BookingCancelSerializer
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -216,10 +220,14 @@ class BookingCancelView(generics.GenericAPIView):
         })
 
     
+# apps/payments/views.py (hoặc file chứa BookingPaymentLinkView)
+from apps.common.idempotency import idempotent
+
+
 class BookingPaymentLinkView(generics.GenericAPIView):
-    """Tạo (hoặc gọi lại) link/QR payOS cho Payment BANK_TRANSFER đang PENDING của booking."""
     permission_classes = [IsCustomerRole]
 
+    @idempotent
     def post(self, request, *args, **kwargs):
         payment = get_object_or_404(
             Payment.objects.select_related('booking'),
