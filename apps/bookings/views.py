@@ -12,6 +12,9 @@ from apps.worker.models import BookingAssignment
 from apps.common.idempotency import idempotent
 from apps.worker.assignment_service import run_lazy_expiry
 
+from rest_framework.throttling import ScopedRateThrottle
+from apps.common.distributed_lock import distributed_lock
+
 from .schemas import (
     BOOKING_CUSTOMER_SCHEMA,
     BOOKING_DETAIL_CUSTOMER_SCHEMA,
@@ -61,6 +64,13 @@ class BookingListCreateView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     pagination_class = BookingPagination
 
+    def get_throttles(self):
+        throttles = super().get_throttles()
+        if self.request.method == 'POST':
+            self.throttle_scope = 'booking'
+            throttles.append(ScopedRateThrottle())
+        return throttles
+    
     def get_queryset(self):
         run_lazy_expiry()
 
@@ -204,16 +214,19 @@ from .serializers import BookingCancelSerializer
 class BookingCancelView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     serializer_class = BookingCancelSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'booking'
 
     @idempotent
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        booking = cancel_booking(
-            booking_id=kwargs['pk'],
-            customer=request.user,
-            reason=serializer.validated_data['reason'],
-        )
+        with distributed_lock(f"booking:{kwargs['pk']}"):
+            booking = cancel_booking(
+                booking_id=kwargs['pk'],
+                customer=request.user,
+                reason=serializer.validated_data['reason'],
+            )
         return Response({
             'message': 'Hủy đơn thành công.',
             'data': {'id': booking.id, 'status': booking.status, 'payment_status': booking.payment_status},
@@ -223,6 +236,8 @@ class BookingCancelView(generics.GenericAPIView):
 
 class BookingPaymentLinkView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'payment'
 
     @idempotent
     def post(self, request, *args, **kwargs):

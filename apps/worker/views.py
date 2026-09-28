@@ -17,6 +17,8 @@ from django.core.cache import cache
 from apps.common.cache_utils import versioned_key
 
 from apps.common.idempotency import idempotent
+from rest_framework.throttling import ScopedRateThrottle
+from apps.common.distributed_lock import distributed_lock
 
 from .serializers import (
     AdminAssignWorkerSerializer,
@@ -318,10 +320,15 @@ class WorkerBookingScheduleListView(generics.GenericAPIView):
 
 class WorkerClaimScheduleView(APIView):
     permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'worker_action'
 
     @idempotent
     def post(self, request, *args, **kwargs):
-        assignment = assignment_service.claim_schedule(schedule_id=kwargs['schedule_id'], worker=request.user)
+        with distributed_lock(f"schedule:{kwargs['schedule_id']}"):
+            assignment = assignment_service.claim_schedule(
+                schedule_id=kwargs['schedule_id'], worker=request.user,
+            )
         return Response({
             'message': 'Nhận việc thành công.',
             'data': {
@@ -348,6 +355,8 @@ class WorkerClaimBookingPackageView(generics.GenericAPIView):
     vì sao không nhận được buổi đó.
     """
     permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'worker_action'
     serializer_class = ClaimBookingPackageSerializer
 
     @idempotent
@@ -356,9 +365,10 @@ class WorkerClaimBookingPackageView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         schedule_ids = serializer.validated_data.get('schedule_ids')  # None = nhận toàn bộ
 
-        result = assignment_service.claim_booking_package(
-            booking_id=kwargs['booking_id'], worker=request.user, schedule_ids=schedule_ids,
-        )
+        with distributed_lock(f"booking:{kwargs['booking_id']}"):
+            result = assignment_service.claim_booking_package(
+                booking_id=kwargs['booking_id'], worker=request.user, schedule_ids=schedule_ids,
+            )
         claimed, skipped = result['claimed'], result['skipped']
 
         # ĐỔI: tạo chat SAU KHI transaction claim đã commit xong (nằm
@@ -392,6 +402,8 @@ class WorkerClaimBookingPackageView(generics.GenericAPIView):
 @WORKER_CANCEL_ASSIGNMENT_SCHEMA
 class WorkerCancelAssignmentView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'worker_action'
     serializer_class = CancelAssignmentSerializer
 
     @idempotent
@@ -421,18 +433,20 @@ class AdminAssignWorkerView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        assignment = assignment_service.admin_assign_worker(
-            schedule_id=kwargs['schedule_id'],
-            worker_id=serializer.validated_data['worker_id'],
-            admin_user=request.user,
-            note=serializer.validated_data.get('note'),
-        )
+        with distributed_lock(f"schedule:{kwargs['schedule_id']}"):
+            assignment = assignment_service.admin_assign_worker(
+                schedule_id=kwargs['schedule_id'],
+                worker_id=serializer.validated_data['worker_id'],
+                admin_user=request.user,
+                note=serializer.validated_data.get('note'),
+            )
         return Response({'message': 'Gán nhân viên thành công.', 'data': {'assignment_id': assignment.id}}, status=201)
-
 
 
 class WorkerCheckInView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'worker_action'
 
     def post(self, request, *args, **kwargs):
         schedule = checkin_service.check_in(
@@ -447,6 +461,8 @@ class WorkerCheckInView(generics.GenericAPIView):
 
 class WorkerCheckOutView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'worker_action'
     serializer_class = CheckOutSerializer
 
     def post(self, request, *args, **kwargs):
@@ -466,6 +482,8 @@ class WorkerCheckOutView(generics.GenericAPIView):
 
 class WorkerScheduleImageUploadView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'upload'
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = ScheduleImageUploadSerializer
 

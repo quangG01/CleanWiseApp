@@ -187,9 +187,23 @@ REST_FRAMEWORK = {
         'apps.common.renderers.CustomJSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer', # Giữ lại giao diện DRF Web
     ),
+    'DEFAULT_THROTTLE_CLASSES': (
+    'rest_framework.throttling.AnonRateThrottle',
+    'rest_framework.throttling.UserRateThrottle',
+    ),
     'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/min',
+        'user': '120/min',
         'auth': '15/min',
         'otp': '10/min',
+        'payment': '10/min',
+        'booking': '10/min',
+        'voucher': '20/min',
+        'worker_action': '60/min',
+        'upload': '10/min',
+        'content': '10/min',
+        'chat': '60/min',
+        'device': '10/min',
     },
     'NUM_PROXIES': int(os.environ.get('NUM_PROXIES', 0)),
 }

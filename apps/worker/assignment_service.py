@@ -40,6 +40,13 @@ CHECKIN_MISSED_GRACE_MINUTES = getattr(settings, 'CHECKIN_MISSED_GRACE_MINUTES',
 
 # ---------------------------------------------------------------- helpers
 
+def _lock_booking_of_schedule(schedule_id):
+    booking_id = get_object_or_404(
+        BookingSchedule.objects.only('booking_id'), pk=schedule_id,
+    ).booking_id
+    return Booking.objects.select_for_update(of=('self',)).get(pk=booking_id)
+
+
 def _hours_between(now, target):
     return round((target - now).total_seconds() / 3600, 2)
 
@@ -131,6 +138,7 @@ def _has_time_conflict(worker, schedule):
 
 
 def _sync_booking_status_after_claim(booking):
+    booking = Booking.objects.select_for_update().get(pk=booking.pk)
     active = booking.schedules.exclude(status=BookingSchedule.Status.CANCELLED)
     total = active.count()
     accepted = active.filter(
@@ -436,6 +444,8 @@ def list_booking_schedules_for_worker(worker, *, booking_id):
 @transaction.atomic
 def claim_schedule(*, schedule_id, worker):
     profile = _get_claimable_profile(worker)
+    User.objects.select_for_update().get(pk=worker.pk)
+    _lock_booking_of_schedule(schedule_id)
     schedule = get_object_or_404(
         BookingSchedule.objects.select_for_update(of=('self',))
         .select_related('booking', 'booking__address', 'booking__service'),
@@ -492,9 +502,10 @@ def claim_schedule(*, schedule_id, worker):
 @transaction.atomic
 def claim_booking_package(*, booking_id, worker, schedule_ids=None):
     profile = _get_claimable_profile(worker)
+    User.objects.select_for_update().get(pk=worker.pk)
 
     booking = get_object_or_404(
-        Booking.objects.select_related('service', 'address'),
+        Booking.objects.select_for_update(of=('self',)).select_related('service', 'address'),
         pk=booking_id,
     )
 
@@ -530,7 +541,7 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
             schedules.append(schedule)
         schedules.sort(key=lambda s: s.scheduled_start)
     else:
-        schedules = list(base_qs.order_by('scheduled_start'))
+        schedules = sorted(base_qs, key=lambda s: s.scheduled_start)
 
     if not schedules and not skipped:
         raise serializers.ValidationError({'booking': 'Gói này không còn buổi nào khả dụng.'})
@@ -613,6 +624,7 @@ def cancel_assignment(*, assignment_id, worker, reason):
             pk=assignment_id, worker=worker, status=BookingAssignment.Status.ACCEPTED,
         ),
     )
+    _lock_booking_of_schedule(assignment_lookup.schedule_id)
     schedule = BookingSchedule.objects.select_for_update(of=('self',)).select_related('booking').get(
         pk=assignment_lookup.schedule_id,
     )
@@ -657,6 +669,7 @@ def cancel_assignment(*, assignment_id, worker, reason):
 
 @transaction.atomic
 def admin_assign_worker(*, schedule_id, worker_id, admin_user, note=None):
+    _lock_booking_of_schedule(schedule_id)
     schedule = get_object_or_404(
         BookingSchedule.objects.select_for_update(of=('self',)).select_related('booking'),
         pk=schedule_id,

@@ -14,6 +14,7 @@ from .serializers import (
     WithdrawRequestSerializer,
 )
 
+from rest_framework.throttling import ScopedRateThrottle
 
 class WalletTransactionPagination(PageNumberPagination):
     page_size = 20
@@ -68,6 +69,8 @@ class WalletTransactionListView(generics.GenericAPIView):
 class WalletWithdrawRequestView(generics.GenericAPIView):
     """POST yêu cầu rút tiền — chờ admin duyệt."""
     permission_classes = [IsCustomerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'payment'
     serializer_class = WithdrawRequestSerializer
 
     @idempotent
@@ -131,6 +134,8 @@ class WorkerWalletTransactionListView(generics.GenericAPIView):
 class WorkerWalletWithdrawRequestView(generics.GenericAPIView):
     """POST yêu cầu rút tiền ký quỹ — phải chừa lại tối thiểu 400.000đ, chờ admin duyệt."""
     permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'payment'
     serializer_class = WithdrawRequestSerializer
 
     @idempotent

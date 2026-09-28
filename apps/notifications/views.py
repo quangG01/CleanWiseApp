@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from apps.common.permissions import IsCustomerOrWorkerRole
 
 from .models import DeviceToken, Notification
+from apps.common.throttling import WriteScopedThrottleMixin
 
 from .schemas import (
     notification_list_schema,
@@ -104,7 +105,8 @@ class NotificationUnreadCountView(APIView):
         return Response({'message': 'Lấy số thông báo chưa đọc thành công.', 'data': {'unread_count': count}})
     
 
-class RegisterPushTokenView(APIView):
+class RegisterPushTokenView(WriteScopedThrottleMixin, APIView):
+    write_throttle_scope = 'device'
     permission_classes = [IsCustomerOrWorkerRole]
 
     def post(self, request, *args, **kwargs):

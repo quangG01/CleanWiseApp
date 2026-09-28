@@ -87,6 +87,13 @@ class BookingAssignment(models.Model):
             models.Index(fields=['schedule', 'status'], name='ba_schedule_status_idx'),
             models.Index(fields=['worker', 'status'], name='ba_worker_status_idx'),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['schedule'],
+                condition=models.Q(status='ACCEPTED'),
+                name='uniq_accepted_assignment_per_schedule',
+            ),
+        ]
         ordering = ['-assigned_at']
 
     def __str__(self):

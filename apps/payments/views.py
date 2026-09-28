@@ -18,9 +18,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import webhook_service
+from rest_framework.throttling import ScopedRateThrottle
 
 
-class CustomerPaymentMethodListCreateView(generics.GenericAPIView):
+class PaymentWriteThrottleMixin:
+    def get_throttles(self):
+        throttles = super().get_throttles()
+        if self.request.method in ('POST', 'PATCH', 'PUT', 'DELETE'):
+            self.throttle_scope = 'payment'
+            throttles.append(ScopedRateThrottle())
+        return throttles
+
+class CustomerPaymentMethodListCreateView(PaymentWriteThrottleMixin, generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     usage_type = UserPaymentMethod.UsageType.PAYMENT
 
@@ -56,7 +65,7 @@ class CustomerPaymentMethodListCreateView(generics.GenericAPIView):
         )
 
 
-class CustomerPaymentMethodDetailView(generics.GenericAPIView):
+class CustomerPaymentMethodDetailView(PaymentWriteThrottleMixin, generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     usage_type = UserPaymentMethod.UsageType.PAYMENT
 
@@ -90,7 +99,7 @@ class CustomerPaymentMethodDetailView(generics.GenericAPIView):
         return Response({'message': 'Xóa phương thức thanh toán thành công.'})
 
 
-class CustomerPaymentMethodSetDefaultView(generics.GenericAPIView):
+class CustomerPaymentMethodSetDefaultView(PaymentWriteThrottleMixin, generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
     usage_type = UserPaymentMethod.UsageType.PAYMENT
 
@@ -159,6 +168,7 @@ from payos import WebhookError
 
 class PayOSWebhookView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = []
 
     def post(self, request, *args, **kwargs):
         try:

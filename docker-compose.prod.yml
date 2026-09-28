@@ -5,6 +5,17 @@ x-app-env: &app-env
   CELERY_BROKER_URL: amqp://cleanwise:cleanwise@rabbitmq:5672//
 
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: cleanwise-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+
   web:
     build: .
     container_name: cleanwise-web
@@ -12,8 +23,8 @@ services:
     env_file: .env
     environment: *app-env
     command: sh -c "python manage.py migrate && daphne -b 0.0.0.0 -p 8000 core.asgi:application"
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       - redis
       - rabbitmq
@@ -51,7 +62,7 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: cleanwise
-      RABBITMQ_DEFAULT_PASS: cleanwise  
+      RABBITMQ_DEFAULT_PASS: cleanwise
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 

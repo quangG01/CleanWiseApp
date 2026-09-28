@@ -78,7 +78,11 @@ def custom_exception_handler(exc, context):
             "errors": errors_detail,
             "timestamp": datetime.now().isoformat()
         }
-        return Response(custom_data, status=response.status_code)
+        new_response = Response(custom_data, status=response.status_code)
+        retry_after = response.get('Retry-After')
+        if retry_after:
+            new_response['Retry-After'] = retry_after
+        return new_response
 
     request = context.get("request")
     view = context.get("view")

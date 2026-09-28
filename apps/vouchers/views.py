@@ -19,6 +19,7 @@ from .serializers import (
     VoucherValidationSerializer,
 )
 from .voucher_service import assign_voucher_to_customer, claim_voucher_by_code, validate_and_calculate_voucher
+from rest_framework.throttling import ScopedRateThrottle
 
 from .schemas import (
     VOUCHER_CUSTOMER_LIST_SCHEMA,
@@ -83,6 +84,8 @@ class CustomerVoucherWalletListView(generics.GenericAPIView):
 @VOUCHER_CLAIM_SCHEMA
 class CustomerCodeVoucherClaimView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'voucher'
     serializer_class = VoucherCodeClaimSerializer
 
     def post(self, request, *args, **kwargs):
@@ -98,6 +101,8 @@ class CustomerCodeVoucherClaimView(generics.GenericAPIView):
 @VOUCHER_VALIDATE_SCHEMA
 class CustomerVoucherValidateView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'voucher'
     serializer_class = VoucherValidationSerializer
 
     def post(self, request, *args, **kwargs):
