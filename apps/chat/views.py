@@ -13,6 +13,7 @@ from .serializers import (
     MessageReadInputSerializer, MessageSendInputSerializer,
 )
 from .service import can_send, display_name, mark_messages_read, send_text_message
+from apps.common.throttling import WriteScopedThrottleMixin
 
 
 def visible_messages(conversation, user):
@@ -187,7 +188,8 @@ class MessageListView(generics.GenericAPIView):
         })
 
 
-class MessageSendView(generics.GenericAPIView):
+class MessageSendView(WriteScopedThrottleMixin, generics.GenericAPIView):
+    write_throttle_scope = 'chat'
     serializer_class = MessageSendInputSerializer
 
     def post(self, request):
