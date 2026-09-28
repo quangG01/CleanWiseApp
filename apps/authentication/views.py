@@ -5,7 +5,6 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -51,6 +50,7 @@ from .serializers import (
     AdminWorkerStatusUpdateSerializer,
 )
 from .models import PasswordResetOTP, WorkerProfile
+from .tasks import send_otp_email
 from .worker_profile import get_worker_profile_completeness
 from apps.common.permissions import IsAdminRole, IsAdminOrCustomerRole, IsWorkerRole
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -183,6 +183,8 @@ class CustomerRegisterView(generics.CreateAPIView):
     POST /api/auth/register/
     API đăng ký tài khoản khách hàng.
     """
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
     permission_classes = [permissions.AllowAny]
     serializer_class = CustomerRegisterSerializer
 
@@ -355,6 +357,8 @@ class GoogleLoginView(generics.GenericAPIView):
     POST /api/auth/login-google/
     API đăng nhập / đăng ký bằng Google.
     """
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
     permission_classes = [permissions.AllowAny]
     serializer_class = GoogleLoginSerializer
 
@@ -424,14 +428,12 @@ class ForgotPasswordView(generics.GenericAPIView):
                 }
             )
 
-            email = EmailMultiAlternatives(
-                subject="Khôi phục mật khẩu CleanWise",
-                body=text_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[user.email],
-            )
-            email.attach_alternative(html_message, "text/html")
-            email.send(fail_silently=False)
+            transaction.on_commit(lambda: send_otp_email.delay(
+                user.email,
+                "Khôi phục mật khẩu CleanWise",
+                text_message,
+                html_message,
+            ))
 
         return Response({
             "message": "Nếu email tồn tại, hệ thống đã gửi mã xác thực khôi phục mật khẩu."
@@ -466,6 +468,8 @@ class ResetPasswordView(generics.GenericAPIView):
     POST /api/auth/reset-password/
     API đặt lại mật khẩu mới bằng email và mã xác thực.
     """
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'otp'
     permission_classes = [permissions.AllowAny]
     serializer_class = ResetPasswordSerializer
 

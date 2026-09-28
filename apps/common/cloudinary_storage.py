@@ -5,6 +5,29 @@ import cloudinary.uploader
 from django.conf import settings
 from rest_framework import serializers
 
+import socket
+import requests
+import urllib3
+from cloudinary.exceptions import Error as CloudinaryError
+from apps.common.retry import retry_on
+
+
+def _cloudinary_retryable(exc):
+    if isinstance(exc, (socket.timeout, TimeoutError, ConnectionError,
+                        requests.exceptions.RequestException,
+                        urllib3.exceptions.HTTPError)):
+        return True
+    if isinstance(exc, CloudinaryError):
+        text = str(exc).lower()
+        return any(k in text for k in ('timeout', 'timed out', ' 500', ' 502', ' 503', ' 504'))
+    return False
+
+
+@retry_on(_cloudinary_retryable)
+def _upload_with_retry(file, **options):
+    if hasattr(file, 'seek'):
+        file.seek(0)
+    return cloudinary.uploader.upload(file, **options)
 
 def ensure_cloudinary_configured(field_name="file"):
     if not all([
@@ -33,7 +56,7 @@ def upload_file(
 ):
     ensure_cloudinary_configured(field_name=field_name)
 
-    result = cloudinary.uploader.upload(
+    result = _upload_with_retry(
         file,
         folder=folder,
         public_id=f"{public_id_prefix}_{uuid4().hex}",

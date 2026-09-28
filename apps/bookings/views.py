@@ -7,10 +7,10 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from apps.common.permissions import IsCustomerRole
-from apps.worker.assignment_service import expire_unclaimed_schedules
 from apps.worker.models import BookingAssignment
 
 from apps.common.idempotency import idempotent
+from apps.worker.assignment_service import run_lazy_expiry
 
 from .schemas import (
     BOOKING_CUSTOMER_SCHEMA,
@@ -62,7 +62,7 @@ class BookingListCreateView(generics.GenericAPIView):
     pagination_class = BookingPagination
 
     def get_queryset(self):
-        expire_unclaimed_schedules()
+        run_lazy_expiry()
 
         queryset = (
             Booking.objects
@@ -166,7 +166,7 @@ class BookingDetailView(generics.GenericAPIView):
     serializer_class = BookingDetailSerializer
 
     def get_object(self):
-        expire_unclaimed_schedules()
+        run_lazy_expiry()
 
         return get_object_or_404(
             Booking.objects
@@ -220,9 +220,6 @@ class BookingCancelView(generics.GenericAPIView):
         })
 
     
-# apps/payments/views.py (hoặc file chứa BookingPaymentLinkView)
-from apps.common.idempotency import idempotent
-
 
 class BookingPaymentLinkView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]

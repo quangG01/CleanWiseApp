@@ -18,6 +18,12 @@ from .serializers import (
     ServiceListSerializer,
 )
 
+from django.core.cache import cache
+from apps.common.cache_utils import versioned_key
+
+SERVICES_NS = 'services'
+SERVICES_TTL = 60 * 15
+
 
 # ============================================================
 # CUSTOMER / PUBLIC - chỉ đọc, không cần đăng nhập
@@ -41,11 +47,20 @@ class ServiceListView(generics.ListAPIView):
         return queryset
 
     def list(self, request, *args, **kwargs):
-        serializer = self.get_serializer(self.get_queryset(), many=True)
-        return Response({
-            'message': 'Lấy danh sách dịch vụ thành công.',
-            'data': serializer.data,
-        }, status=status.HTTP_200_OK)
+        section_code = (request.query_params.get('section_code') or '').strip().upper()
+        search = request.query_params.get('search')
+
+        # Chỉ cache khi không có search, tránh phình cache vì chuỗi gõ tự do
+        cache_key = None if search else versioned_key(SERVICES_NS, 'list', section_code or 'all')
+
+        data = cache.get(cache_key) if cache_key else None
+        if data is None:
+            data = list(self.get_serializer(self.get_queryset(), many=True).data)
+            if cache_key:
+                cache.set(cache_key, data, SERVICES_TTL)
+
+        return Response({'message': 'Lấy danh sách dịch vụ thành công.', 'data': data},
+                        status=status.HTTP_200_OK)
 
 
 @SERVICE_DETAIL_SCHEMA
@@ -57,11 +72,13 @@ class ServiceDetailView(generics.RetrieveAPIView):
     queryset = Service.objects.filter(is_active=True).prefetch_related('images')
 
     def retrieve(self, request, *args, **kwargs):
-        serializer = self.get_serializer(self.get_object())
-        return Response({
-            'message': 'Lấy chi tiết dịch vụ thành công.',
-            'data': serializer.data,
-        }, status=status.HTTP_200_OK)
+        cache_key = versioned_key(SERVICES_NS, 'detail', kwargs['pk'])
+        data = cache.get(cache_key)
+        if data is None:
+            data = dict(self.get_serializer(self.get_object()).data)
+            cache.set(cache_key, data, SERVICES_TTL)
+        return Response({'message': 'Lấy chi tiết dịch vụ thành công.', 'data': data},
+                        status=status.HTTP_200_OK)
 
 
 # ============================================================

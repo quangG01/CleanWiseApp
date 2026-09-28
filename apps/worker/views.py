@@ -13,6 +13,9 @@ from apps.common.permissions import IsAdminRole, IsCustomerRole, IsWorkerRole
 from . import assignment_service, checkin_service, favorite_worker_service
 from .models import Area, BookingAssignment, WorkerWorkingArea
 
+from django.core.cache import cache
+from apps.common.cache_utils import versioned_key
+
 from apps.common.idempotency import idempotent
 
 from .serializers import (
@@ -201,7 +204,7 @@ class WorkerActiveAreaListView(generics.ListAPIView):
     permission_classes = [IsWorkerRole]
     serializer_class = AreaSummarySerializer
 
-    def get_queryset(self):
+    def get_queryset(self):                    
         queryset = Area.objects.filter(is_active=True)
         city = self.request.query_params.get('city')
         search = self.request.query_params.get('search')
@@ -210,6 +213,18 @@ class WorkerActiveAreaListView(generics.ListAPIView):
         if search:
             queryset = queryset.filter(Q(name__icontains=search.strip()) | Q(city__icontains=search.strip()))
         return queryset
+
+    def list(self, request, *args, **kwargs): 
+        city = (request.query_params.get('city') or '').strip().lower()
+        search = request.query_params.get('search')
+
+        cache_key = None if search else versioned_key('areas', 'list', city or 'all')
+        data = cache.get(cache_key) if cache_key else None
+        if data is None:
+            data = [*self.get_serializer(self.get_queryset(), many=True).data]
+            if cache_key:
+                cache.set(cache_key, data, 60 * 60)
+        return Response(data)
 
 
 @WORKER_WORKING_AREA_SCHEMA

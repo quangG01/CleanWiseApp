@@ -21,3 +21,8 @@ MIGRATION_MODULES = DisableMigrations()
 PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 CHANNEL_LAYERS = {'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+
+CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
+
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True

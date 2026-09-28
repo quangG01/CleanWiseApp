@@ -118,8 +118,8 @@ class ServiceListSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.URI)
     def get_primary_image(self, obj):
-        image = obj.images.filter(is_primary=True).first() or obj.images.first()
-        return image.image if image else None
+        images = list(obj.images.all())
+        return images[0].image if images else None
 
 
 class ServiceDetailSerializer(serializers.ModelSerializer):

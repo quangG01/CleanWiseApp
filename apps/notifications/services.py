@@ -1,6 +1,6 @@
 from .models import Notification
 from .push import send_push_to_user
-
+from django.utils import timezone
 
 def create_notification(user, title, message, type=Notification.Type.SYSTEM, related_booking=None):
     return Notification.objects.create(
@@ -113,7 +113,7 @@ def notify_customer_booking_failed(booking):
 
 
 def notify_customer_schedule_reminder(schedule):
-    time_str = schedule.scheduled_start.strftime('%H:%M %d/%m')
+    time_str = timezone.localtime(schedule.scheduled_start).strftime('%H:%M %d/%m')
     return create_notification_with_push(
         user=schedule.booking.customer,
         title='Nhắc lịch',
@@ -146,7 +146,7 @@ def notify_customer_complaint_resolved(complaint):
 # ===================== WORKER =====================
 
 def notify_worker_new_job(assignment):
-    time_str = assignment.schedule.scheduled_start.strftime('%H:%M %d/%m')
+    time_str = timezone.localtime(assignment.schedule.scheduled_start).strftime('%H:%M %d/%m')
     return create_notification_with_push(
         user=assignment.worker,
         title='Có lịch mới',
@@ -178,7 +178,7 @@ def notify_worker_booking_cancelled(schedule, worker):
 
 
 def notify_worker_schedule_reminder(schedule, worker):
-    time_str = schedule.scheduled_start.strftime('%H:%M %d/%m')
+    time_str = timezone.localtime(schedule.scheduled_start).strftime('%H:%M %d/%m')
     return create_notification_with_push(
         user=worker,
         title='Sắp đến giờ làm',

@@ -1,0 +1,60 @@
+x-app-env: &app-env
+  DJANGO_SETTINGS_MODULE: core.settings.prod
+  CELERY_EAGER: "0"
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: amqp://cleanwise:cleanwise@rabbitmq:5672//
+
+services:
+  web:
+    build: .
+    container_name: cleanwise-web
+    restart: unless-stopped
+    env_file: .env
+    environment: *app-env
+    command: sh -c "python manage.py migrate && daphne -b 0.0.0.0 -p 8000 core.asgi:application"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - rabbitmq
+
+  celery-worker:
+    build: .
+    container_name: cleanwise-celery-worker
+    restart: unless-stopped
+    env_file: .env
+    environment: *app-env
+    command: celery -A core worker -l info
+    depends_on:
+      - redis
+      - rabbitmq
+
+  celery-beat:
+    build: .
+    container_name: cleanwise-celery-beat
+    restart: unless-stopped
+    env_file: .env
+    environment: *app-env
+    command: celery -A core beat -l info
+    depends_on:
+      - rabbitmq
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: cleanwise
+      RABBITMQ_DEFAULT_PASS: cleanwise  
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  redis_data:
+  rabbitmq_data:

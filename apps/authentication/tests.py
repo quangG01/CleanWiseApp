@@ -9,6 +9,7 @@ from rest_framework.test import APITestCase
 from apps.worker.models import Area, WorkerWorkingArea
 from apps.services.models import Service
 from .models import PasswordResetOTP, WorkerProfile, WorkerVerificationDocument
+from django.core import mail
 
 User = get_user_model()
 
@@ -450,3 +451,24 @@ class PasswordResetOTPTests(APITestCase):
         self.assertTrue(otp.is_verified)
         otp.mark_used()
         self.assertTrue(otp.is_used)
+        
+        
+class ForgotPasswordEmailTests(APITestCase):
+    def test_forgot_password_sends_otp_email(self):
+        user = User.objects.create_user(
+            username='forgot-user',
+            email='forgot@example.com',
+            password='CleanWise@2026!',
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                '/api/auth/forgot-password/',
+                {'email': user.email},
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [user.email])
+        self.assertTrue(PasswordResetOTP.objects.filter(user=user).exists())
