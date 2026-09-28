@@ -7,7 +7,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.bookings.models import Booking, BookingSchedule, BookingScheduleImage
-from apps.common.cloudinary_storage import upload_image
+from apps.common.cloudinary_storage import (
+    upload_image,
+    delete_uploaded_file,
+)
 from apps.notifications.models import Notification
 from apps.vouchers.voucher_service import mark_user_voucher_used
 
@@ -131,17 +134,29 @@ def check_out(*, schedule_id, worker, completion_note=None):
     return schedule
 
 
-@transaction.atomic
 def upload_schedule_image(*, schedule_id, worker, file, image_type, note=None):
-    schedule = _get_my_accepted_schedule(schedule_id=schedule_id, worker=worker, for_update=False)
+    schedule = _get_my_accepted_schedule(
+        schedule_id=schedule_id,
+        worker=worker,
+        for_update=False,
+    )
 
     if schedule.status != BookingSchedule.Status.IN_PROGRESS:
-        raise serializers.ValidationError({'schedule': 'Chỉ được thêm ảnh khi buổi làm việc đang thực hiện.'})
+        raise serializers.ValidationError({
+            'schedule': 'Chỉ được thêm ảnh khi buổi làm việc đang thực hiện.'
+        })
 
-    current_count = BookingScheduleImage.objects.filter(schedule=schedule, image_type=image_type).count()
+    current_count = BookingScheduleImage.objects.filter(
+        schedule=schedule,
+        image_type=image_type,
+    ).count()
+
     if current_count >= MAX_IMAGES_PER_TYPE:
-        raise serializers.ValidationError({'image': f'Mỗi loại ảnh tối đa {MAX_IMAGES_PER_TYPE} ảnh.'})
-    
+        raise serializers.ValidationError({
+            'image': f'Mỗi loại ảnh tối đa {MAX_IMAGES_PER_TYPE} ảnh.'
+        })
+
+    # 1. Upload ảnh lên Cloudinary
     uploaded = upload_image(
         file,
         folder=f'schedules/{schedule.id}',
@@ -149,13 +164,25 @@ def upload_schedule_image(*, schedule_id, worker, file, image_type, note=None):
         field_name='image',
     )
 
-    last_order = BookingScheduleImage.objects.filter(schedule=schedule).count()
+    try:
+        # 2. Tạo record trong DB
+        last_order = BookingScheduleImage.objects.filter(
+            schedule=schedule
+        ).count()
 
-    return BookingScheduleImage.objects.create(
-        uploaded_by=worker,
-        schedule=schedule,
-        image_type=image_type,
-        image=uploaded['url'],
-        note=note or None,
-        sort_order=last_order,
-    )
+        return BookingScheduleImage.objects.create(
+            uploaded_by=worker,
+            schedule=schedule,
+            image_type=image_type,
+            image=uploaded['url'],
+            note=note or None,
+            sort_order=last_order,
+        )
+
+    except Exception:
+        # 3. DB lỗi → xóa ảnh vừa upload trên Cloudinary
+        delete_uploaded_file(
+            public_id=uploaded.get('public_id'),
+            resource_type=uploaded.get('resource_type', 'image'),
+        )
+        raise

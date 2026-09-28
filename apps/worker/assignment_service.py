@@ -503,7 +503,7 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
         booking=booking,
         status=BookingSchedule.Status.PENDING,
         scheduled_start__gt=timezone.now(),
-    )
+    ).order_by('id')
 
     skipped = []
 
@@ -600,15 +600,21 @@ def cancel_assignment(*, assignment_id, worker, reason):
     if not reason:
         raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do hủy.'})
 
+    assignment_lookup = get_object_or_404(
+        BookingAssignment.objects.filter(
+            pk=assignment_id, worker=worker, status=BookingAssignment.Status.ACCEPTED,
+        ),
+    )
+    schedule = BookingSchedule.objects.select_for_update(of=('self',)).select_related('booking').get(
+        pk=assignment_lookup.schedule_id,
+    )
     assignment = get_object_or_404(
         BookingAssignment.objects.select_for_update(of=('self',)),
         pk=assignment_id, worker=worker, status=BookingAssignment.Status.ACCEPTED,
     )
-    schedule = BookingSchedule.objects.select_for_update(of=('self',)).select_related('booking').get(
-        pk=assignment.schedule_id,
-    )
     booking = schedule.booking
     now = timezone.now()
+
 
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'assignment': 'Chỉ được hủy buổi chưa bắt đầu.'})

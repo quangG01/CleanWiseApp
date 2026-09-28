@@ -9,6 +9,7 @@ from .models import (
     ComplaintIssueType,
 )
 
+from django.db import transaction
 
 class ComplaintIssueTypeSerializer(serializers.ModelSerializer):
     stage_label = serializers.CharField(
@@ -84,8 +85,17 @@ class ComplaintCreateSerializer(serializers.ModelSerializer):
                 'issue_type': 'Loại sự cố này không phù hợp với trạng thái hiện tại của booking.'
             })
 
-        # Chỉ 1 khiếu nại / buổi schedule (khiếu nại đã hủy thì cho gửi lại)
+        # ĐỔI: khóa schedule trước khi check tồn tại complaint, để 2
+        # request tạo complaint cùng lúc cho cùng 1 schedule bị serialize
+        # (request sau phải chờ request trước commit/rollback xong mới
+        # được đọc), tránh cả 2 cùng pass check rồi cùng tạo trùng.
+        # select_for_update() bắt buộc phải chạy trong transaction, nên
+        # bọc luôn create() (được ComplaintListCreateView gọi ngay sau
+        # is_valid()) vào atomic ở view.
         if schedule:
+            from apps.bookings.models import BookingSchedule
+            BookingSchedule.objects.select_for_update(of=('self',)).get(pk=schedule.pk)
+
             existing = Complaint.objects.filter(schedule=schedule).exclude(
                 status=Complaint.Status.CANCELLED,
             ).exists()

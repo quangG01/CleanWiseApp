@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     # Third-party packages
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'drf_spectacular',
 
@@ -170,15 +171,25 @@ REST_FRAMEWORK = {
         'apps.common.renderers.CustomJSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer', # Giữ lại giao diện DRF Web
     ),
+    'DEFAULT_THROTTLE_RATES': {
+        'auth': '10/min',
+        'otp': '10/min',
+    },
+    'NUM_PROXIES': int(os.environ.get('NUM_PROXIES', 0)),
 }
 
 # ============================================= Cấu hình Simple JWT=============================================
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+
+
+
 
 # ============================================= Cấu hình Swagger API Documentation=============================================
 SPECTACULAR_SETTINGS = {

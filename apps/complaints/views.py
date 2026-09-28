@@ -117,10 +117,11 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
             if f.size > MAX_IMAGE_SIZE:
                 return Response({'attachments': [f'File {f.name} vượt quá 5MB.']}, status=400)
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
 
         with transaction.atomic():
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
             complaint = serializer.save()
             for f in files:
                 ComplaintAttachment.objects.create(
@@ -155,21 +156,19 @@ class ComplaintDetailView(generics.RetrieveAPIView):
 
 @COMPLAINT_CANCEL_SCHEMA
 class ComplaintCancelView(APIView):
-    permission_classes = [
-        IsCustomerRole,
-    ]
+    permission_classes = [IsCustomerRole]
 
+    @transaction.atomic  # THÊM
     def post(self, request, pk):
+        
         complaint = get_object_or_404(
-            Complaint,
+            Complaint.objects.select_for_update(),
             pk=pk,
         )
 
         if complaint.customer_id != request.user.id:
             return Response(
-                {
-                    'detail': 'Không có quyền.'
-                },
+                {'detail': 'Không có quyền.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -186,56 +185,36 @@ class ComplaintCancelView(APIView):
 
         serializer = ComplaintCancelSerializer(
             data={},
-            context={
-                'complaint': complaint,
-                'request': request,
-            },
+            context={'complaint': complaint, 'request': request},
         )
-
-        serializer.is_valid(
-            raise_exception=True,
-        )
-
+        serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response(
-            ComplaintDetailSerializer(
-                complaint,
-            ).data
-        )
+        return Response(ComplaintDetailSerializer(complaint).data)
 
 
 @COMPLAINT_RESOLVE_SCHEMA
 class ComplaintResolveView(APIView):
-    permission_classes = [
-        IsAdminRole,
-    ]
+    permission_classes = [IsAdminRole]
 
+    @transaction.atomic
     def post(self, request, pk):
+  
         complaint = get_object_or_404(
-            Complaint,
+            Complaint.objects.select_for_update(),
             pk=pk,
         )
 
         serializer = ComplaintResolveSerializer(
             complaint,
             data=request.data,
-            context={
-                'request': request,
-            },
+            context={'request': request},
         )
-
-        serializer.is_valid(
-            raise_exception=True,
-        )
-
+        serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response(
-            ComplaintDetailSerializer(
-                complaint,
-            ).data
-        )
+        return Response(ComplaintDetailSerializer(complaint).data)
+
         
 
 class ComplaintAttachmentUploadView(generics.CreateAPIView):
