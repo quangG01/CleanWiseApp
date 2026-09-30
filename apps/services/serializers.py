@@ -11,7 +11,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from apps.common.cloudinary_storage import upload_image
+from apps.common.cloudinary_storage import ensure_cloudinary_configured, upload_image
 
 from .models import Service, ServiceImage
 from .utils import extract_cloudinary_public_id
@@ -56,16 +56,13 @@ def save_service_image(
         f"/service_{service.id}"
     )
 
+    # upload_image không nhận tham số max_size; kích thước đã được
+    # ServiceImageFileField kiểm tra ở bước validate.
     uploaded = upload_image(
         image_file,
         folder=folder,
         public_id_prefix='service_image',
         field_name='images',
-        max_size=getattr(
-            settings,
-            'SERVICE_IMAGE_MAX_SIZE',
-            10 * 1024 * 1024,
-        ),
     )
 
     return ServiceImage.objects.create(
@@ -90,6 +87,28 @@ def delete_service_image(image):
     image.delete()
 
 
+def save_service_icon(service, icon_file):
+    uploaded = upload_image(
+        icon_file,
+        folder=f"{settings.CLOUDINARY_SERVICE_ICON_FOLDER}/service_{service.id}",
+        public_id_prefix='service_icon',
+        field_name='icon_file',
+    )
+    return uploaded['url']
+
+
+def delete_cloudinary_url(url):
+    """Xóa file cũ trên Cloudinary; lỗi chỉ ghi log, không chặn luồng chính."""
+    public_id = extract_cloudinary_public_id(url) if url else None
+    if not public_id:
+        return
+    try:
+        ensure_cloudinary_configured()
+        cloudinary.uploader.destroy(public_id, resource_type='image', invalidate=True)
+    except Exception:
+        logger.warning('Cloudinary destroy failed for %s', public_id, exc_info=True)
+
+
 # ============================================================
 # READ SERIALIZERS
 # ============================================================
@@ -106,7 +125,10 @@ class ServiceListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Service
-        fields = ['id', 'code', 'section_code', 'name', 'description', 'is_active', 'primary_image']
+        fields = [
+            'id', 'code', 'section_code', 'name', 'description',
+            'is_active', 'icon', 'primary_image',
+        ]
         extra_kwargs = {
             'id': {'help_text': 'ID gửi trong field service_id khi nhân viên cập nhật hồ sơ.'},
             'code': {'help_text': 'Mã định danh duy nhất của dịch vụ.'},
@@ -114,6 +136,7 @@ class ServiceListSerializer(serializers.ModelSerializer):
             'name': {'help_text': 'Tên dịch vụ hiển thị.'},
             'description': {'help_text': 'Mô tả dịch vụ.'},
             'is_active': {'help_text': 'Trạng thái hoạt động; API công khai chỉ trả về true.'},
+            'icon': {'help_text': 'URL icon dịch vụ do admin upload; có thể là null.'},
         }
 
     @extend_schema_field(OpenApiTypes.URI)
@@ -128,7 +151,7 @@ class ServiceDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = [
-            'id', 'code', 'section_code', 'name', 'description',
+            'id', 'code', 'section_code', 'name', 'description', 'icon',
             'form_schema', 'pricing_config', 'images', 'is_active',
             'created_at', 'updated_at',
         ]
@@ -159,6 +182,18 @@ class ServiceAdminWriteSerializer(serializers.ModelSerializer):
         write_only=True,
     )
 
+    # Icon dịch vụ: gửi icon_file để thay/đặt mới, remove_icon=true để xóa
+    icon_file = ServiceImageFileField(
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+
+    remove_icon = serializers.BooleanField(
+        required=False,
+        write_only=True,
+    )
+
     class Meta:
         model = Service
         fields = [
@@ -170,11 +205,14 @@ class ServiceAdminWriteSerializer(serializers.ModelSerializer):
             'form_schema',
             'pricing_config',
             'is_active',
+            'icon',
+            'icon_file',
+            'remove_icon',
             'images',
             'delete_image_ids',
             'primary_image_id',
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'icon']
 
     def validate_code(self, value):
         value = value.strip().upper()
@@ -292,8 +330,14 @@ class ServiceAdminWriteSerializer(serializers.ModelSerializer):
         images = validated_data.pop('images', [])
         validated_data.pop('delete_image_ids', None)
         validated_data.pop('primary_image_id', None)
+        icon_file = validated_data.pop('icon_file', None)
+        validated_data.pop('remove_icon', None)
 
         service = Service.objects.create(**validated_data)
+
+        if icon_file:
+            service.icon = save_service_icon(service, icon_file)
+            service.save(update_fields=['icon', 'updated_at'])
 
         for index, image_file in enumerate(images):
             save_service_image(
@@ -315,18 +359,27 @@ class ServiceAdminWriteSerializer(serializers.ModelSerializer):
             'primary_image_id',
             None,
         )
+        icon_file = validated_data.pop('icon_file', None)
+        remove_icon = validated_data.pop('remove_icon', False)
 
-        # --------------------------------------------------
-        # 1. Update các field của Service
-        # --------------------------------------------------
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         instance.save()
 
-        # --------------------------------------------------
-        # 2. Xoá ảnh được yêu cầu
-        # --------------------------------------------------
+  
+        old_icon = instance.icon
+        if icon_file:
+            instance.icon = save_service_icon(instance, icon_file)
+            instance.save(update_fields=['icon', 'updated_at'])
+            transaction.on_commit(lambda: delete_cloudinary_url(old_icon))
+        elif remove_icon and old_icon:
+            instance.icon = None
+            instance.save(update_fields=['icon', 'updated_at'])
+            transaction.on_commit(lambda: delete_cloudinary_url(old_icon))
+
+
         for image_id in delete_image_ids:
             image = instance.images.filter(
                 id=image_id
@@ -364,10 +417,6 @@ class ServiceAdminWriteSerializer(serializers.ModelSerializer):
                     update_fields=['is_primary']
                 )
 
-        # --------------------------------------------------
-        # 5. Nếu không chọn ảnh chính và hiện tại không có
-        #    ảnh chính thì lấy ảnh đầu tiên còn lại
-        # --------------------------------------------------
         elif not instance.images.filter(
             is_primary=True
         ).exists():

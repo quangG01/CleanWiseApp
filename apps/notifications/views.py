@@ -10,13 +10,14 @@ from apps.common.permissions import IsCustomerOrWorkerRole
 from .models import DeviceToken, Notification
 from apps.common.throttling import WriteScopedThrottleMixin
 
+from .preferences import get_preference
 from .schemas import (
     notification_list_schema,
     notification_mark_all_read_schema,
     notification_mark_read_schema,
     notification_unread_count_schema,
 )
-from .serializers import NotificationSerializer
+from .serializers import NotificationPreferenceSerializer, NotificationSerializer
 
 
 class NotificationPagination(PageNumberPagination):
@@ -58,7 +59,7 @@ class NotificationListView(generics.GenericAPIView):
                 'total_pages': paginator.page.paginator.num_pages,
                 'has_next': paginator.page.has_next(),
                 'has_previous': paginator.page.has_previous(),
-                'unread_count': queryset.filter(is_read=False).count(),
+                'unread_count': Notification.objects.filter(user=request.user, is_read=False).count(),
             },
         })
 
@@ -103,7 +104,41 @@ class NotificationUnreadCountView(APIView):
     def get(self, request, *args, **kwargs):
         count = Notification.objects.filter(user=request.user, is_read=False).count()
         return Response({'message': 'Lấy số thông báo chưa đọc thành công.', 'data': {'unread_count': count}})
-    
+
+
+class NotificationClearAllView(APIView):
+    """DELETE /api/notifications/clear-all/ : xoá toàn bộ thông báo của người dùng"""
+    permission_classes = [IsCustomerOrWorkerRole]
+
+    def delete(self, request, *args, **kwargs):
+        deleted, _ = Notification.objects.filter(user=request.user).delete()
+        return Response({
+            'message': f'Đã xoá {deleted} thông báo.',
+            'data': {'deleted': deleted},
+        })
+
+
+class NotificationPreferenceView(APIView):
+    """GET/PATCH /api/notifications/preferences/"""
+    permission_classes = [IsCustomerOrWorkerRole]
+
+    def get(self, request, *args, **kwargs):
+        pref = get_preference(request.user)
+        return Response({
+            'message': 'Lấy cài đặt thông báo thành công.',
+            'data': NotificationPreferenceSerializer(pref).data,
+        })
+
+    def patch(self, request, *args, **kwargs):
+        pref = get_preference(request.user)
+        serializer = NotificationPreferenceSerializer(pref, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({
+            'message': 'Cập nhật cài đặt thông báo thành công.',
+            'data': serializer.data,
+        })
+
 
 class RegisterPushTokenView(WriteScopedThrottleMixin, APIView):
     write_throttle_scope = 'device'
@@ -121,4 +156,3 @@ class RegisterPushTokenView(WriteScopedThrottleMixin, APIView):
             defaults={'user': request.user, 'platform': platform},
         )
         return Response({'message': 'Đã đăng ký push token.'})
-    

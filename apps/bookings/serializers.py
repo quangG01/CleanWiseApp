@@ -230,20 +230,18 @@ class BookingListSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+    service_code = serializers.CharField(source='service.code', read_only=True)
+    service_section_code = serializers.CharField(source='service.section_code', read_only=True)
+    service_icon = serializers.CharField(source='service.icon', read_only=True, allow_null=True)
+
     class Meta:
         model = Booking
         fields = [
-            'id',
-            'booking_code',
-            'service_name',
-            'status',
-            'payment_status',
-            'subtotal_amount',
-            'discount_amount',
-            'total_amount',
-            'created_at',
+            'id', 'booking_code', 'service_name',
+            'service_code', 'service_section_code', 'service_icon',
+            'status', 'payment_status',
+            'subtotal_amount', 'discount_amount', 'total_amount', 'created_at',
         ]
-
 
 class BookingDetailSerializer(serializers.ModelSerializer):
     service_name = serializers.CharField(

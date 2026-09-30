@@ -25,7 +25,8 @@ class Notification(models.Model):
 
     def __str__(self):
         return self.title
-    
+
+
 class DeviceToken(models.Model):
     class Platform(models.TextChoices):
         IOS = 'IOS', 'iOS'
@@ -38,3 +39,16 @@ class DeviceToken(models.Model):
 
     class Meta:
         db_table = 'device_tokens'
+
+
+class NotificationPreference(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notification_preference',
+    )
+    push_enabled = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'notification_preferences'

@@ -148,6 +148,7 @@ CLOUDINARY_CUSTOMER_AVATAR_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/customer_avatars"
 CLOUDINARY_SERVICE_IMAGE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/service_images"
 CLOUDINARY_REVIEW_IMAGE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/review_images"
 CLOUDINARY_WORKER_PROFILE_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/worker_profiles"
+CLOUDINARY_SERVICE_ICON_FOLDER = f"{CLOUDINARY_ROOT_FOLDER}/service_icons"
 WORKER_DOCUMENT_MAX_SIZE = int(os.environ.get("WORKER_DOCUMENT_MAX_SIZE", 10 * 1024 * 1024))
 REVIEW_IMAGE_MAX_SIZE = int(os.environ.get("REVIEW_IMAGE_MAX_SIZE", 5 * 1024 * 1024))
 REVIEW_MAX_IMAGES = int(os.environ.get("REVIEW_MAX_IMAGES", 5))
@@ -210,7 +211,7 @@ REST_FRAMEWORK = {
 
 # ============================================= Cấu hình Simple JWT=============================================
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,

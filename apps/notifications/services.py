@@ -1,15 +1,14 @@
 from .models import Notification
 from .push import send_push_to_user
 from django.utils import timezone
+from .realtime import push_unread_count
 
 def create_notification(user, title, message, type=Notification.Type.SYSTEM, related_booking=None):
-    return Notification.objects.create(
-        user=user,
-        title=title,
-        message=message,
-        type=type,
-        related_booking=related_booking,
+    notif = Notification.objects.create(
+        user=user, title=title, message=message, type=type, related_booking=related_booking,
     )
+    push_unread_count(user.id)
+    return notif
 
 
 def create_notification_with_push(user, title, message, type=Notification.Type.SYSTEM, related_booking=None):
@@ -215,4 +214,5 @@ def notify_admin_announcement(users, title, message):
     ])
     for user in users:
         send_push_to_user(user, title, message)
+        push_unread_count(user.id)
     return notifs
