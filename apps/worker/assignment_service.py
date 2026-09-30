@@ -525,7 +525,10 @@ def list_available_schedules_for_worker(
     else:
         result = BookingSchedule.objects.filter(id__in=matched_ids)
 
-    result = result.select_related('booking', 'booking__service', 'booking__address')
+    result = result.select_related(
+        'booking', 'booking__service', 'booking__address',
+        'booking__delivery_address', 'booking__customer',
+    )
     return _annotate_total_sessions(result).order_by('scheduled_start', 'id')
 
 
@@ -535,7 +538,8 @@ def list_my_schedules(worker, schedule_status=None, booking_id=None):
     queryset = BookingSchedule.objects.filter(
         assignments__worker=worker,
         assignments__status=BookingAssignment.Status.ACCEPTED,
-    ).select_related('booking', 'booking__service', 'booking__address')
+    ).select_related('booking', 'booking__service', 'booking__address',
+                'booking__delivery_address', 'booking__customer').prefetch_related('images')
     if schedule_status:
         queryset = queryset.filter(status=schedule_status)
     if booking_id:
@@ -563,11 +567,11 @@ def list_booking_schedules_for_worker(worker, *, booking_id):
     if not already_assigned and not (same_section and in_area):
         return BookingSchedule.objects.none()
 
-    queryset = (
-        BookingSchedule.objects.filter(booking=booking)
-        .exclude(status=BookingSchedule.Status.CANCELLED)
-        .select_related('booking', 'booking__service', 'booking__address')
-    )
+    queryset = BookingSchedule.objects.filter(
+        assignments__worker=worker,
+        assignments__status=BookingAssignment.Status.ACCEPTED,
+    ).select_related('booking', 'booking__service', 'booking__address',
+                'booking__delivery_address', 'booking__customer')
     return _annotate_total_sessions(queryset).order_by('scheduled_start', 'id')
 
 # ---------------------------------------------------------------- commands
