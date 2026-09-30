@@ -3,7 +3,8 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
-from apps.bookings.models import Booking
+from apps.bookings.activity_service import record_booking_activity
+from apps.bookings.models import Booking, BookingActivity
 from apps.vouchers.voucher_service import (
     mark_user_voucher_used,
     release_user_voucher,
@@ -47,6 +48,13 @@ def handle_payos_webhook(webhook_data):
         payment.save(update_fields=['status', 'failure_reason', 'updated_at'])
         if booking.user_voucher_id:
             release_user_voucher(user_voucher_id=booking.user_voucher_id)
+        record_booking_activity(
+            booking=booking,
+            event_type=BookingActivity.EventType.PAYMENT_UPDATED,
+            message=f'Thanh toán đơn {booking.booking_code} thất bại.',
+            old_data={'status': Payment.Status.PENDING},
+            new_data={'status': Payment.Status.FAILED, 'reason': payment.failure_reason},
+        )
         return payment
 
     payment.status = Payment.Status.SUCCESS
@@ -58,4 +66,11 @@ def handle_payos_webhook(webhook_data):
     booking.save(update_fields=['payment_status', 'updated_at'])
     if booking.user_voucher_id:
         mark_user_voucher_used(user_voucher_id=booking.user_voucher_id)
+    record_booking_activity(
+        booking=booking,
+        event_type=BookingActivity.EventType.PAYMENT_UPDATED,
+        message=f'Thanh toán đơn {booking.booking_code} thành công.',
+        old_data={'status': Payment.Status.PENDING},
+        new_data={'status': Payment.Status.SUCCESS, 'payment_id': payment.id},
+    )
     return payment

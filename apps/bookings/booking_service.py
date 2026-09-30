@@ -16,7 +16,8 @@ from apps.vouchers.voucher_service import (
 )
 from apps.payments.models import Payment
 
-from .models import Booking, BookingSchedule
+from .activity_service import record_booking_activity
+from .models import Booking, BookingActivity, BookingSchedule
 from .service_data_validation import validate_service_data
 from .schedule_builder import build_schedules
 
@@ -253,6 +254,7 @@ def create_booking(
     note=None,
     voucher_code=None,
     payment_method,
+    actor=None,
 ):
     """
     Tạo Booking và Payment trong cùng một transaction.
@@ -493,6 +495,19 @@ def create_booking(
 
     _ = payment
 
+    creator = actor or customer
+    record_booking_activity(
+        booking=booking,
+        actor=creator,
+        event_type=BookingActivity.EventType.BOOKING_CREATED,
+        message=(
+            f'Admin tạo đơn {booking.booking_code} thay khách hàng.'
+            if actor is not None and actor != customer
+            else f'Khách hàng tạo đơn {booking.booking_code}.'
+        ),
+        new_data={'customer_id': customer.id, 'service_id': service.id},
+    )
+
     return booking
 
 
@@ -503,6 +518,8 @@ def cancel_booking(*, booking_id, customer, reason):
         pk=booking_id,
         customer=customer,
     )
+
+    previous_status = booking.status
 
     if booking.status not in CANCELLABLE_STATUSES:
         raise serializers.ValidationError({'booking': 'Đơn hàng không thể hủy ở trạng thái hiện tại.'})
@@ -541,11 +558,30 @@ def cancel_booking(*, booking_id, customer, reason):
     )
 
     if was_paid:
+        payment = booking.payments.filter(status=Payment.Status.SUCCESS).first()
+        record_booking_activity(
+            booking=booking,
+            actor=customer,
+            event_type=BookingActivity.EventType.REFUND_CREATED,
+            message='Yêu cầu hoàn tiền đã được tạo.',
+            metadata={'payment_id': payment.id if payment else None},
+        )
         wallet_service.credit_wallet(
             user=customer,
             amount=booking.total_amount,
             booking=booking,
             note=f'Hoàn tiền hủy đơn {booking.booking_code}',
+        )
+        booking.payments.filter(status=Payment.Status.SUCCESS).update(
+            status=Payment.Status.REFUNDED,
+            updated_at=now,
+        )
+        record_booking_activity(
+            booking=booking,
+            actor=customer,
+            event_type=BookingActivity.EventType.REFUND_COMPLETED,
+            message='Đã hoàn tiền vào ví khách hàng.',
+            metadata={'payment_id': payment.id if payment else None},
         )
 
     if booking.user_voucher_id:
@@ -553,5 +589,14 @@ def cancel_booking(*, booking_id, customer, reason):
             user_voucher_id=booking.user_voucher_id,
             allow_used=True,
         )
+
+    record_booking_activity(
+        booking=booking,
+        actor=customer,
+        event_type=BookingActivity.EventType.BOOKING_CANCELLED,
+        message=f'Khách hàng hủy đơn {booking.booking_code}.',
+        old_data={'status': previous_status},
+        new_data={'status': Booking.Status.CANCELLED, 'reason': reason},
+    )
 
     return booking

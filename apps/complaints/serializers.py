@@ -3,6 +3,9 @@
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.bookings.activity_service import record_booking_activity
+from apps.bookings.models import BookingActivity
+
 from .models import (
     Complaint,
     ComplaintAttachment,
@@ -120,7 +123,16 @@ class ComplaintCreateSerializer(serializers.ModelSerializer):
         request = self.context['request']
         booking = validated_data['booking']
         stage = self._get_booking_stage(booking)
-        return Complaint.objects.create(customer=request.user, stage=stage, **validated_data)
+        complaint = Complaint.objects.create(customer=request.user, stage=stage, **validated_data)
+        record_booking_activity(
+            booking=booking,
+            schedule=complaint.schedule,
+            actor=request.user,
+            event_type=BookingActivity.EventType.COMPLAINT_CREATED,
+            message=f'Khách hàng tạo khiếu nại #{complaint.id}.',
+            new_data={'complaint_id': complaint.id, 'stage': complaint.stage},
+        )
+        return complaint
 
 
 class ComplaintListSerializer(serializers.ModelSerializer):
