@@ -1,6 +1,7 @@
 import logging
 
 import requests
+from django.conf import settings
 from django.db import transaction
 
 from .models import DeviceToken
@@ -42,6 +43,9 @@ def deliver_push_to_user(user_id, title, message, data=None):
 def send_push_to_user(user, title, message, data=None):
     """Đưa push vào hàng đợi Celery, chỉ chạy sau khi transaction commit.
     Không bao giờ làm hỏng luồng gọi nó nếu hàng đợi có sự cố."""
+    if not getattr(settings, 'PUSH_NOTIFICATIONS_ENABLED', True):
+        return
+
     from .tasks import send_push_task
 
     user_id = user.pk
@@ -49,7 +53,10 @@ def send_push_to_user(user, title, message, data=None):
 
     def enqueue():
         try:
-            send_push_task.delay(user_id, title, message, payload)
+            send_push_task.apply_async(
+                args=(user_id, title, message, payload),
+                retry=False,
+            )
         except Exception:
             logger.exception('Không đưa được push vào hàng đợi (user_id=%s)', user_id)
 

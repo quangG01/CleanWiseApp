@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from corsheaders.defaults import default_headers
 
 # Đường dẫn gốc tới thư mục project (nhảy lên 3 cấp từ core/settings/base.py)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -10,6 +11,10 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 PASSWORD_RESET_OTP_TTL_MINUTES = int(os.environ.get("PASSWORD_RESET_OTP_TTL_MINUTES", 10))
 PASSWORD_RESET_OTP_MAX_ATTEMPTS = int(os.environ.get("PASSWORD_RESET_OTP_MAX_ATTEMPTS", 5))
 FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
+
+# Các mutation quan trọng từ dashboard gửi Idempotency-Key để tránh thao tác
+# trùng. Header tùy chỉnh phải được khai báo rõ cho CORS preflight.
+CORS_ALLOW_HEADERS = (*default_headers, 'idempotency-key')
 
 PAYOS_CLIENT_ID = os.environ.get("PAYOS_CLIENT_ID", "")
 PAYOS_API_KEY = os.environ.get("PAYOS_API_KEY", "")
@@ -287,6 +292,15 @@ CELERY_TASK_ALWAYS_EAGER = os.environ.get('CELERY_EAGER') == '1'
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
+CELERY_TASK_PUBLISH_RETRY = False
+CELERY_BROKER_CONNECTION_TIMEOUT = 1
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'max_retries': 0,
+    'interval_start': 0,
+    'interval_step': 0,
+    'interval_max': 0,
+}
+PUSH_NOTIFICATIONS_ENABLED = os.environ.get('PUSH_NOTIFICATIONS_ENABLED', '1') == '1'
 
 CELERY_BEAT_SCHEDULE = {
     'expire-unclaimed-schedules': {

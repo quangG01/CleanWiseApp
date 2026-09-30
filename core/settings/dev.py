@@ -56,6 +56,11 @@ DATABASES = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Local development thường không chạy RabbitMQ/Celery. Tắt enqueue push mặc
+# định để request nghiệp vụ không phải chờ broker timeout. Có thể bật lại bằng
+# PUSH_NOTIFICATIONS_ENABLED=1 khi đã khởi động broker và Celery worker.
+PUSH_NOTIFICATIONS_ENABLED = os.environ.get('PUSH_NOTIFICATIONS_ENABLED', '0') == '1'
+
 # One local runserver process can deliver chat events without a Redis service.
 # Deployments with REDIS_URL keep the shared channel layer from base settings.
 if not os.environ.get('REDIS_URL'):

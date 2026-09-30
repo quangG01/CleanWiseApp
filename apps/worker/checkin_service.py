@@ -6,7 +6,8 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.bookings.models import Booking, BookingSchedule, BookingScheduleImage
+from apps.bookings.activity_service import record_booking_activity
+from apps.bookings.models import Booking, BookingActivity, BookingSchedule, BookingScheduleImage
 from apps.common.cloudinary_storage import (
     upload_image,
     delete_uploaded_file,
@@ -82,6 +83,14 @@ def check_in(*, schedule_id, worker):
         type=Notification.Type.ASSIGNMENT,
         related_booking=booking,
     )
+    record_booking_activity(
+        booking=booking,
+        schedule=schedule,
+        actor=worker,
+        event_type=BookingActivity.EventType.CHECKED_IN,
+        message=f'Nhân viên check-in buổi {schedule.sequence_no}.',
+        new_data={'actual_start': now.isoformat()},
+    )
     return schedule
 
 
@@ -130,6 +139,17 @@ def check_out(*, schedule_id, worker, completion_note=None):
         message=f'Nhân viên đã hoàn thành dịch vụ cho đơn {booking.booking_code}.',
         type=Notification.Type.ASSIGNMENT,
         related_booking=booking,
+    )
+    record_booking_activity(
+        booking=booking,
+        schedule=schedule,
+        actor=worker,
+        event_type=BookingActivity.EventType.CHECKED_OUT,
+        message=f'Nhân viên check-out buổi {schedule.sequence_no}.',
+        new_data={
+            'actual_end': now.isoformat(),
+            'completion_note': completion_note,
+        },
     )
     return schedule
 

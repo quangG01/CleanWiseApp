@@ -9,7 +9,8 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.bookings.models import Booking, BookingSchedule
+from apps.bookings.activity_service import record_booking_activity
+from apps.bookings.models import Booking, BookingActivity, BookingSchedule
 from apps.notifications.models import Notification
 from apps.chat.service import ensure_chat_for_assignment
 from apps.payments.models import Payment
@@ -137,6 +138,90 @@ def _has_time_conflict(worker, schedule):
     ).exclude(pk=schedule.pk).exists()
 
 
+def validate_worker_for_schedule(*, schedule, worker):
+    """Validation dùng chung cho admin gán việc và danh sách ứng viên."""
+    profile = _get_claimable_profile(worker)
+    booking = schedule.booking
+    if booking.status not in OPEN_BOOKING_STATUSES:
+        raise serializers.ValidationError({'schedule': 'Đơn hàng không còn nhận nhân viên.'})
+    if not _is_bookable(booking):
+        raise serializers.ValidationError({'schedule': 'Đơn hàng chưa thanh toán, chưa thể phân công.'})
+    if schedule.status != BookingSchedule.Status.PENDING:
+        raise serializers.ValidationError({'schedule': 'Chỉ được phân công buổi chưa bắt đầu.'})
+    if schedule.scheduled_start <= timezone.now():
+        raise serializers.ValidationError({'schedule': 'Buổi làm việc đã quá giờ bắt đầu.'})
+    if booking.service.section_code != profile.registered_service.section_code:
+        raise serializers.ValidationError({'worker': 'Nhân viên không đăng ký nhóm dịch vụ này.'})
+    if _norm(booking.address.city) not in _worker_area_keys(worker):
+        raise serializers.ValidationError({'worker': 'Nhân viên không hoạt động tại khu vực của đơn.'})
+    if _has_time_conflict(worker, schedule):
+        raise serializers.ValidationError({'worker': 'Nhân viên bị trùng lịch với buổi khác.'})
+    return profile
+
+
+def list_available_workers_for_schedule(*, schedule_id, search=None):
+    schedule = get_object_or_404(
+        BookingSchedule.objects.select_related('booking', 'booking__service', 'booking__address'),
+        pk=schedule_id,
+    )
+    booking = schedule.booking
+    if booking.status not in OPEN_BOOKING_STATUSES:
+        raise serializers.ValidationError({'schedule': 'Đơn hàng không còn nhận nhân viên.'})
+    if not _is_bookable(booking):
+        raise serializers.ValidationError({'schedule': 'Đơn hàng chưa thanh toán, chưa thể phân công.'})
+    if schedule.status != BookingSchedule.Status.PENDING or schedule.scheduled_start <= timezone.now():
+        raise serializers.ValidationError({'schedule': 'Buổi làm việc không còn khả dụng.'})
+
+    queryset = (
+        User.objects.filter(
+            role='WORKER',
+            is_active=True,
+            worker_profile__status='ACTIVE',
+            worker_profile__registered_service__section_code=booking.service.section_code,
+        )
+        .select_related('worker_profile', 'worker_profile__registered_service', 'wallet')
+        .prefetch_related('working_areas__area')
+        .annotate(
+            active_jobs_count=Count(
+                'booking_assignments',
+                filter=Q(
+                    booking_assignments__status=BookingAssignment.Status.ACCEPTED,
+                    booking_assignments__schedule__status__in=ACTIVE_SCHEDULE_STATUSES,
+                ),
+                distinct=True,
+            ),
+        )
+    )
+    if search:
+        search = search.strip()
+        queryset = queryset.filter(
+            Q(username__icontains=search)
+            | Q(first_name__icontains=search)
+            | Q(last_name__icontains=search)
+            | Q(phone_number__icontains=search)
+        )
+
+    is_cash = _has_cash_payment(booking)
+    required_commission = earning_service.calculate_commission(
+        earning_service.calculate_gross_amount(schedule, booking),
+    ) if is_cash else 0
+    workers = []
+    for worker in queryset:
+        if _norm(booking.address.city) not in _worker_area_keys(worker):
+            continue
+        if _has_time_conflict(worker, schedule):
+            continue
+        wallet = getattr(worker, 'wallet', None)
+        cash_eligible = not is_cash or (wallet is not None and wallet.balance >= required_commission)
+        if not cash_eligible:
+            continue
+        worker.matched_area = True
+        worker.has_time_conflict = False
+        worker.cash_balance_eligible = cash_eligible
+        workers.append(worker)
+    return workers
+
+
 def _sync_booking_status_after_claim(booking):
     booking = Booking.objects.select_for_update().get(pk=booking.pk)
     active = booking.schedules.exclude(status=BookingSchedule.Status.CANCELLED)
@@ -210,6 +295,15 @@ def handle_missed_checkins():
                      f'buổi {schedule.sequence_no} của đơn {booking.booking_code}.',
             related_booking=booking,
         )
+        record_booking_activity(
+            booking=booking,
+            schedule=schedule,
+            event_type=BookingActivity.EventType.WORKER_UNASSIGNED,
+            message=f'Tự động gỡ nhân viên do không check-in buổi {schedule.sequence_no}.',
+            old_data={'worker_id': assignment.worker_id, 'assignment_id': assignment.id},
+            new_data={'reason': assignment.response_note},
+            metadata={'automatic': True},
+        )
 
 
 @transaction.atomic
@@ -252,6 +346,16 @@ def expire_unclaimed_schedules():
                 booking.save(update_fields=update_fields)
 
                 if was_paid:
+                    payment = Payment.objects.filter(
+                        booking=booking,
+                        status=Payment.Status.SUCCESS,
+                    ).first()
+                    record_booking_activity(
+                        booking=booking,
+                        event_type=BookingActivity.EventType.REFUND_CREATED,
+                        message='Yêu cầu hoàn tiền đã được tạo.',
+                        metadata={'payment_id': payment.id if payment else None},
+                    )
                     from apps.wallets import wallet_service
                     wallet_service.credit_wallet(
                         user=booking.customer,
@@ -259,12 +363,31 @@ def expire_unclaimed_schedules():
                         booking=booking,
                         note=f'Hoàn tiền do không tìm được nhân viên - {booking.booking_code}',
                     )
+                    Payment.objects.filter(
+                        booking=booking,
+                        status=Payment.Status.SUCCESS,
+                    ).update(status=Payment.Status.REFUNDED, updated_at=now)
+                    record_booking_activity(
+                        booking=booking,
+                        event_type=BookingActivity.EventType.REFUND_COMPLETED,
+                        message='Đã hoàn tiền vào ví khách hàng.',
+                        metadata={'payment_id': payment.id if payment else None},
+                    )
 
                 if booking.user_voucher_id:
                     release_user_voucher(
                         user_voucher_id=booking.user_voucher_id,
                         allow_used=True,
                     )
+                record_booking_activity(
+                    booking=booking,
+                    schedule=schedule,
+                    event_type=BookingActivity.EventType.BOOKING_FAILED,
+                    message=f'Đơn {booking.booking_code} thất bại vì không có nhân viên nhận.',
+                    old_data={'status': Booking.Status.PENDING},
+                    new_data={'status': Booking.Status.FAILED, 'reason': booking.cancel_reason},
+                    metadata={'automatic': True},
+                )
 
 
 @transaction.atomic
@@ -308,6 +431,14 @@ def handle_missed_checkouts():
             message=f'Buổi {schedule.sequence_no} của đơn {booking.booking_code} đã hoàn thành.',
             type=Notification.Type.ASSIGNMENT,
             related_booking=booking,
+        )
+        record_booking_activity(
+            booking=booking,
+            schedule=schedule,
+            event_type=BookingActivity.EventType.CHECKED_OUT,
+            message=f'Hệ thống tự động hoàn thành buổi {schedule.sequence_no}.',
+            new_data={'actual_end': schedule.actual_end.isoformat()},
+            metadata={'automatic': True},
         )
 
 def run_lazy_expiry(*, checkouts=False):
@@ -496,6 +627,14 @@ def claim_schedule(*, schedule_id, worker):
 
     _sync_booking_status_after_claim(booking)
     ensure_chat_for_assignment(assignment)
+    record_booking_activity(
+        booking=booking,
+        schedule=schedule,
+        actor=worker,
+        event_type=BookingActivity.EventType.WORKER_CLAIMED,
+        message=f'{worker.get_full_name() or worker.username} nhận buổi {schedule.sequence_no}.',
+        new_data={'worker_id': worker.id, 'assignment_id': assignment.id},
+    )
     return assignment
 
 
@@ -610,6 +749,19 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
 
     _sync_booking_status_after_claim(booking)
 
+    for assignment in claimed:
+        record_booking_activity(
+            booking=booking,
+            schedule=assignment.schedule,
+            actor=worker,
+            event_type=BookingActivity.EventType.WORKER_CLAIMED,
+            message=(
+                f'{worker.get_full_name() or worker.username} nhận buổi '
+                f'{assignment.schedule.sequence_no}.'
+            ),
+            new_data={'worker_id': worker.id, 'assignment_id': assignment.id},
+        )
+
     return {'claimed': claimed, 'skipped': skipped}
 
 
@@ -664,6 +816,16 @@ def cancel_assignment(*, assignment_id, worker, reason):
         booking.status = Booking.Status.PENDING
         booking.save(update_fields=['status', 'updated_at'])
 
+    record_booking_activity(
+        booking=booking,
+        schedule=schedule,
+        actor=worker,
+        event_type=BookingActivity.EventType.WORKER_CANCELLED,
+        message=f'{worker.get_full_name() or worker.username} hủy nhận buổi {schedule.sequence_no}.',
+        old_data={'assignment_id': assignment.id, 'status': BookingAssignment.Status.ACCEPTED},
+        new_data={'status': BookingAssignment.Status.CANCELLED, 'reason': reason},
+    )
+
     return assignment
 
 
@@ -677,13 +839,7 @@ def admin_assign_worker(*, schedule_id, worker_id, admin_user, note=None):
     booking = schedule.booking
     worker = get_object_or_404(User, pk=worker_id, role='WORKER', is_active=True)
 
-    profile = _get_worker_profile(worker)
-    if profile is None or profile.status != 'ACTIVE':
-        raise serializers.ValidationError({'worker': 'Hồ sơ nhân viên chưa được duyệt.'})
-    if schedule.status in (BookingSchedule.Status.COMPLETED, BookingSchedule.Status.CANCELLED):
-        raise serializers.ValidationError({'schedule': 'Buổi làm việc đã hoàn thành hoặc đã hủy, không thể gán.'})
-    if booking.status not in OPEN_BOOKING_STATUSES:
-        raise serializers.ValidationError({'schedule': 'Đơn hàng đã kết thúc hoặc đã hủy.'})
+    validate_worker_for_schedule(schedule=schedule, worker=worker)
 
     now = timezone.now()
 
@@ -693,6 +849,7 @@ def admin_assign_worker(*, schedule_id, worker_id, admin_user, note=None):
             status__in=[BookingAssignment.Status.ACCEPTED, BookingAssignment.Status.PENDING],
         ).select_related('worker')
     )
+    old_worker_ids = [old.worker_id for old in old_assignments if old.status == BookingAssignment.Status.ACCEPTED]
     for old in old_assignments:
         if old.status == BookingAssignment.Status.ACCEPTED:
             earning_service.release_cash_commission(assignment=old)
@@ -721,4 +878,23 @@ def admin_assign_worker(*, schedule_id, worker_id, admin_user, note=None):
 
     _sync_booking_status_after_claim(booking)
     ensure_chat_for_assignment(assignment)
+    record_booking_activity(
+        booking=booking,
+        schedule=schedule,
+        actor=admin_user,
+        event_type=(
+            BookingActivity.EventType.WORKER_REASSIGNED
+            if old_worker_ids else BookingActivity.EventType.WORKER_ASSIGNED
+        ),
+        message=(
+            f'Admin đổi nhân viên buổi {schedule.sequence_no}.'
+            if old_worker_ids else f'Admin gán nhân viên cho buổi {schedule.sequence_no}.'
+        ),
+        old_data={'worker_ids': old_worker_ids},
+        new_data={
+            'worker_id': worker.id,
+            'assignment_id': assignment.id,
+            'note': note,
+        },
+    )
     return assignment
