@@ -14,7 +14,8 @@ from .views import (
     AdminWorkerProfileListView,
     AdminWorkerStatusUpdateView,
     CustomTokenRefreshView,
-    LogoutView
+    LogoutView,
+    ChangePasswordView
 )
 
 urlpatterns = [
@@ -43,6 +44,7 @@ urlpatterns = [
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
     path("verify-reset-otp/", VerifyPasswordResetOTPView.as_view(), name="verify-reset-otp"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
+    path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
 ]

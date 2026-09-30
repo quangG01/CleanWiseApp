@@ -4,6 +4,7 @@ import requests
 from django.db import transaction
 
 from .models import DeviceToken
+from .preferences import can_push  # MỚI
 
 EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
 
@@ -13,6 +14,10 @@ logger = logging.getLogger(__name__)
 def deliver_push_to_user(user_id, title, message, data=None):
     """Gửi push thật tới Expo (chạy trong Celery worker).
     Raise RequestException khi Expo lỗi để Celery tự retry."""
+    # MỚI: người dùng tắt "Thông báo đẩy" thì bỏ qua, không gửi
+    if not can_push(user_id):
+        return
+
     tokens = list(
         DeviceToken.objects.filter(user_id=user_id).values_list('token', flat=True)
     )

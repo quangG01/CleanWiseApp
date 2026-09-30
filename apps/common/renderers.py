@@ -7,6 +7,8 @@ class CustomJSONRenderer(JSONRenderer):
     """
     def render(self, data, accepted_media_type=None, renderer_context=None):
         response = renderer_context.get('response') if renderer_context else None
+        if response is not None and response.status_code == 204:
+            return b''
 
         
         if response and response.status_code >= 400:

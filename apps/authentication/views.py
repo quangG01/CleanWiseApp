@@ -2,6 +2,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from drf_spectacular.types import OpenApiTypes 
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -45,6 +46,7 @@ from .serializers import (
     ForgotPasswordSerializer,
     VerifyPasswordResetOTPSerializer,
     ResetPasswordSerializer,
+    ChangePasswordSerializer,  # MỚI
     WorkerRegisterSerializer,
     WorkerProfileUpdateSerializer,
     AdminWorkerStatusUpdateSerializer,
@@ -480,6 +482,34 @@ class ResetPasswordView(generics.GenericAPIView):
 
         return Response({
             "message": "Đặt lại mật khẩu thành công."
+        }, status=status.HTTP_200_OK)
+
+
+#========================================================================================================================
+# MỚI
+@extend_schema(
+    tags=["Auth - Password Reset"],
+    summary="Đổi mật khẩu (đã đăng nhập)",
+    request=ChangePasswordSerializer,
+    responses={200: OpenApiTypes.OBJECT},
+)
+class ChangePasswordView(generics.GenericAPIView):
+    """
+    POST /api/auth/change-password/
+    API đổi mật khẩu cho người dùng đang đăng nhập (cần mật khẩu cũ).
+    """
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ChangePasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "message": "Đổi mật khẩu thành công."
         }, status=status.HTTP_200_OK)
 
 

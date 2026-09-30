@@ -91,6 +91,7 @@ class CustomerProfileSerializer(serializers.Serializer):
     birth_date = serializers.DateField(required=False, allow_null=True)
     avatar = AvatarField(required=False, allow_null=True)
     date_joined = serializers.DateTimeField(read_only=True)
+    has_password = serializers.BooleanField(read_only=True)  # MỚI
 
     def to_representation(self, instance):
         return {
@@ -105,6 +106,7 @@ class CustomerProfileSerializer(serializers.Serializer):
             'birth_date': instance.birth_date,
             'avatar': instance.avatar,
             'date_joined': instance.date_joined,
+            'has_password': instance.has_usable_password(),  # MỚI
         }
 
     def validate_email(self, value):
@@ -746,6 +748,42 @@ class ResetPasswordSerializer(serializers.Serializer):
         for t in OutstandingToken.objects.filter(user=user):
             BlacklistedToken.objects.get_or_create(token=t)
         return user
+
+
+# MỚI ------------------------------------------------------------------
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(
+        required=True, write_only=True, style={'input_type': 'password'},
+    )
+    new_password = serializers.CharField(
+        required=True, write_only=True, style={'input_type': 'password'},
+    )
+    new_password_confirm = serializers.CharField(
+        required=True, write_only=True, style={'input_type': 'password'},
+    )
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        if not user.has_usable_password():
+            raise serializers.ValidationError(
+                'Tài khoản đăng nhập bằng Google chưa có mật khẩu. '
+                'Hãy dùng chức năng Quên mật khẩu để tạo mật khẩu.'
+            )
+        if not user.check_password(attrs['old_password']):
+            raise serializers.ValidationError({'old_password': 'Mật khẩu hiện tại không đúng.'})
+        if attrs['new_password'] != attrs['new_password_confirm']:
+            raise serializers.ValidationError({'new_password_confirm': 'Mật khẩu xác nhận không khớp.'})
+        if attrs['new_password'] == attrs['old_password']:
+            raise serializers.ValidationError({'new_password': 'Mật khẩu mới phải khác mật khẩu hiện tại.'})
+        validate_password(attrs['new_password'], user)
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        return user
+# ----------------------------------------------------------------------
 
 
 class TokenResponseSerializer(serializers.Serializer):

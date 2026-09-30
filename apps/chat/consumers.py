@@ -142,3 +142,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     async def chat_typing(self, event):
         await self.send_json({'type': 'typing.changed', **event['payload']})
+        
+    async def notification_unread(self, event):
+        await self.send_json({'type': 'notification.unread', **event['payload']})

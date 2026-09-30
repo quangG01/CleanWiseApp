@@ -7,6 +7,7 @@ class Service(models.Model):
     section_code = models.CharField(max_length=150)
     name = models.CharField(max_length=255)
     description = models.TextField()
+    icon = models.CharField(max_length=255, blank=True, null=True)
     form_schema = models.JSONField()
     pricing_config = models.JSONField()
     is_active = models.BooleanField(default=True)
