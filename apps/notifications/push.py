@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db import transaction
 
 from .models import DeviceToken
-from .preferences import can_push  # MỚI
+from .preferences import can_push
 
 EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
 
