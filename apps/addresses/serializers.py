@@ -14,7 +14,9 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomerAddress
-        fields = ['id', 'label', 'receiver_name', 'receiver_phone', 'address_line', 'ward', 'city', 'latitude', 'longitude', 'is_default', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'label', 'receiver_name', 'receiver_phone', 'address_line', 'ward', 'city',
+          'province_code', 'ward_code', 'latitude', 'longitude',
+          'is_default', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['id', 'is_active', 'created_at', 'updated_at']
         extra_kwargs = {'is_default': {'required': False}}
 
@@ -44,6 +46,19 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if self.instance and self.instance.is_default and attrs.get('is_default') is False:
             raise serializers.ValidationError({'is_default': 'Hãy đặt một địa điểm khác làm mặc định thay vì bỏ mặc định trực tiếp.'})
+
+        ward_code = (attrs.get('ward_code') or '').strip()
+        if not self.instance and not ward_code:
+            raise serializers.ValidationError({'ward_code': 'Vui lòng chọn phường/xã.'})
+        if ward_code:
+            from apps.worker.models import Area
+            area = Area.objects.filter(ward_code=ward_code, is_active=True).first()
+            if area is None:
+                raise serializers.ValidationError({'ward_code': 'Phường/xã không hợp lệ.'})
+            attrs['ward_code'] = area.ward_code
+            attrs['province_code'] = area.province_code
+            attrs['ward'] = area.name
+            attrs['city'] = area.city
         return attrs
 
     @transaction.atomic
@@ -56,9 +71,29 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
             set_default_address(address)
         return address
 
+    LOCATION_FIELDS = ('ward_code', 'address_line', 'latitude', 'longitude')
+
     @transaction.atomic
     def update(self, instance, validated_data):
         requested_default = validated_data.pop('is_default', None)
+
+        changed = [
+            f for f in self.LOCATION_FIELDS
+            if f in validated_data and validated_data[f] != getattr(instance, f)
+        ]
+        if changed:
+            from django.db.models import Q
+            from apps.bookings.models import Booking
+            in_use = Booking.objects.filter(
+                Q(address=instance) | Q(delivery_address=instance),
+                status__in=(Booking.Status.PENDING, Booking.Status.ASSIGNED, Booking.Status.IN_PROGRESS),
+            ).exists()
+            if in_use:
+                raise serializers.ValidationError(
+                    'Địa chỉ đang được dùng cho đơn chưa hoàn tất, không thể đổi vị trí. '
+                    'Hãy tạo địa chỉ mới.'
+                )
+
         for field, value in validated_data.items():
             setattr(instance, field, value.strip() if isinstance(value, str) else value)
         instance.save()

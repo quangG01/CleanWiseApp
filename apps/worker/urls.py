@@ -12,6 +12,7 @@ from .views import (
     WorkerCheckOutView,
     WorkerScheduleImageUploadView,
     WorkerBookingScheduleListView,
+    WorkerActiveProvinceListView
 )
 
 
@@ -27,4 +28,5 @@ urlpatterns = [
     path('schedules/<int:schedule_id>/check-in/', WorkerCheckInView.as_view(), name='worker-schedule-check-in'),
     path('schedules/<int:schedule_id>/check-out/', WorkerCheckOutView.as_view(), name='worker-schedule-check-out'),
     path('schedules/<int:schedule_id>/images/', WorkerScheduleImageUploadView.as_view(), name='worker-schedule-image-upload'),
+    path('provinces/', WorkerActiveProvinceListView.as_view(), name='worker-active-province-list'),
 ]
