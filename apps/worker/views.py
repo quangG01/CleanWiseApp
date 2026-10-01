@@ -34,7 +34,8 @@ from .serializers import (
     WorkerScheduleSerializer,
     WorkerWorkingAreaBulkUpdateSerializer,
     WorkerWorkingAreaSerializer,
-    CheckOutSerializer
+    CheckOutSerializer,
+    CheckInSerializer
 )
 
 from .schemas import (
@@ -203,29 +204,48 @@ def _paginate_or_full(request, view, queryset, serializer_class, booking_id, mes
 
 @WORKER_ACTIVE_AREA_SCHEMA
 class WorkerActiveAreaListView(generics.ListAPIView):
-    permission_classes = [IsWorkerRole]
+    permission_classes = [IsWorkerRole | IsCustomerRole] 
     serializer_class = AreaSummarySerializer
 
-    def get_queryset(self):                    
+    def get_queryset(self):
         queryset = Area.objects.filter(is_active=True)
-        city = self.request.query_params.get('city')
-        search = self.request.query_params.get('search')
-        if city:
-            queryset = queryset.filter(city__iexact=city.strip())
+        province_code = (self.request.query_params.get('province_code') or '').strip()
+        search = (self.request.query_params.get('search') or '').strip()
+        if province_code:
+            queryset = queryset.filter(province_code=province_code)
         if search:
-            queryset = queryset.filter(Q(name__icontains=search.strip()) | Q(city__icontains=search.strip()))
+            queryset = queryset.filter(name__icontains=search)
         return queryset
 
-    def list(self, request, *args, **kwargs): 
-        city = (request.query_params.get('city') or '').strip().lower()
-        search = request.query_params.get('search')
+    def list(self, request, *args, **kwargs):
+        province_code = (request.query_params.get('province_code') or '').strip()
+        search = (request.query_params.get('search') or '').strip()
+        if not province_code and not search:
+            raise ValidationError({'province_code': 'Vui lòng chọn tỉnh/thành.'})
 
-        cache_key = None if search else versioned_key('areas', 'list', city or 'all')
+        cache_key = None if search else versioned_key('areas', 'list', province_code)
         data = cache.get(cache_key) if cache_key else None
         if data is None:
             data = [*self.get_serializer(self.get_queryset(), many=True).data]
             if cache_key:
                 cache.set(cache_key, data, 60 * 60)
+        return Response(data)
+
+
+class WorkerActiveProvinceListView(generics.GenericAPIView):
+    """Danh sách 34 tỉnh/thành để chọn trước, rồi mới chọn phường/xã."""
+    permission_classes = [IsWorkerRole | IsCustomerRole]
+
+    def get(self, request, *args, **kwargs):
+        data = cache.get('areas:provinces')
+        if data is None:
+            data = list(
+                Area.objects.filter(is_active=True)
+                .values('province_code', 'city')
+                .distinct()
+                .order_by('city')
+            )
+            cache.set('areas:provinces', data, 60 * 60)
         return Response(data)
 
 
@@ -447,11 +467,18 @@ class WorkerCheckInView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'worker_action'
+    serializer_class = CheckInSerializer
 
     def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         schedule = checkin_service.check_in(
             schedule_id=kwargs['schedule_id'],
             worker=request.user,
+            latitude=serializer.validated_data['latitude'],
+            longitude=serializer.validated_data['longitude'],
+            accuracy=serializer.validated_data.get('accuracy'),
         )
         return Response({
             'message': 'Check-in thành công.',

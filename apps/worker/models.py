@@ -3,16 +3,18 @@ from django.db import models
 
 
 class Area(models.Model):
-    name = models.CharField(max_length=100)
-    city = models.CharField(max_length=100)
+    name = models.CharField(max_length=150)        
+    city = models.CharField(max_length=100)   
+    province_code = models.CharField(max_length=10, db_index=True)
+    ward_code = models.CharField(max_length=10, unique=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'areas'
-        constraints = [models.UniqueConstraint(fields=['city', 'name'], name='areas_city_name_unique')]
         ordering = ['city', 'name']
+        indexes = [models.Index(fields=['province_code', 'name'], name='areas_province_name_idx')]
 
     def __str__(self):
         return f'{self.name}, {self.city}'

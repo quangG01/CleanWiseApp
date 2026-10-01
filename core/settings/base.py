@@ -160,6 +160,11 @@ REVIEW_MAX_IMAGES = int(os.environ.get("REVIEW_MAX_IMAGES", 5))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+CHECKIN_MAX_DISTANCE_METERS = 300
+CHECKIN_MAX_ACCURACY_METERS = 100
+CHECKIN_ALLOW_MISSING_ADDRESS_COORDS = True
+
 # ============================================= Email =============================================
 EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND",
