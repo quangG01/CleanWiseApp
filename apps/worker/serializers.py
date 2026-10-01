@@ -171,12 +171,15 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
         source='booking.address.longitude', read_only=True, allow_null=True,
         max_digits=14, decimal_places=7,
     )
+    delivery_city = serializers.CharField(
+        source='booking.delivery_address.city', read_only=True, allow_null=True)
+    delivery_ward = serializers.CharField(  
+        source='booking.delivery_address.ward', read_only=True, allow_null=True)
     customer_avatar = serializers.CharField(source='booking.customer.avatar', read_only=True, allow_null=True)
     customer_name = serializers.SerializerMethodField()
     payment_status = serializers.CharField(source='booking.payment_status', read_only=True)
     price = serializers.SerializerMethodField()
     service_data = serializers.JSONField(source='booking.service_data', read_only=True)
-    form_schema = serializers.JSONField(source='booking.service.form_schema', read_only=True)
     assignment_id = serializers.SerializerMethodField()
     available_sessions = serializers.SerializerMethodField()
 
@@ -191,7 +194,7 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
             'sequence_no', 'total_sessions', 'scheduled_start', 'scheduled_end', 'status',
             'address_city', 'address_ward', 'address_latitude', 'address_longitude',
             'customer_avatar', 'customer_name', 'payment_status', 'price',
-            'service_data', 'form_schema', 'assignment_id',"available_sessions"
+            'service_data', 'assignment_id',"available_sessions",'delivery_city', 'delivery_ward'
         ]
         read_only_fields = fields
 
@@ -243,11 +246,14 @@ class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
     can_cancel = serializers.SerializerMethodField()
     cancel_deadline = serializers.SerializerMethodField()
     images = BookingScheduleImageSerializer(many=True, read_only=True)
+    form_schema = serializers.JSONField(source='booking.service.form_schema', read_only=True)
+    delivery_address_line = serializers.CharField(
+        source='booking.delivery_address.address_line', read_only=True, allow_null=True)
 
     class Meta(WorkerScheduleSerializer.Meta):
         fields = WorkerScheduleSerializer.Meta.fields + [
-            'note', 'address_line', 'receiver_name', 'receiver_phone',
-            'can_cancel', 'cancel_deadline', 'images','completion_note',
+            'form_schema', 'note', 'address_line', 'receiver_name', 'receiver_phone',
+            'can_cancel', 'cancel_deadline', 'images','completion_note','delivery_address_line'
         ]
         read_only_fields = fields
 
@@ -269,9 +275,10 @@ class WorkerBookingScheduleSerializer(WorkerScheduleSerializer):
     để bảo mật thông tin nhân viên khác).
     """
     claim_state = serializers.SerializerMethodField()
-
+    form_schema = serializers.JSONField(source='booking.service.form_schema', read_only=True)
+    
     class Meta(WorkerScheduleSerializer.Meta):
-        fields = WorkerScheduleSerializer.Meta.fields + ['claim_state']
+        fields = WorkerScheduleSerializer.Meta.fields + ['form_schema','claim_state']
         read_only_fields = fields
 
     def _accepted_assignment(self, instance):
