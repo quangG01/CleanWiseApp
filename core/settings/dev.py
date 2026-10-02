@@ -67,3 +67,6 @@ if not os.environ.get('REDIS_URL'):
     CHANNEL_LAYERS = {
         'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
     }
+    
+    
+CSRF_TRUSTED_ORIGINS = ["https://take-unreeling-shaping.ngrok-free.dev"]
