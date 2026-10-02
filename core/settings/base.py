@@ -14,7 +14,7 @@ FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
 
 # Các mutation quan trọng từ dashboard gửi Idempotency-Key để tránh thao tác
 # trùng. Header tùy chỉnh phải được khai báo rõ cho CORS preflight.
-CORS_ALLOW_HEADERS = (*default_headers, 'idempotency-key')
+CORS_ALLOW_HEADERS = (*default_headers, 'idempotency-key', 'ngrok-skip-browser-warning')
 
 PAYOS_CLIENT_ID = os.environ.get("PAYOS_CLIENT_ID", "")
 PAYOS_API_KEY = os.environ.get("PAYOS_API_KEY", "")
@@ -159,6 +159,11 @@ REVIEW_IMAGE_MAX_SIZE = int(os.environ.get("REVIEW_IMAGE_MAX_SIZE", 5 * 1024 * 1
 REVIEW_MAX_IMAGES = int(os.environ.get("REVIEW_MAX_IMAGES", 5))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+CHECKIN_MAX_DISTANCE_METERS = 300
+CHECKIN_MAX_ACCURACY_METERS = 100
+CHECKIN_ALLOW_MISSING_ADDRESS_COORDS = True
 
 # ============================================= Email =============================================
 EMAIL_BACKEND = os.environ.get(
@@ -319,3 +324,6 @@ CELERY_BEAT_SCHEDULE = {
         'options': {'expires': 290},
     },
 }
+
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

@@ -94,7 +94,7 @@ class FavoriteWorkerSerializer(serializers.ModelSerializer):
 class AreaSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Area
-        fields = ['id', 'name', 'city']
+        fields = ['id', 'name', 'city', 'province_code', 'ward_code']
 
 
 class WorkerWorkingAreaSerializer(serializers.ModelSerializer):
@@ -122,6 +122,8 @@ class WorkerWorkingAreaBulkUpdateSerializer(serializers.Serializer):
         ids = [area.id for area in value]
         if len(ids) != len(set(ids)):
             raise serializers.ValidationError('Danh sách khu vực bị trùng lặp.')
+        if len({area.province_code for area in value}) > 1:
+            raise serializers.ValidationError('Chỉ được chọn khu vực trong cùng 1 tỉnh/thành.')
         return value
 
     def save(self):
@@ -352,3 +354,9 @@ class ScheduleImageUploadSerializer(serializers.Serializer):
 
 class CheckOutSerializer(serializers.Serializer):
     completion_note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class CheckInSerializer(serializers.Serializer):
+    latitude = serializers.FloatField(min_value=-90, max_value=90)
+    longitude = serializers.FloatField(min_value=-180, max_value=180)
+    accuracy = serializers.FloatField(required=False, allow_null=True, min_value=0)

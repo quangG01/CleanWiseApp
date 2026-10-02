@@ -10,6 +10,8 @@ class CustomerAddress(models.Model):
     address_line = models.TextField()
     ward = models.CharField(max_length=100, blank=True, null=True)
     city = models.CharField(max_length=100)
+    province_code = models.CharField(max_length=10, blank=True, default='', db_index=True)
+    ward_code = models.CharField(max_length=10, blank=True, default='', db_index=True)
     latitude = models.DecimalField(max_digits=14, decimal_places=7, blank=True, null=True)
     longitude = models.DecimalField(max_digits=14, decimal_places=7, blank=True, null=True)
     is_default = models.BooleanField(default=False)

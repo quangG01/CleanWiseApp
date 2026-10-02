@@ -93,16 +93,28 @@ def _norm(value):
     return v.strip()
 
 
-def _worker_area_keys(worker):
-    keys = set()
+def _worker_area_index(worker):
+    """(tập mã tỉnh, tập tên tỉnh đã chuẩn hóa) của các khu vực nhân viên đã chọn."""
+    province_codes, city_keys = set(), set()
     rows = WorkerWorkingArea.objects.filter(
         worker=worker, area__is_active=True,
-    ).values_list('area__city', 'area__name')
-    for city, name in rows:
-        for v in (city, name):
-            if _norm(v):
-                keys.add(_norm(v))
-    return keys
+    ).values_list('area__province_code', 'area__city')
+    for code, city in rows:
+        if code:
+            province_codes.add(code)
+        if _norm(city):
+            city_keys.add(_norm(city))
+    return province_codes, city_keys
+
+
+def _covers(index, address):
+    """Nhân viên có phủ địa chỉ này không (khớp theo tỉnh/thành)."""
+    province_codes, city_keys = index
+    code = getattr(address, 'province_code', '') or ''
+    if code:
+        return code in province_codes
+    # Địa chỉ cũ chưa có province_code: khớp theo tên tỉnh/thành
+    return _norm(address.city) in city_keys
 
 
 def _annotate_total_sessions(queryset):
@@ -152,7 +164,7 @@ def validate_worker_for_schedule(*, schedule, worker):
         raise serializers.ValidationError({'schedule': 'Buổi làm việc đã quá giờ bắt đầu.'})
     if booking.service.section_code != profile.registered_service.section_code:
         raise serializers.ValidationError({'worker': 'Nhân viên không đăng ký nhóm dịch vụ này.'})
-    if _norm(booking.address.city) not in _worker_area_keys(worker):
+    if not _covers(_worker_area_index(worker), booking.address):
         raise serializers.ValidationError({'worker': 'Nhân viên không hoạt động tại khu vực của đơn.'})
     if _has_time_conflict(worker, schedule):
         raise serializers.ValidationError({'worker': 'Nhân viên bị trùng lịch với buổi khác.'})
@@ -207,7 +219,7 @@ def list_available_workers_for_schedule(*, schedule_id, search=None):
     ) if is_cash else 0
     workers = []
     for worker in queryset:
-        if _norm(booking.address.city) not in _worker_area_keys(worker):
+        if not _covers(_worker_area_index(worker), booking.address):
             continue
         if _has_time_conflict(worker, schedule):
             continue
@@ -465,8 +477,8 @@ def list_available_schedules_for_worker(
 
     section_code = profile.registered_service.section_code
 
-    area_keys = _worker_area_keys(worker)
-    if not area_keys:
+    area_index = _worker_area_index(worker)
+    if not area_index[0] and not area_index[1]:
         return BookingSchedule.objects.none()
 
     my_overlapping = BookingSchedule.objects.filter(
@@ -499,7 +511,7 @@ def list_available_schedules_for_worker(
 
     all_matched = [
         s for s in queryset.order_by('scheduled_start', 'id')
-        if _norm(s.booking.address.city) in area_keys
+        if _covers(area_index, s.booking.address)
     ]
     all_ids = [s.id for s in all_matched]
 
@@ -559,7 +571,7 @@ def list_booking_schedules_for_worker(worker, *, booking_id):
     )
 
     same_section = booking.service.section_code == profile.registered_service.section_code
-    in_area = _norm(booking.address.city) in _worker_area_keys(worker)
+    in_area = _covers(_worker_area_index(worker), booking.address)
     already_assigned = BookingAssignment.objects.filter(
         schedule__booking=booking, worker=worker, status=BookingAssignment.Status.ACCEPTED,
     ).exists()
@@ -567,11 +579,23 @@ def list_booking_schedules_for_worker(worker, *, booking_id):
     if not already_assigned and not (same_section and in_area):
         return BookingSchedule.objects.none()
 
-    queryset = BookingSchedule.objects.filter(
-        assignments__worker=worker,
-        assignments__status=BookingAssignment.Status.ACCEPTED,
-    ).select_related('booking', 'booking__service', 'booking__address',
-                'booking__delivery_address', 'booking__customer')
+    mine = BookingAssignment.objects.filter(
+        schedule=OuterRef('pk'),
+        worker=worker,
+        status=BookingAssignment.Status.ACCEPTED,
+    )
+
+    # Toàn bộ buổi của booking: buổi của mình (mọi trạng thái, trừ CANCELLED)
+    # + buổi còn PENDING (OPEN hoặc người khác đã nhận -> claim_state = TAKEN).
+    queryset = (
+        BookingSchedule.objects.filter(booking=booking)
+        .annotate(is_mine=Exists(mine))
+        .filter(Q(is_mine=True) | Q(status=BookingSchedule.Status.PENDING))
+        .select_related(
+            'booking', 'booking__service', 'booking__address',
+            'booking__delivery_address', 'booking__customer',
+        )
+    )
     return _annotate_total_sessions(queryset).order_by('scheduled_start', 'id')
 
 # ---------------------------------------------------------------- commands
@@ -600,7 +624,7 @@ def claim_schedule(*, schedule_id, worker):
     if booking.service.section_code != profile.registered_service.section_code:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không thuộc dịch vụ bạn đã đăng ký.'})
 
-    if _norm(booking.address.city) not in _worker_area_keys(worker):
+    if not _covers(_worker_area_index(worker), booking.address):
         raise serializers.ValidationError({'schedule': 'Buổi làm việc nằm ngoài khu vực làm việc của bạn.'})
     if BookingAssignment.objects.filter(schedule=schedule, status=BookingAssignment.Status.ACCEPTED).exists():
         raise serializers.ValidationError({'schedule': 'Buổi làm việc này đã có người nhận.'})
@@ -658,9 +682,8 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
         raise serializers.ValidationError({'booking': 'Đơn hàng chưa thanh toán, chưa thể nhận việc.'})
     if booking.service.section_code != profile.registered_service.section_code:
         raise serializers.ValidationError({'booking': 'Gói này không thuộc dịch vụ bạn đã đăng ký.'})
-    if _norm(booking.address.city) not in _worker_area_keys(worker):
+    if not _covers(_worker_area_index(worker), booking.address):
         raise serializers.ValidationError({'booking': 'Gói này nằm ngoài khu vực làm việc của bạn.'})
-
     base_qs = BookingSchedule.objects.select_for_update(of=('self',)).filter(
         booking=booking,
         status=BookingSchedule.Status.PENDING,

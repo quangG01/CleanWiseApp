@@ -18,10 +18,18 @@ from apps.vouchers.voucher_service import mark_user_voucher_used
 from .models import BookingAssignment
 from .assignment_service import OPEN_BOOKING_STATUSES
 from apps.wallets import earning_service
+import math
 
 CHECKIN_EARLY_MINUTES = getattr(settings, 'CHECKIN_EARLY_MINUTES', 60)
 CHECKIN_LATE_MINUTES = getattr(settings, 'CHECKIN_LATE_MINUTES', 60)
 CHECKOUT_GRACE_MINUTES = getattr(settings, 'CHECKOUT_GRACE_MINUTES', 60)
+
+CHECKIN_MAX_DISTANCE_METERS = getattr(settings, 'CHECKIN_MAX_DISTANCE_METERS', 300)
+# GPS sai số quá lớn thì không đủ tin cậy để so khoảng cách.
+CHECKIN_MAX_ACCURACY_METERS = getattr(settings, 'CHECKIN_MAX_ACCURACY_METERS', 100)
+# Địa chỉ cũ nhập tay không có toạ độ: True = bỏ qua kiểm tra khoảng cách,
+# False = chặn check-in (nên đặt False khi dữ liệu cũ đã được dọn).
+CHECKIN_ALLOW_MISSING_ADDRESS_COORDS = getattr(settings, 'CHECKIN_ALLOW_MISSING_ADDRESS_COORDS', True)
 
 MAX_IMAGES_PER_TYPE = getattr(settings, 'MAX_SCHEDULE_IMAGES_PER_TYPE', 5)
 
@@ -38,11 +46,47 @@ def _get_my_accepted_schedule(*, schedule_id, worker, for_update=True):
 
     return get_object_or_404(queryset, pk=schedule_id)
 
+def _distance_meters(lat1, lng1, lat2, lng2):
+    r = 6371000
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = p2 - p1
+    dl = math.radians(lng2 - lng1)
+    h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(h))
+
+
+def _verify_worker_near_address(*, booking, latitude, longitude, accuracy):
+    """Trả về khoảng cách (m) hoặc None nếu địa chỉ không có toạ độ."""
+    if accuracy is not None and accuracy > CHECKIN_MAX_ACCURACY_METERS:
+        raise serializers.ValidationError({
+            'location': f'Tín hiệu GPS chưa đủ chính xác (sai số ~{round(accuracy)} m). '
+                        f'Hãy ra nơi thoáng hơn, bật GPS độ chính xác cao rồi thử lại.'
+        })
+
+    address = getattr(booking, 'address', None)
+    addr_lat = getattr(address, 'latitude', None)
+    addr_lng = getattr(address, 'longitude', None)
+    if addr_lat is None or addr_lng is None:
+        if CHECKIN_ALLOW_MISSING_ADDRESS_COORDS:
+            return None
+        raise serializers.ValidationError({
+            'location': 'Địa chỉ của khách chưa có toạ độ nên không thể xác thực vị trí. '
+                        'Vui lòng liên hệ CleanWise.'
+        })
+
+    distance = _distance_meters(latitude, longitude, float(addr_lat), float(addr_lng))
+    if distance > CHECKIN_MAX_DISTANCE_METERS:
+        raise serializers.ValidationError({
+            'location': f'Bạn đang cách địa chỉ của khách khoảng {round(distance)} m. '
+                        f'Cần ở trong bán kính {CHECKIN_MAX_DISTANCE_METERS} m để check-in.'
+        })
+    return distance
+
 
 @transaction.atomic
-def check_in(*, schedule_id, worker):
+def check_in(*, schedule_id, worker, latitude, longitude, accuracy=None):
     schedule = _get_my_accepted_schedule(schedule_id=schedule_id, worker=worker)
-    booking = schedule.booking
+    booking = Booking.objects.select_related('address').get(pk=schedule.booking_id)
 
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không ở trạng thái chờ thực hiện.'})
@@ -64,6 +108,10 @@ def check_in(*, schedule_id, worker):
             'schedule': f'Đã quá {CHECKIN_LATE_MINUTES} phút so với giờ hẹn, '
                         f'không thể check-in. Vui lòng liên hệ khách hàng/CleanWise.'
         })
+
+    distance = _verify_worker_near_address(
+        booking=booking, latitude=latitude, longitude=longitude, accuracy=accuracy,
+    )
 
     schedule.actual_start = now
     schedule.status = BookingSchedule.Status.IN_PROGRESS
@@ -89,7 +137,13 @@ def check_in(*, schedule_id, worker):
         actor=worker,
         event_type=BookingActivity.EventType.CHECKED_IN,
         message=f'Nhân viên check-in buổi {schedule.sequence_no}.',
-        new_data={'actual_start': now.isoformat()},
+        new_data={
+            'actual_start': now.isoformat(),
+            'latitude': latitude,
+            'longitude': longitude,
+            'accuracy': accuracy,
+            'distance_m': round(distance) if distance is not None else None,
+        },
     )
     return schedule
 

@@ -1,7 +1,0 @@
-stages: [check]
-
-placeholder:
-  stage: check
-  script:
-    - echo "CI chua cau hinh"
-  when: manual
