@@ -3,6 +3,14 @@
 from django.db import migrations, models
 
 
+def fill_legacy_ward_codes(apps, schema_editor):
+    Area = apps.get_model("worker", "Area")
+    areas = Area.objects.using(schema_editor.connection.alias)
+    for area in areas.filter(ward_code__isnull=True).iterator():
+        # Preserve existing Area IDs and worker links until an explicit reset.
+        areas.filter(pk=area.pk).update(ward_code=f"L{area.pk}")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -23,8 +31,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="area",
             name="ward_code",
-            field=models.CharField(default="", max_length=10, unique=True),
-            preserve_default=False,
+            field=models.CharField(max_length=10, unique=True, null=True),
+        ),
+        migrations.RunPython(fill_legacy_ward_codes, migrations.RunPython.noop),
+        migrations.AlterField(
+            model_name="area",
+            name="ward_code",
+            field=models.CharField(max_length=10, unique=True),
         ),
         migrations.AlterField(
             model_name="area",
