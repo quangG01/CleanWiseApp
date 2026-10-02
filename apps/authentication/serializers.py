@@ -586,11 +586,12 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
 
 class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
     ADMIN_ALLOWED_STATUSES = {
+        WorkerProfile.Status.DRAFT,
         WorkerProfile.Status.ACTIVE,
         WorkerProfile.Status.REJECTED,
         WorkerProfile.Status.SUSPENDED,
     }
-    # Chỉ cho phép admin chuyển đến 3 trạng thái này, không cho set DRAFT/PENDING
+    # Admin không được set PENDING; DRAFT chỉ dùng để thu hồi một hồ sơ đã duyệt.
     status = serializers.ChoiceField(choices=[(s, s) for s in ADMIN_ALLOWED_STATUSES])
     reason = serializers.CharField(required=False, allow_blank=False)
     rejected_fields = serializers.DictField(
@@ -608,16 +609,27 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
         target = attrs['status']
         current = self.instance.status
 
-        # Chỉ approve/reject khi hồ sơ đang PENDING; chỉ suspend khi đang ACTIVE
-        if target in (WorkerProfile.Status.ACTIVE, WorkerProfile.Status.REJECTED):
+        # Hồ sơ chờ duyệt có thể được duyệt/từ chối. Hồ sơ tạm khóa có thể
+        # được kích hoạt lại. Chỉ hồ sơ đang hoạt động mới được tạm khóa.
+        if target == WorkerProfile.Status.ACTIVE:
+            if current not in (WorkerProfile.Status.PENDING, WorkerProfile.Status.SUSPENDED):
+                raise serializers.ValidationError({
+                    'status': f'Chỉ hồ sơ đang PENDING hoặc SUSPENDED mới được kích hoạt (hiện tại: {current}).',
+                })
+        elif target == WorkerProfile.Status.REJECTED:
             if current != WorkerProfile.Status.PENDING:
                 raise serializers.ValidationError({
-                    'status': f'Chỉ hồ sơ đang PENDING mới được duyệt/từ chối (hiện tại: {current}).',
+                    'status': f'Chỉ hồ sơ đang PENDING mới được từ chối (hiện tại: {current}).',
                 })
         elif target == WorkerProfile.Status.SUSPENDED:
             if current != WorkerProfile.Status.ACTIVE:
                 raise serializers.ValidationError({
                     'status': f'Chỉ hồ sơ đang ACTIVE mới được tạm khóa (hiện tại: {current}).',
+                })
+        elif target == WorkerProfile.Status.DRAFT:
+            if current != WorkerProfile.Status.ACTIVE:
+                raise serializers.ValidationError({
+                    'status': f'Chỉ hồ sơ đang ACTIVE mới được thu hồi phê duyệt (hiện tại: {current}).',
                 })
 
         if target == WorkerProfile.Status.REJECTED:
@@ -628,6 +640,9 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
         elif target == WorkerProfile.Status.SUSPENDED:
             if not attrs.get('reason'):
                 raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do tạm khóa.'})
+        elif target == WorkerProfile.Status.DRAFT:
+            if not attrs.get('reason'):
+                raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do thu hồi phê duyệt.'})
 
         return attrs
 
@@ -648,6 +663,8 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
             instance.rejection_reason = reason
             instance.rejected_fields = validated_data.get('rejected_fields', {})
         elif target_status == WorkerProfile.Status.SUSPENDED:
+            instance.rejection_reason = reason
+        elif target_status == WorkerProfile.Status.DRAFT:
             instance.rejection_reason = reason
         instance.save()
         return instance

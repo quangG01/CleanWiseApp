@@ -2,6 +2,14 @@
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from django.conf import settings
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
+from cloudinary.exceptions import Error as CloudinaryError
+import requests
+import urllib3
+import logging
+from apps.common.cloudinary_storage import upload_image
 
 from apps.common.permissions import IsAdminRole
 
@@ -16,6 +24,7 @@ from .serializers import (
     ServiceAdminWriteSerializer,
     ServiceDetailSerializer,
     ServiceListSerializer,
+    ServiceOptionImageUploadSerializer,
 )
 
 from django.core.cache import cache
@@ -23,6 +32,35 @@ from apps.common.cache_utils import versioned_key
 
 SERVICES_NS = 'services'
 SERVICES_TTL = 60 * 15
+
+
+class AdminServiceOptionImageUploadView(generics.GenericAPIView):
+    permission_classes = [IsAdminRole]
+    parser_classes = [MultiPartParser, FormParser]
+    serializer_class = ServiceOptionImageUploadSerializer
+
+    @extend_schema(
+        summary='Tải ảnh lựa chọn dịch vụ lên Cloudinary',
+        tags=['Admin Services'],
+        responses={201: inline_serializer(name='ServiceOptionImageUploadResponse', fields={
+            'message': serializers.CharField(),
+            'data': inline_serializer(name='ServiceOptionImageUploadData', fields={'url': serializers.URLField()}),
+        })},
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            uploaded = upload_image(
+                serializer.validated_data['image'],
+                folder=f'{settings.CLOUDINARY_SERVICE_IMAGE_FOLDER}/option_images',
+                public_id_prefix='service_option',
+                field_name='image',
+            )
+        except (CloudinaryError, requests.exceptions.RequestException, urllib3.exceptions.HTTPError, OSError):
+            logging.getLogger(__name__).exception('Service option image upload failed')
+            return Response({'message': 'Không thể tải ảnh lên Cloudinary. Vui lòng thử lại.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({'message': 'Tải ảnh lựa chọn thành công.', 'data': {'url': uploaded['url']}}, status=status.HTTP_201_CREATED)
 
 
 # ============================================================
@@ -156,4 +194,4 @@ class AdminServiceDetailView(generics.GenericAPIView):
             'data': ServiceDetailSerializer(service).data,
         }, status=status.HTTP_200_OK)
 
-    
+

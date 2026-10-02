@@ -1,4 +1,5 @@
 from django.urls import path
+from .admin_worker_schedule import AdminWorkerScheduleView
 
 from .admin_views import (
     AdminAvailableWorkerListView,
@@ -16,6 +17,7 @@ from .admin_views import (
 )
 
 urlpatterns = [
+    path('workers/<int:worker_id>/schedule/', AdminWorkerScheduleView.as_view(), name='admin-worker-schedule'),
     path('bookings/', AdminBookingListCreateView.as_view(), name='admin-booking-list-create'),
     path('bookings/summary/', AdminBookingSummaryView.as_view(), name='admin-booking-summary'),
     path('bookings/<int:pk>/', AdminBookingDetailView.as_view(), name='admin-booking-detail'),
