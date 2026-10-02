@@ -14,7 +14,7 @@ FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
 
 # Các mutation quan trọng từ dashboard gửi Idempotency-Key để tránh thao tác
 # trùng. Header tùy chỉnh phải được khai báo rõ cho CORS preflight.
-CORS_ALLOW_HEADERS = (*default_headers, 'idempotency-key')
+CORS_ALLOW_HEADERS = (*default_headers, 'idempotency-key', 'ngrok-skip-browser-warning')
 
 PAYOS_CLIENT_ID = os.environ.get("PAYOS_CLIENT_ID", "")
 PAYOS_API_KEY = os.environ.get("PAYOS_API_KEY", "")
@@ -324,3 +324,6 @@ CELERY_BEAT_SCHEDULE = {
         'options': {'expires': 290},
     },
 }
+
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
