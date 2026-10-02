@@ -161,6 +161,16 @@ class ServiceDetailSerializer(serializers.ModelSerializer):
 # ADMIN WRITE SERIALIZER
 # ============================================================
 
+class ServiceOptionImageUploadSerializer(serializers.Serializer):
+    image = ServiceImageFileField(allow_null=False)
+
+    def validate_image(self, value):
+        # Verify actual image bytes before passing the file to Cloudinary.
+        image = serializers.ImageField().run_validation(value)
+        image.seek(0)
+        return image
+
+
 class ServiceAdminWriteSerializer(serializers.ModelSerializer):
     images = serializers.ListField(
         child=ServiceImageFileField(),
@@ -216,6 +226,9 @@ class ServiceAdminWriteSerializer(serializers.ModelSerializer):
 
     def validate_code(self, value):
         value = value.strip().upper()
+
+        if self.instance and value != self.instance.code.upper():
+            raise serializers.ValidationError('Không thể thay đổi mã định danh của dịch vụ đã tạo.')
 
         queryset = Service.objects.filter(code__iexact=value)
 
