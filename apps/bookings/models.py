@@ -44,7 +44,8 @@ class Booking(models.Model):
     subtotal_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
-
+    refunded_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
     cancelled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.DO_NOTHING,

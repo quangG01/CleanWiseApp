@@ -15,6 +15,10 @@ class Notification(models.Model):
     message = models.TextField()
     type = models.CharField(max_length=30, choices=Type.choices, default=Type.SYSTEM)
     related_booking = models.ForeignKey('bookings.Booking', on_delete=models.DO_NOTHING, related_name='notifications', blank=True, null=True)
+    related_schedule = models.ForeignKey(
+        'bookings.BookingSchedule', on_delete=models.SET_NULL,
+        related_name='+', blank=True, null=True,
+    )
     is_read = models.BooleanField(default=False)
     read_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

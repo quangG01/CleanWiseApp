@@ -9,6 +9,7 @@ class Payment(models.Model):
         MOMO = 'MOMO', 'MoMo'
         VNPAY = 'VNPAY', 'VNPay'
         CARD = 'CARD', 'Thẻ'
+        WALLET = 'WALLET', 'Ví CleanWise'
 
     class Status(models.TextChoices):
         PENDING = 'PENDING', 'Chờ thanh toán'
@@ -25,6 +26,11 @@ class Payment(models.Model):
     transaction_code = models.CharField(max_length=100, unique=True, blank=True, null=True)
     paid_at = models.DateTimeField(blank=True, null=True)
     failure_reason = models.TextField(blank=True, null=True)
+    order_code = models.BigIntegerField(unique=True, blank=True, null=True)
+    payment_link_id = models.CharField(max_length=100, blank=True, default='')
+    checkout_url = models.TextField(blank=True, default='')
+    qr_code = models.TextField(blank=True, default='')
+    link_expires_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

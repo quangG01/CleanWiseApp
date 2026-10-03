@@ -10,10 +10,14 @@ from apps.wallets import wallet_service
 from apps.services.models import Service
 from apps.addresses.models import CustomerAddress
 from apps.vouchers.voucher_service import (
+    mark_user_voucher_used,
     release_user_voucher,
     reserve_user_voucher,
     validate_and_calculate_voucher,
 )
+from apps.notifications.services import notify_worker_booking_cancelled, notify_worker_schedule_cancelled
+from apps.wallets.models import WalletTransaction
+
 from apps.payments.models import Payment
 
 from .activity_service import record_booking_activity
@@ -21,7 +25,15 @@ from .models import Booking, BookingActivity, BookingSchedule
 from .service_data_validation import validate_service_data
 from .schedule_builder import build_schedules
 
-CANCELLABLE_STATUSES = (Booking.Status.PENDING, Booking.Status.ASSIGNED)
+from apps.wallets import earning_service, refund_service
+from apps.worker.models import BookingAssignment
+
+CANCELLABLE_STATUSES = (Booking.Status.PENDING, Booking.Status.ASSIGNED, Booking.Status.IN_PROGRESS)
+_DONE_SCHEDULE_STATUSES = (
+    BookingSchedule.Status.COMPLETED,
+    BookingSchedule.Status.CANCELLED,
+    BookingSchedule.Status.MISSED,
+)
 
 PRICE_DRIVEN_KEYS = ('base_prices', 'price_matrix', 'unit_prices')
 TWO_PLACES = Decimal('0.01')
@@ -238,7 +250,7 @@ def _validate_schedules(schedules):
 
 
 def _validate_payment_method(payment_method):
-    allowed_methods = {Payment.Method.CASH, Payment.Method.BANK_TRANSFER}
+    allowed_methods = {Payment.Method.CASH, Payment.Method.BANK_TRANSFER, Payment.Method.WALLET}
     if payment_method not in allowed_methods:
         raise serializers.ValidationError({'payment_method': 'Phương thức thanh toán không hợp lệ.'})
 
@@ -493,7 +505,18 @@ def create_booking(
     if user_voucher:
         reserve_user_voucher(user_voucher_id=user_voucher.id)
 
-    _ = payment
+        if payment_method == Payment.Method.WALLET:
+            wallet_service.debit_wallet(
+                user=customer, amount=total, type=WalletTransaction.Type.PAYMENT,
+                booking=booking, note=f'Thanh toán đơn {booking_code}',
+            )
+            payment.status = Payment.Status.SUCCESS
+            payment.paid_at = timezone.now()
+            payment.save(update_fields=['status', 'paid_at', 'updated_at'])
+            booking.payment_status = Booking.PaymentStatus.PAID
+            booking.save(update_fields=['payment_status', 'updated_at'])
+            if user_voucher:
+                mark_user_voucher_used(user_voucher_id=user_voucher.id)
 
     creator = actor or customer
     record_booking_activity(
@@ -512,91 +535,186 @@ def create_booking(
 
 
 @transaction.atomic
-def cancel_booking(*, booking_id, customer, reason):
-    booking = get_object_or_404(
-        Booking.objects.select_for_update(),
-        pk=booking_id,
-        customer=customer,
-    )
-
+def cancel_booking_core(*, booking, actor, reason, by_admin=False):
+    """Hủy mọi buổi CHƯA làm của đơn. Caller phải đã select_for_update booking."""
+    who = 'Admin' if by_admin else 'Khách hàng'
     previous_status = booking.status
 
     if booking.status not in CANCELLABLE_STATUSES:
         raise serializers.ValidationError({'booking': 'Đơn hàng không thể hủy ở trạng thái hiện tại.'})
-
     if booking.schedules.filter(status=BookingSchedule.Status.IN_PROGRESS).exists():
         raise serializers.ValidationError({'booking': 'Đơn đang được thực hiện, không thể hủy.'})
 
-    was_paid = booking.payment_status == Booking.PaymentStatus.PAID
+    to_cancel = list(booking.schedules.select_for_update().exclude(status__in=_DONE_SCHEDULE_STATUSES))
+    if not to_cancel:
+        raise serializers.ValidationError({'booking': 'Đơn không còn buổi nào để hủy.'})
+
+    has_completed = booking.schedules.filter(status=BookingSchedule.Status.COMPLETED).exists()
     now = timezone.now()
 
+    # [Bug 4] Hủy phân công, nhả hoa hồng giữ chỗ, báo nhân viên
+    assignments = list(
+        BookingAssignment.objects.select_for_update(of=('self',)).filter(
+            schedule__in=to_cancel,
+            status__in=(BookingAssignment.Status.ACCEPTED, BookingAssignment.Status.PENDING),
+        ).select_related('worker', 'schedule')
+    )
+    for assignment in assignments:
+        was_accepted = assignment.status == BookingAssignment.Status.ACCEPTED
+        assignment.status = BookingAssignment.Status.CANCELLED
+        assignment.response_note = f'{who} hủy đơn.'
+        assignment.responded_at = now
+        assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
+        if was_accepted:
+            earning_service.release_cash_commission(assignment=assignment)
+            notify_worker_booking_cancelled(assignment.schedule, assignment.worker)
+
     booking.status = Booking.Status.CANCELLED
-    booking.cancelled_by = customer
+    booking.cancelled_by = actor
     booking.cancelled_at = now
     booking.cancel_reason = reason
-    update_fields = ['status', 'cancelled_by', 'cancelled_at', 'cancel_reason', 'updated_at']
+    booking.save(update_fields=['status', 'cancelled_by', 'cancelled_at', 'cancel_reason', 'updated_at'])
 
-    if was_paid:
-        booking.payment_status = Booking.PaymentStatus.REFUNDED
-        update_fields.append('payment_status')
-
-    booking.save(update_fields=update_fields)
-
-    booking.schedules.exclude(
-        status__in=(BookingSchedule.Status.COMPLETED, BookingSchedule.Status.CANCELLED),
-    ).update(
+    BookingSchedule.objects.filter(pk__in=[s.pk for s in to_cancel]).update(
         status=BookingSchedule.Status.CANCELLED,
-        cancelled_by=customer,
-        cancelled_at=now,
-        cancel_reason=reason,
+        cancelled_by=actor, cancelled_at=now, cancel_reason=reason, updated_at=now,
     )
-
     booking.payments.filter(status=Payment.Status.PENDING).update(
         status=Payment.Status.CANCELLED,
-        failure_reason='Booking đã bị khách hàng hủy.',
+        failure_reason=f'Booking đã bị {who.lower()} hủy.',
         updated_at=now,
     )
 
-    if was_paid:
-        payment = booking.payments.filter(status=Payment.Status.SUCCESS).first()
-        record_booking_activity(
-            booking=booking,
-            actor=customer,
-            event_type=BookingActivity.EventType.REFUND_CREATED,
-            message='Yêu cầu hoàn tiền đã được tạo.',
-            metadata={'payment_id': payment.id if payment else None},
+    # [Bug 3, 7] Hoàn qua hàm idempotent. Đã làm xong buổi nào thì không hoàn buổi đó.
+    if booking.payment_status == Booking.PaymentStatus.PAID:
+        amount = (
+            refund_service.per_session_refund_amount(booking) * len(to_cancel)
+            if has_completed else None
         )
-        wallet_service.credit_wallet(
-            user=customer,
-            amount=booking.total_amount,
-            booking=booking,
+        refund_service.refund_booking(
+            booking=booking, amount=amount, actor=actor,
+            key=f'refund:booking:{booking.id}:cancel',
             note=f'Hoàn tiền hủy đơn {booking.booking_code}',
         )
-        booking.payments.filter(status=Payment.Status.SUCCESS).update(
-            status=Payment.Status.REFUNDED,
-            updated_at=now,
-        )
-        record_booking_activity(
-            booking=booking,
-            actor=customer,
-            event_type=BookingActivity.EventType.REFUND_COMPLETED,
-            message='Đã hoàn tiền vào ví khách hàng.',
-            metadata={'payment_id': payment.id if payment else None},
-        )
 
-    if booking.user_voucher_id:
-        release_user_voucher(
-            user_voucher_id=booking.user_voucher_id,
-            allow_used=True,
-        )
+    # Đã làm một phần thì không trả lại voucher
+    if booking.user_voucher_id and not has_completed:
+        release_user_voucher(user_voucher_id=booking.user_voucher_id, allow_used=True)
 
     record_booking_activity(
         booking=booking,
-        actor=customer,
+        actor=actor,
         event_type=BookingActivity.EventType.BOOKING_CANCELLED,
-        message=f'Khách hàng hủy đơn {booking.booking_code}.',
+        message=f'{who} hủy đơn {booking.booking_code}.',
         old_data={'status': previous_status},
-        new_data={'status': Booking.Status.CANCELLED, 'reason': reason},
+        new_data={'status': Booking.Status.CANCELLED, 'reason': reason, 'cancelled_schedules': len(to_cancel)},
+    )
+    return booking
+
+
+@transaction.atomic
+def cancel_booking(*, booking_id, customer, reason):
+    booking = get_object_or_404(Booking.objects.select_for_update(), pk=booking_id, customer=customer)
+    is_unpaid_online = (
+        booking.payment_status == Booking.PaymentStatus.UNPAID
+        and not booking.payments.filter(method=Payment.Method.CASH).exists()
+    )
+    if booking.schedules.count() > 1 and not is_unpaid_online:
+        raise serializers.ValidationError({
+            'booking': 'Đơn nhiều buổi không hủy cả đơn. Vui lòng hủy từng buổi.',
+        })
+    return cancel_booking_core(booking=booking, actor=customer, reason=reason)
+
+
+@transaction.atomic
+def cancel_schedule_by_customer(*, schedule_id, customer, reason):
+    ref = get_object_or_404(
+        BookingSchedule.objects.only('booking_id'), pk=schedule_id, booking__customer=customer,
+    )
+    booking = Booking.objects.select_for_update().get(pk=ref.booking_id)
+    schedule = BookingSchedule.objects.select_for_update().get(pk=schedule_id)
+
+    if booking.status not in CANCELLABLE_STATUSES:
+        raise serializers.ValidationError({'schedule': 'Đơn hàng không thể hủy ở trạng thái hiện tại.'})
+    if schedule.status != BookingSchedule.Status.PENDING:
+        raise serializers.ValidationError({'schedule': 'Chỉ hủy được buổi chưa bắt đầu.'})
+
+    others_active = booking.schedules.filter(
+        status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),
+    ).exclude(pk=schedule.pk).exists()
+
+    if (
+        others_active
+        and booking.payment_status == Booking.PaymentStatus.UNPAID
+        and booking.payments.filter(
+            method=Payment.Method.BANK_TRANSFER, status=Payment.Status.PENDING,
+        ).exists()
+    ):
+        raise serializers.ValidationError({
+            'schedule': 'Đơn chưa thanh toán. Hãy hủy cả đơn hoặc chờ đơn hết hạn.',
+        })
+
+    now = timezone.now()
+
+    assignments = list(
+        BookingAssignment.objects.select_for_update(of=('self',)).filter(
+            schedule=schedule,
+            status__in=(BookingAssignment.Status.ACCEPTED, BookingAssignment.Status.PENDING),
+        ).select_related('worker')
+    )
+    for assignment in assignments:
+        was_accepted = assignment.status == BookingAssignment.Status.ACCEPTED
+        assignment.status = BookingAssignment.Status.CANCELLED
+        assignment.response_note = 'Khách hủy buổi.'
+        assignment.responded_at = now
+        assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
+        if was_accepted:
+            earning_service.release_cash_commission(assignment=assignment)
+            notify_worker_schedule_cancelled(schedule, assignment.worker)
+
+    schedule.status = BookingSchedule.Status.CANCELLED
+    schedule.cancelled_by = customer
+    schedule.cancelled_at = now
+    schedule.cancel_reason = reason
+    schedule.save(update_fields=['status', 'cancelled_by', 'cancelled_at', 'cancel_reason', 'updated_at'])
+
+    has_completed = booking.schedules.filter(status=BookingSchedule.Status.COMPLETED).exists()
+
+    if booking.payment_status == Booking.PaymentStatus.PAID:
+        amount = (
+            None if (not others_active and not has_completed)
+            else refund_service.per_session_refund_amount(booking)
+        )
+        refund_service.refund_booking(
+            booking=booking, amount=amount, actor=customer,
+            key=f'refund:schedule:{schedule.id}:customer_cancel',
+            note=f'Hoàn tiền hủy buổi {schedule.sequence_no} - {booking.booking_code}',
+        )
+
+    record_booking_activity(
+        booking=booking, schedule=schedule, actor=customer,
+        event_type=BookingActivity.EventType.BOOKING_UPDATED,
+        message=f'Khách hàng hủy buổi {schedule.sequence_no}.',
+        new_data={'reason': reason},
     )
 
-    return booking
+    if others_active:
+        from apps.worker.assignment_service import _sync_booking_status_after_claim
+        _sync_booking_status_after_claim(booking)
+        return schedule
+
+    booking.payments.filter(status=Payment.Status.PENDING).update(
+        status=Payment.Status.CANCELLED, failure_reason='Khách hàng đã hủy.', updated_at=now,
+    )
+    if has_completed:
+        booking.status = Booking.Status.COMPLETED
+        booking.save(update_fields=['status', 'updated_at'])
+    else:
+        booking.status = Booking.Status.CANCELLED
+        booking.cancelled_by = customer
+        booking.cancelled_at = now
+        booking.cancel_reason = reason
+        booking.save(update_fields=['status', 'cancelled_by', 'cancelled_at', 'cancel_reason', 'updated_at'])
+        if booking.user_voucher_id:
+            release_user_voucher(user_voucher_id=booking.user_voucher_id, allow_used=True)
+    return schedule

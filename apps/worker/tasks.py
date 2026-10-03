@@ -68,3 +68,15 @@ def send_schedule_reminders_task():
             notify_customer_schedule_reminder(schedule)
             if assignment:
                 notify_worker_schedule_reminder(schedule, assignment.worker)
+                
+                
+@shared_task
+def expire_unpaid_bookings_task():
+    from apps.bookings.expiry_service import expire_unpaid_bookings
+    expire_unpaid_bookings()
+    
+
+@shared_task
+def release_held_earnings_task():
+    from apps.wallets.earning_service import release_held_earnings
+    release_held_earnings()

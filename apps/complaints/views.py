@@ -36,6 +36,7 @@ from .models import Complaint, ComplaintAttachment, ComplaintIssueType
 
 ALLOWED_IMAGE_TYPES = ('image/jpeg', 'image/png', 'image/webp')
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
+MAX_ATTACHMENTS = 5
 
 @COMPLAINT_ISSUE_TYPE_SCHEMA
 class ComplaintIssueTypeListView(generics.ListAPIView):
@@ -110,7 +111,9 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         files = request.FILES.getlist('attachments')
-
+        if len(files) > MAX_ATTACHMENTS:
+            return Response({'attachments': [f'Tối đa {MAX_ATTACHMENTS} ảnh.']}, status=400)
+        
         for f in files:
             if f.content_type not in ALLOWED_IMAGE_TYPES:
                 return Response({'attachments': [f'File {f.name} không đúng định dạng ảnh.']}, status=400)
@@ -145,13 +148,8 @@ class ComplaintDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return Complaint.objects.select_related(
-            'customer',
-            'booking',
-            'issue_type',
-            'resolved_by',
-        ).prefetch_related(
-            'attachments',
-        )
+            'customer', 'booking', 'issue_type', 'resolved_by', 'schedule',
+        ).prefetch_related('attachments')
 
 
 @COMPLAINT_CANCEL_SCHEMA
@@ -223,5 +221,18 @@ class ComplaintAttachmentUploadView(generics.CreateAPIView):
     permission_classes = [IsCustomerRole]
 
     def perform_create(self, serializer):
+        from rest_framework.exceptions import ValidationError
+
         complaint = get_object_or_404(Complaint, pk=self.kwargs['pk'], customer=self.request.user)
+        if complaint.status not in (Complaint.Status.PENDING, Complaint.Status.IN_REVIEW):
+            raise ValidationError({'detail': 'Khiếu nại đã đóng, không thể thêm ảnh.'})
+        if complaint.attachments.count() >= MAX_ATTACHMENTS:
+            raise ValidationError({'file': f'Tối đa {MAX_ATTACHMENTS} ảnh.'})
+
+        f = serializer.validated_data.get('file')
+        if f is not None:
+            if f.content_type not in ALLOWED_IMAGE_TYPES:
+                raise ValidationError({'file': 'Chỉ nhận ảnh jpeg, png, webp.'})
+            if f.size > MAX_IMAGE_SIZE:
+                raise ValidationError({'file': 'Ảnh vượt quá 5MB.'})
         serializer.save(complaint=complaint)
