@@ -78,7 +78,7 @@ class WorkerEarningSerializer(serializers.ModelSerializer):
         model = WorkerEarning
         fields = [
             'id', 'booking_code', 'service_name', 'completed_at', 'payment_method',
-            'gross_amount', 'commission_amount', 'worker_amount',
+            'gross_amount', 'commission_amount', 'worker_amount','wallet_credited_at'
         ]
         read_only_fields = fields
 
@@ -101,7 +101,7 @@ class WorkerEarningSummaryView(APIView):
             completed_jobs=Count('id'),
             gross_amount=_sum('gross_amount'),
             income=_sum('worker_amount'),
-            bank_earned=_sum('worker_amount', filter=Q(payment_method=WorkerEarning.PaymentMethod.ONLINE)),
+            online_earned=_sum('worker_amount', filter=Q(payment_method=WorkerEarning.PaymentMethod.ONLINE)),
             cash_commission=_sum('commission_amount', filter=Q(payment_method=WorkerEarning.PaymentMethod.CASH)),
         )
 
@@ -109,6 +109,10 @@ class WorkerEarningSummaryView(APIView):
         commission_owed = mine.filter(
             payment_method=WorkerEarning.PaymentMethod.CASH, settled_at__isnull=True,
         ).aggregate(total=_sum('commission_amount'))['total']
+        
+        pending_release = mine.filter(
+            payment_method=WorkerEarning.PaymentMethod.ONLINE, wallet_credited_at__isnull=True,
+        ).aggregate(total=_sum('worker_amount'))['total']
 
         wallet_balance = (
             Wallet.objects.filter(user=request.user).values_list('balance', flat=True).first()
@@ -122,6 +126,7 @@ class WorkerEarningSummaryView(APIView):
             'data': {
                 'wallet_balance': str(wallet_balance),
                 'commission_owed': str(commission_owed),
+                'pending_release': str(pending_release),
                 'period': {
                     'type': period,
                     'start': start.isoformat(),
@@ -129,10 +134,9 @@ class WorkerEarningSummaryView(APIView):
                     'completed_jobs': agg['completed_jobs'],
                     'gross_amount': str(agg['gross_amount']),
                     'income': str(agg['income']),
-                    'bank_earned': str(agg['bank_earned']),
+                    'online_earned': str(agg['online_earned']),
+                    'bank_earned': str(agg['online_earned']),  
                     'cash_commission': str(agg['cash_commission']),
-                    # > 0: app chuyển cho nhân viên, < 0: nhân viên chuyển lại app
-                    'net_settlement': str(agg['bank_earned'] - agg['cash_commission']),
                 },
                 'series': series,
             },

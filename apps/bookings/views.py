@@ -207,7 +207,7 @@ class BookingDetailView(generics.GenericAPIView):
         })
 
 
-from .booking_service import cancel_booking
+from .booking_service import cancel_booking, cancel_schedule_by_customer
 from .serializers import BookingCancelSerializer
 
 
@@ -229,7 +229,12 @@ class BookingCancelView(generics.GenericAPIView):
             )
         return Response({
             'message': 'Hủy đơn thành công.',
-            'data': {'id': booking.id, 'status': booking.status, 'payment_status': booking.payment_status},
+            'data': {
+                'id': booking.id,
+                'status': booking.status,
+                'payment_status': booking.payment_status,
+                'refunded_amount': str(booking.refunded_amount),
+            },
         })
 
     
@@ -245,6 +250,8 @@ class BookingPaymentLinkView(generics.GenericAPIView):
             Payment.objects.select_related('booking'),
             booking_id=kwargs['pk'],
             booking__customer=request.user,
+            booking__status=Booking.Status.PENDING,
+            booking__payment_status=Booking.PaymentStatus.UNPAID,
             method=Payment.Method.BANK_TRANSFER,
             status=Payment.Status.PENDING,
         )
@@ -258,4 +265,33 @@ class BookingPaymentLinkView(generics.GenericAPIView):
         return Response({
             'message': 'Tạo mã QR thanh toán thành công.',
             'data': link,
+        })
+        
+        
+class ScheduleCancelView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]
+    serializer_class = BookingCancelSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'booking'
+
+    @idempotent
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with distributed_lock(f"schedule:{kwargs['pk']}"):
+            schedule = cancel_schedule_by_customer(
+                schedule_id=kwargs['pk'],
+                customer=request.user,
+                reason=serializer.validated_data['reason'],
+            )
+        booking = Booking.objects.get(pk=schedule.booking_id)
+        return Response({
+            'message': 'Hủy buổi thành công.',
+            'data': {
+                'schedule_id': schedule.id,
+                'schedule_status': schedule.status,
+                'booking_status': booking.status,
+                'payment_status': booking.payment_status,
+                'refunded_amount': str(booking.refunded_amount),
+            },
         })

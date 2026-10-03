@@ -42,6 +42,10 @@ def _get_my_accepted_schedule(*, schedule_id, worker, for_update=True):
 
     queryset = BookingSchedule.objects.select_related('booking')
     if for_update:
+        booking_id = get_object_or_404(
+            BookingSchedule.objects.only('booking_id'), pk=schedule_id,
+        ).booking_id
+        Booking.objects.select_for_update(of=('self',)).get(pk=booking_id)  # lock booking trước
         queryset = queryset.select_for_update(of=('self',))
 
     return get_object_or_404(queryset, pk=schedule_id)
@@ -186,14 +190,14 @@ def check_out(*, schedule_id, worker, completion_note=None):
         booking.save(update_fields=['status', 'updated_at'])
 
     earning_service.record_schedule_earning(schedule=schedule, booking=booking, worker=worker)
-
-    Notification.objects.create(
-        user=booking.customer,
-        title='Dịch vụ đã hoàn thành',
-        message=f'Nhân viên đã hoàn thành dịch vụ cho đơn {booking.booking_code}.',
-        type=Notification.Type.ASSIGNMENT,
-        related_booking=booking,
-    )
+    if booking.status != Booking.Status.COMPLETED:
+        Notification.objects.create(
+            user=booking.customer,
+            title='Dịch vụ đã hoàn thành',
+            message=f'Nhân viên đã hoàn thành dịch vụ cho đơn {booking.booking_code}.',
+            type=Notification.Type.ASSIGNMENT,
+            related_booking=booking,
+        )
     record_booking_activity(
         booking=booking,
         schedule=schedule,
