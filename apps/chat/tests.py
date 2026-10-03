@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -48,7 +49,7 @@ class ChatApiTests(APITestCase):
             WorkerWorkingArea.objects.create(worker=worker, area=self.area)
         self.booking = Booking.objects.create(
             booking_code='CHAT-001', customer=self.customer, service=self.service,
-            address=self.address, service_data={},
+            address=self.address, service_data={}, payment_status=Booking.PaymentStatus.PAID,
         )
         self.schedule = self.make_schedule(48)
 
@@ -70,17 +71,18 @@ class ChatApiTests(APITestCase):
     def claim(self, schedule=None, worker=None):
         return claim_schedule(schedule_id=(schedule or self.schedule).id, worker=worker or self.worker)
 
-    def test_claim_reuses_conversation_and_creates_private_notices(self):
+    def test_claim_reuses_conversation_without_creating_messages(self):
         first = self.claim()
         second = self.claim(schedule=self.make_schedule(72))
         self.assertEqual(ChatConversation.objects.count(), 1)
         self.assertEqual(ChatConversationAssignment.objects.count(), 2)
-        self.assertEqual(ChatMessage.objects.filter(message_type='SYSTEM').count(), 4)
+        self.assertFalse(ChatMessage.objects.exists())
 
         self.client.force_authenticate(self.customer)
         customer_listing = self.client.get(reverse('chat-conversations')).data['data']['results'][0]
-        self.assertIn('Nhân viên', customer_listing['last_message'])
-        self.assertNotIn('Bạn đã nhận lịch', customer_listing['last_message'])
+        self.assertIsNone(customer_listing['last_message'])
+        self.assertEqual(customer_listing['unread_count'], 0)
+        self.assertTrue(customer_listing['can_send'])
         self.assertEqual(customer_listing['latest_assignment']['assignment_id'], second.id)
         first_chat = self.client.get(reverse('chat-by-assignment', args=[first.id]))
         second_chat = self.client.get(reverse('chat-by-assignment', args=[second.id]))
@@ -97,14 +99,13 @@ class ChatApiTests(APITestCase):
 
         conversation_id = first_chat.data['data']['conversation']['id']
         customer_messages = self.client.post(reverse('chat-message-list'), {'conversation_id': conversation_id}, format='json')
-        self.assertEqual(len(customer_messages.data['data']['results']), 2)
-        self.assertTrue(all(row['recipient_id'] == self.customer.id for row in customer_messages.data['data']['results']))
+        self.assertEqual(customer_messages.data['data']['results'], [])
         self.client.force_authenticate(self.worker)
         worker_listing = self.client.get(reverse('chat-conversations')).data['data']['results'][0]
-        self.assertIn('Bạn đã nhận lịch', worker_listing['last_message'])
+        self.assertIsNone(worker_listing['last_message'])
+        self.assertEqual(worker_listing['unread_count'], 0)
         worker_messages = self.client.post(reverse('chat-message-list'), {'conversation_id': conversation_id}, format='json')
-        self.assertEqual(len(worker_messages.data['data']['results']), 2)
-        self.assertTrue(all(row['recipient_id'] == self.worker.id for row in worker_messages.data['data']['results']))
+        self.assertEqual(worker_messages.data['data']['results'], [])
 
     def test_send_read_and_outsider_access(self):
         self.claim()
@@ -122,10 +123,10 @@ class ChatApiTests(APITestCase):
 
         self.client.force_authenticate(self.worker)
         listing = self.client.get(reverse('chat-conversations'))
-        self.assertEqual(listing.data['data']['results'][0]['unread_count'], 2)
-        self.assertEqual(listing.data['data']['total_unread'], 2)
+        self.assertEqual(listing.data['data']['results'][0]['unread_count'], 1)
+        self.assertEqual(listing.data['data']['total_unread'], 1)
         read = self.client.post(reverse('chat-message-read'), {'conversation_id': conversation.id}, format='json')
-        self.assertEqual(read.data['data']['marked_read'], 2)
+        self.assertEqual(read.data['data']['marked_read'], 1)
         read_listing = self.client.get(reverse('chat-conversations')).data['data']
         self.assertEqual(read_listing['results'][0]['unread_count'], 0)
         self.assertEqual(read_listing['total_unread'], 0)
@@ -147,12 +148,12 @@ class ChatApiTests(APITestCase):
 
         self.client.force_authenticate(self.customer)
         before = self.client.get(reverse('chat-conversations')).data['data']
-        self.assertEqual(before['results'][0]['unread_count'], 2)
-        self.assertEqual(before['total_unread'], 2)
+        self.assertEqual(before['results'][0]['unread_count'], 1)
+        self.assertEqual(before['total_unread'], 1)
         read = self.client.post(reverse('chat-message-read'), {
             'conversation_id': conversation.id,
         }, format='json')
-        self.assertEqual(read.data['data']['marked_read'], 2)
+        self.assertEqual(read.data['data']['marked_read'], 1)
         after = self.client.get(reverse('chat-conversations')).data['data']
         self.assertEqual(after['results'][0]['unread_count'], 0)
         self.assertEqual(after['total_unread'], 0)
@@ -161,7 +162,7 @@ class ChatApiTests(APITestCase):
         first = self.claim()
         second_booking = Booking.objects.create(
             booking_code='CHAT-002', customer=self.customer, service=self.service,
-            address=self.address, service_data={},
+            address=self.address, service_data={}, payment_status=Booking.PaymentStatus.PAID,
         )
         second = self.claim(schedule=self.make_schedule(96, booking=second_booking))
         self.assertEqual(first.chat_link.conversation_id, second.chat_link.conversation_id)
@@ -203,5 +204,60 @@ class ChatApiTests(APITestCase):
             'conversation_id': conversation.id, 'limit': 2, 'cursor': recent['next_cursor'],
         }, format='json').data['data']
         self.assertEqual([row['message'] for row in recent['results']], ['Hai', 'Ba'])
-        self.assertEqual(len(older['results']), 2)
+        self.assertEqual([row['message'] for row in older['results']], ['Một'])
         self.assertIsNone(older['next_cursor'])
+
+    def test_legacy_notices_are_hidden_and_do_not_count_as_unread(self):
+        assignment = self.claim()
+        conversation = ChatConversation.objects.get()
+        messages = [
+            (self.customer, 'Nhân viên Test đã nhận lịch làm ngày 01/10/2026 08:00. Bạn có thể liên hệ với nhân viên tại đây.'),
+            (self.worker, 'Bạn đã nhận lịch làm ngày 01/10/2026 08:00 của khách hàng Test. Hãy liên hệ với khách hàng để trao đổi.'),
+        ]
+        for user, text in messages:
+            notice = ChatMessage.objects.create(
+                conversation=conversation, recipient=user, related_assignment=assignment,
+                message_type='SYSTEM', message=text,
+            )
+            self.client.force_authenticate(user)
+            listing = self.client.get(reverse('chat-conversations')).data['data']
+            self.assertEqual(listing['count'], 1)
+            self.assertEqual(listing['total_unread'], 0)
+            self.assertIsNone(listing['results'][0]['last_message'])
+            history = self.client.post(reverse('chat-message-list'), {'conversation_id': conversation.pk}, format='json')
+            self.assertEqual(history.data['data']['results'], [])
+            read = self.client.post(reverse('chat-message-read'), {'conversation_id': conversation.pk}, format='json')
+            self.assertEqual(read.data['data']['marked_read'], 0)
+            with patch('apps.chat.realtime.get_channel_layer') as layer:
+                from .realtime import publish_message
+                publish_message(notice.pk)
+                layer.assert_not_called()
+        self.assertEqual(ChatMessage.objects.count(), 2)
+
+    def test_other_system_messages_and_user_text_are_preserved(self):
+        assignment = self.claim()
+        conversation = ChatConversation.objects.get()
+        system = ChatMessage.objects.create(
+            conversation=conversation, recipient=self.customer, related_assignment=assignment,
+            message_type='SYSTEM', message='Cuộc trò chuyện đã được cập nhật.',
+        )
+        text = ChatMessage.objects.create(
+            conversation=conversation, sender=self.worker,
+            message='Nhân viên Test đã nhận lịch làm ngày mai.',
+        )
+        self.client.force_authenticate(self.customer)
+        history = self.client.post(reverse('chat-message-list'), {'conversation_id': conversation.pk}, format='json')
+        self.assertEqual({row['id'] for row in history.data['data']['results']}, {system.pk, text.pk})
+        self.assertEqual(self.client.get(reverse('chat-conversations')).data['data']['total_unread'], 2)
+        self.client.force_authenticate(self.worker)
+        history = self.client.post(reverse('chat-message-list'), {'conversation_id': conversation.pk}, format='json')
+        self.assertEqual([row['id'] for row in history.data['data']['results']], [text.pk])
+
+    def test_repeated_chat_link_does_not_publish_another_conversation_event(self):
+        assignment = self.claim()
+        from .service import ensure_chat_for_assignment
+        with patch('apps.chat.service.publish_conversation') as publish:
+            with self.captureOnCommitCallbacks(execute=True):
+                ensure_chat_for_assignment(assignment)
+            publish.assert_not_called()
+        self.assertFalse(ChatMessage.objects.exists())

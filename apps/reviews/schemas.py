@@ -1,4 +1,5 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from .filters import CustomerReviewFilterSerializer
 
 from .serializers import (
     AdminReviewReplySerializer,
@@ -22,6 +23,7 @@ CUSTOMER_ELIGIBLE_REVIEW_SCHEMA = extend_schema_view(
 CUSTOMER_REVIEW_LIST_CREATE_SCHEMA = extend_schema_view(
     get=extend_schema(
         summary='Danh sách đánh giá của khách hàng',
+        parameters=[CustomerReviewFilterSerializer],
         responses=ReviewSerializer(many=True),
         tags=['Review - Customer'],
     ),
@@ -40,7 +42,7 @@ CUSTOMER_REVIEW_DETAIL_SCHEMA = extend_schema_view(
         tags=['Review - Customer'],
     ),
     patch=extend_schema(
-        summary='Cập nhật điểm hoặc bình luận đánh giá',
+        summary='Chỉnh sửa đánh giá trong 30 ngày kể từ lần gửi đầu tiên',
         request=ReviewUpdateSerializer,
         responses=ReviewSerializer,
         tags=['Review - Customer'],

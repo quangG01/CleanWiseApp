@@ -5,7 +5,8 @@ import logging
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
-from .models import ChatMessage
+from .models import ChatConversation, ChatMessage
+from .queries import assignment_notice_filter
 from .serializers import ChatMessageSerializer
 
 
@@ -18,7 +19,9 @@ def user_group(user_id):
 
 def publish_message(message_id):
     try:
-        message = ChatMessage.objects.select_related('conversation').get(pk=message_id)
+        message = ChatMessage.objects.select_related('conversation').exclude(assignment_notice_filter()).filter(pk=message_id).first()
+        if message is None:
+            return
         recipients = (
             [message.recipient_id]
             if message.message_type == ChatMessage.MessageType.SYSTEM
@@ -33,6 +36,20 @@ def publish_message(message_id):
     except Exception:
         # The row is already committed. REST history remains the source of truth.
         logger.exception('Could not publish chat message %s', message_id)
+
+
+def publish_conversation(conversation_id):
+    """Refresh inboxes without sending a message or adding unread counts."""
+    try:
+        conversation = ChatConversation.objects.get(pk=conversation_id)
+        layer = get_channel_layer()
+        for user_id in (conversation.customer_id, conversation.worker_id):
+            async_to_sync(layer.group_send)(user_group(user_id), {
+                'type': 'chat.conversation',
+                'payload': {'conversation_id': conversation.id},
+            })
+    except Exception:
+        logger.exception('Could not publish conversation update %s', conversation_id)
 
 
 def publish_read(conversation_id, reader_id, last_read_message_id, other_user_id):

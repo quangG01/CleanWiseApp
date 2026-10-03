@@ -68,7 +68,7 @@ class ChatWebSocketTests(TransactionTestCase):
         self.assertEqual((await communicator.receive_json_from())['type'], 'auth.ok')
         return communicator
 
-    async def test_private_notices_and_shared_text(self):
+    async def test_conversation_update_without_notices_and_shared_text(self):
         customer_socket = await self.connect_user(self.customer)
         worker_socket = await self.connect_user(self.worker)
         outsider_socket = await self.connect_user(self.outsider)
@@ -76,9 +76,10 @@ class ChatWebSocketTests(TransactionTestCase):
             conversation = await database_sync_to_async(ensure_chat_for_assignment)(self.assignment)
             customer_event = await customer_socket.receive_json_from()
             worker_event = await worker_socket.receive_json_from()
-            self.assertEqual(customer_event['type'], 'message.created')
-            self.assertEqual(customer_event['message']['recipient_id'], self.customer.id)
-            self.assertEqual(worker_event['message']['recipient_id'], self.worker.id)
+            self.assertEqual(customer_event, {'type': 'conversation.updated', 'conversation_id': conversation.id})
+            self.assertEqual(worker_event, customer_event)
+            self.assertTrue(await customer_socket.receive_nothing(timeout=0.1))
+            self.assertTrue(await worker_socket.receive_nothing(timeout=0.1))
             self.assertTrue(await outsider_socket.receive_nothing(timeout=0.1))
 
             await customer_socket.send_json_to({

@@ -1,13 +1,19 @@
 from django.shortcuts import get_object_or_404
+from django.conf import settings
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
 
 from apps.common.permissions import IsAdminRole, IsCustomerRole, IsWorkerRole
+from apps.bookings.models import BookingSchedule
+from apps.worker.models import BookingAssignment
 
 from . import review_service
+from .filters import filter_customer_reviews
 from .serializers import (
+    AssignmentReviewStateSerializer,
     AdminReviewReplySerializer,
     AdminReviewVisibilitySerializer,
     EligibleReviewAssignmentSerializer,
@@ -73,7 +79,8 @@ class CustomerReviewListCreateView(generics.GenericAPIView):
         queryset = review_service.review_queryset().filter(
             assignment__schedule__booking__customer=self.request.user,
         )
-        return _filter_reviews(queryset, self.request.query_params)
+        queryset = _filter_reviews(queryset, self.request.query_params)
+        return filter_customer_reviews(queryset, self.request.query_params)
 
     def get(self, request, *args, **kwargs):
         return Response({
@@ -92,6 +99,29 @@ class CustomerReviewListCreateView(generics.GenericAPIView):
             'message': 'Đánh giá nhân viên thành công.',
             'data': self.get_serializer(review).data,
         }, status=status.HTTP_201_CREATED)
+
+
+class CustomerAssignmentReviewView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]
+    serializer_class = ReviewSerializer
+
+    @extend_schema(summary='Trạng thái đánh giá của một buổi làm', responses=AssignmentReviewStateSerializer, tags=['Review - Customer'])
+    def get(self, request, assignment_id):
+        assignment = get_object_or_404(
+            BookingAssignment.objects.select_related('worker', 'schedule__booking__service'),
+            pk=assignment_id, schedule__booking__customer=request.user,
+            status=BookingAssignment.Status.ACCEPTED,
+        )
+        review = review_service.review_queryset().filter(assignment=assignment).first()
+        return Response({
+            'message': 'Lấy trạng thái đánh giá buổi làm thành công.',
+            'data': {
+                'assignment': EligibleReviewAssignmentSerializer(assignment).data,
+                'can_review': review is None and assignment.schedule.status == BookingSchedule.Status.COMPLETED,
+                'review': self.get_serializer(review).data if review else None,
+                'max_images': settings.REVIEW_MAX_IMAGES,
+            },
+        })
 
 
 @CUSTOMER_REVIEW_DETAIL_SCHEMA

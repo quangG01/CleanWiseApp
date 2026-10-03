@@ -6,6 +6,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 
 from .models import Review, ReviewImage
+from apps.bookings.models import BookingSchedule
 
 
 @extend_schema_field(OpenApiTypes.BINARY)
@@ -63,6 +64,19 @@ class ReviewSerializer(serializers.ModelSerializer):
     worker = ReviewUserSummarySerializer(source='assignment.worker', read_only=True)
     schedule = ReviewScheduleSerializer(source='assignment.schedule', read_only=True)
     images = ReviewImageSerializer(many=True, read_only=True)
+    service_name = serializers.CharField(source='assignment.schedule.booking.service.name', read_only=True)
+    can_edit = serializers.BooleanField(read_only=True)
+    edit_deadline = serializers.DateTimeField(read_only=True)
+    is_edited = serializers.SerializerMethodField()
+    max_images = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.BooleanField)
+    def get_is_edited(self, instance):
+        return instance.edited_at is not None
+
+    @extend_schema_field(serializers.IntegerField)
+    def get_max_images(self, instance):
+        return settings.REVIEW_MAX_IMAGES
 
     class Meta:
         model = Review
@@ -70,6 +84,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             'id', 'assignment_id', 'booking_id', 'booking_code', 'schedule',
             'customer', 'worker', 'rating', 'comment', 'admin_reply',
             'replied_at', 'is_visible', 'images', 'created_at', 'updated_at',
+            'service_name', 'can_edit', 'edit_deadline', 'is_edited', 'edited_at', 'max_images',
         ]
         read_only_fields = fields
 
@@ -84,7 +99,14 @@ class EligibleReviewAssignmentSerializer(serializers.Serializer):
 
     @extend_schema_field(serializers.BooleanField)
     def get_can_review(self, instance):
-        return True
+        return instance.schedule.status == BookingSchedule.Status.COMPLETED and not hasattr(instance, 'review')
+
+
+class AssignmentReviewStateSerializer(serializers.Serializer):
+    assignment = EligibleReviewAssignmentSerializer(read_only=True)
+    can_review = serializers.BooleanField(read_only=True)
+    review = ReviewSerializer(read_only=True, allow_null=True)
+    max_images = serializers.IntegerField(read_only=True)
 
 
 class ReviewCreateSerializer(serializers.Serializer):
