@@ -12,7 +12,7 @@ class WalletTransactionSerializer(serializers.ModelSerializer):
         model = WalletTransaction
         fields = [
             'id', 'type', 'type_display', 'amount', 'balance_after',
-            'status', 'status_display', 'booking_code', 'note', 'created_at',
+            'status', 'status_display', 'booking_code', 'note', 'created_at','direction'
         ]
 
 

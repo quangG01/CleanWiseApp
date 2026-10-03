@@ -126,6 +126,8 @@ class Complaint(models.Model):
         blank=True,
         null=True,
     )
+    
+    refund_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -152,4 +154,4 @@ class ComplaintAttachment(models.Model):
         db_table = 'complaint_attachments'
 
     def __str__(self):
-        return self.file
+        return str(self.file)

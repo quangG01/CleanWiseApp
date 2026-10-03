@@ -178,7 +178,8 @@ class AdminBookingDetailSerializer(serializers.ModelSerializer):
             'id', 'booking_code', 'customer', 'service', 'service_data',
             'address', 'delivery_address', 'note', 'status', 'status_label',
             'payment_status', 'payment_status_label', 'price_breakdown',
-            'subtotal_amount', 'discount_amount', 'total_amount', 'voucher',
+            'subtotal_amount', 'discount_amount', 'total_amount',
+            'refunded_amount', 'voucher',
             'schedules', 'payments', 'complaints', 'cancelled_by',
             'cancelled_at', 'cancel_reason', 'created_at', 'updated_at',
         ]

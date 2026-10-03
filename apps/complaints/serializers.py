@@ -232,7 +232,7 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
             'resolved_by_name',
             'resolution_note',
             'resolved_at',
-
+            'refund_amount',
             'created_at',
             'attachments',
         ]
@@ -241,51 +241,57 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
 
 
 class ComplaintResolveSerializer(serializers.ModelSerializer):
+    refund_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=1, required=False,
+    )
+
     class Meta:
         model = Complaint
-        fields = [
-            'status',
-            'resolution_note',
-        ]
+        fields = ['status', 'resolution_note', 'refund_amount']
 
     def validate_status(self, value):
-        allowed = {
-            Complaint.Status.IN_REVIEW,
-            Complaint.Status.RESOLVED,
-            Complaint.Status.REJECTED,
-        }
-
+        allowed = {Complaint.Status.IN_REVIEW, Complaint.Status.RESOLVED, Complaint.Status.REJECTED}
         if value not in allowed:
-            raise serializers.ValidationError(
-                'Trạng thái không hợp lệ cho hành động xử lý.'
-            )
-
+            raise serializers.ValidationError('Trạng thái không hợp lệ cho hành động xử lý.')
         return value
 
+    def validate(self, attrs):
+        if self.instance.status in (
+            Complaint.Status.RESOLVED, Complaint.Status.REJECTED, Complaint.Status.CANCELLED,
+        ):
+            raise serializers.ValidationError('Khiếu nại đã đóng, không thể xử lý lại.')
+        if attrs.get('refund_amount') and attrs['status'] != Complaint.Status.RESOLVED:
+            raise serializers.ValidationError({'refund_amount': 'Chỉ hoàn tiền khi trạng thái là RESOLVED.'})
+        return attrs
+
     def update(self, instance, validated_data):
+        request = self.context['request']
         instance.status = validated_data['status']
+        instance.resolution_note = validated_data.get('resolution_note', instance.resolution_note)
 
-        instance.resolution_note = validated_data.get(
-            'resolution_note',
-            instance.resolution_note,
-        )
-
-        if instance.status in [
-            Complaint.Status.RESOLVED,
-            Complaint.Status.REJECTED,
-        ]:
-            instance.resolved_by = self.context['request'].user
+        if instance.status in (Complaint.Status.RESOLVED, Complaint.Status.REJECTED):
+            instance.resolved_by = request.user
             instance.resolved_at = timezone.now()
-
-        elif instance.status == Complaint.Status.IN_REVIEW:
+        else:
             instance.resolved_by = None
             instance.resolved_at = None
 
+        amount = validated_data.get('refund_amount')
+        if instance.status == Complaint.Status.RESOLVED and amount:
+            from apps.wallets import refund_service
+            _, refunded = refund_service.admin_refund_booking(
+                booking_id=instance.booking_id,
+                admin_user=request.user,
+                reason=f'Khiếu nại #{instance.id}',
+                amount=amount,
+                key=f'refund:complaint:{instance.id}',
+            )
+            instance.refund_amount = refunded
+
         instance.save()
-
         return instance
-
-
+    
+    
 class ComplaintCancelSerializer(serializers.Serializer):
     def save(self):
         complaint = self.context['complaint']

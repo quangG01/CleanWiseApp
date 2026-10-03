@@ -323,6 +323,16 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 300.0,
         'options': {'expires': 290},
     },
+    'expire-unpaid-bookings': {
+        'task': 'apps.worker.tasks.expire_unpaid_bookings_task',
+        'schedule': 60.0,
+        'options': {'expires': 55},
+    },
+    'release-held-earnings': {
+        'task': 'apps.worker.tasks.release_held_earnings_task',
+        'schedule': 600.0,
+        'options': {'expires': 590},
+    },
 }
 
 

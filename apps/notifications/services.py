@@ -3,20 +3,24 @@ from .push import send_push_to_user
 from django.utils import timezone
 from .realtime import push_unread_count
 
-def create_notification(user, title, message, type=Notification.Type.SYSTEM, related_booking=None):
+def create_notification(user, title, message, type=Notification.Type.SYSTEM,
+                        related_booking=None, related_schedule=None):
     notif = Notification.objects.create(
-        user=user, title=title, message=message, type=type, related_booking=related_booking,
+        user=user, title=title, message=message, type=type,
+        related_booking=related_booking, related_schedule=related_schedule,
     )
     push_unread_count(user.id)
     return notif
 
 
-def create_notification_with_push(user, title, message, type=Notification.Type.SYSTEM, related_booking=None):
-    notif = create_notification(user, title, message, type, related_booking)
+def create_notification_with_push(user, title, message, type=Notification.Type.SYSTEM,
+                                  related_booking=None, related_schedule=None):
+    notif = create_notification(user, title, message, type, related_booking, related_schedule)
     send_push_to_user(user, title, message, {
         'notification_id': notif.id,
         'type': type,
         'booking_id': related_booking.id if related_booking else None,
+        'schedule_id': related_schedule.id if related_schedule else None,
     })
     return notif
 
@@ -101,11 +105,13 @@ def notify_customer_booking_cancelled(booking):
 
 
 def notify_customer_booking_failed(booking):
+    message = f'Booking {booking.booking_code} không tìm được nhân viên nhận việc.'
+    if booking.payment_status == 'PAID':
+        message += ' Số tiền đã thanh toán sẽ được hoàn lại vào ví của bạn.'
     return create_notification_with_push(
         user=booking.customer,
         title='Không tìm được nhân viên',
-        message=f'Booking {booking.booking_code} không tìm được nhân viên nhận việc. '
-                 f'Số tiền đã thanh toán sẽ được hoàn lại vào ví của bạn.',
+        message=message,
         type=Notification.Type.BOOKING,
         related_booking=booking,
     )
@@ -216,3 +222,35 @@ def notify_admin_announcement(users, title, message):
         send_push_to_user(user, title, message)
         push_unread_count(user.id)
     return notifs
+
+def notify_customer_refund(booking, amount, reason=None):
+    message = f'{int(amount):,}đ đã được hoàn vào ví của bạn (booking {booking.booking_code}).'
+    if reason:
+        message += f' {reason}'
+    return create_notification_with_push(
+        user=booking.customer,
+        title='Đã hoàn tiền vào ví',
+        message=message,
+        type=Notification.Type.PAYMENT,
+        related_booking=booking,
+    )
+    
+def notify_wallet_adjustment(user, amount, direction, reason):
+    sign = '+' if direction == 'CREDIT' else '-'
+    return create_notification_with_push(
+        user=user,
+        title='Số dư ví được điều chỉnh',
+        message=f'{sign}{int(amount):,}đ. Lý do: {reason}',
+        type=Notification.Type.PAYMENT,
+    )
+
+
+def notify_worker_schedule_cancelled(schedule, worker):
+    return create_notification_with_push(
+        user=worker,
+        title='Khách đã hủy buổi làm',
+        message=f'Khách hàng đã hủy buổi {schedule.sequence_no} của booking {schedule.booking.booking_code}.',
+        type=Notification.Type.ASSIGNMENT,
+        related_booking=schedule.booking,
+        related_schedule=schedule,
+    )

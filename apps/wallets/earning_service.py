@@ -1,17 +1,18 @@
 from decimal import ROUND_HALF_UP, Decimal
-
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
-
 from apps.bookings.models import BookingSchedule
 from apps.payments.models import Payment
-
 from . import wallet_service
 from .models import WalletTransaction, WorkerEarning
+from datetime import timedelta
+from django.conf import settings
+from django.db.models import Q
 
 # Hoa hồng của app: 10% trên mọi dịch vụ.
 COMMISSION_RATE = Decimal('0.10')
+EARNING_HOLD_HOURS = getattr(settings, 'EARNING_HOLD_HOURS', 24)
 
 _VND = Decimal('1')
 
@@ -28,8 +29,8 @@ def _detect_payment_method(booking):
 
 
 def calculate_gross_amount(schedule, booking):
-    """Giá 1 buổi — cùng công thức với WorkerScheduleSerializer.get_price,
-    để số tiền giữ chỗ lúc nhận đơn khớp số nhân viên đã thấy khi xem đơn."""
+    """Giá 1 buổi tính trên subtotal (trước voucher) để nhân viên không chịu voucher.
+    Chia theo sessions_count chốt lúc tạo đơn, không đổi khi hủy bớt buổi."""
     breakdown = booking.price_breakdown or {}
     unit_price = breakdown.get('unit_price')
     if unit_price is not None:
@@ -38,11 +39,11 @@ def calculate_gross_amount(schedule, booking):
         except (TypeError, ValueError, ArithmeticError):
             pass
 
-    total = booking.total_amount
-    sessions = booking.schedules.exclude(status=BookingSchedule.Status.CANCELLED).count()
-    if not total or not sessions:
+    base = booking.subtotal_amount or booking.total_amount
+    sessions = breakdown.get('sessions_count') or booking.schedules.count()
+    if not base or not sessions:
         return Decimal('0')
-    return _round_vnd(total / sessions)
+    return _round_vnd(base / sessions)
 
 
 def calculate_commission(gross_amount):
@@ -94,19 +95,17 @@ def release_cash_commission(*, assignment):
 @transaction.atomic
 def record_schedule_earning(*, schedule, booking, worker):
     """
-    Gọi trong check_out ngay sau khi buổi được đánh dấu COMPLETED.
-    Idempotent: buổi đã có dòng thu nhập thì trả về dòng cũ, không cộng lại.
+    Gọi trong check_out. Idempotent.
+    ONLINE: chỉ ghi sổ, tiền vào ví sau EARNING_HOLD_HOURS (release_held_earnings).
+    CASH: xử lý hoa hồng như cũ.
     """
     existing = WorkerEarning.objects.filter(schedule=schedule).first()
     if existing:
         return existing
 
-    total = booking.total_amount
-    sessions = booking.schedules.exclude(status=BookingSchedule.Status.CANCELLED).count()
-    if not total or not sessions:
-        return None
-
     gross = calculate_gross_amount(schedule, booking)
+    if gross <= 0:
+        return None
     commission = calculate_commission(gross)
     worker_amount = gross - commission
     method = _detect_payment_method(booking)
@@ -123,31 +122,16 @@ def record_schedule_earning(*, schedule, booking, worker):
         completed_at=schedule.actual_end,
     )
 
-    if method == WorkerEarning.PaymentMethod.ONLINE and worker_amount > 0:
-        wallet_service.credit_wallet(
-            user=worker,
-            amount=worker_amount,
-            type=WalletTransaction.Type.EARNING,
-            booking=booking,
-            note=f'Thu nhập buổi {schedule.sequence_no} - {booking.booking_code}',
-        )
-    elif method == WorkerEarning.PaymentMethod.CASH and commission > 0:
-        # Dùng related_name 'assignments' trên BookingSchedule, tránh phải
-        # import model BookingAssignment (khác app) vào đây.
+    if method == WorkerEarning.PaymentMethod.CASH and commission > 0:
         assignment = schedule.assignments.filter(worker=worker, status='ACCEPTED').first()
         reserved = getattr(assignment, 'commission_reserved', None)
 
         if reserved:
-            # Đã giữ chỗ (trừ ví) sẵn lúc nhận việc -> chỉ đánh dấu đã nộp,
-            # KHÔNG trừ ví lần nữa.
             assignment.commission_reserved = None
             assignment.save(update_fields=['commission_reserved'])
             earning.settled_at = timezone.now()
             earning.save(update_fields=['settled_at'])
         else:
-            # Không có khoản giữ chỗ (dữ liệu cũ trước bản vá, hoặc admin
-            # gán tay không qua claim_schedule) -> thử trừ ví ngay bây giờ.
-            # Nếu ví không đủ, để nợ (settled_at=null), KHÔNG chặn check-out.
             try:
                 wallet_service.debit_wallet(
                     user=worker,
@@ -162,3 +146,41 @@ def record_schedule_earning(*, schedule, booking, worker):
                 pass
 
     return earning
+
+
+def _has_open_complaint(earning):
+    from apps.complaints.models import Complaint
+    return Complaint.objects.filter(
+        booking_id=earning.booking_id,
+        status__in=(Complaint.Status.PENDING, Complaint.Status.IN_REVIEW),
+    ).filter(Q(schedule_id=earning.schedule_id) | Q(schedule__isnull=True)).exists()
+
+
+def release_held_earnings():
+    """Cộng ví các khoản ONLINE đã qua thời gian chờ và không có khiếu nại đang mở."""
+    cutoff = timezone.now() - timedelta(hours=EARNING_HOLD_HOURS)
+    ids = list(
+        WorkerEarning.objects.filter(
+            payment_method=WorkerEarning.PaymentMethod.ONLINE,
+            wallet_credited_at__isnull=True,
+            completed_at__lte=cutoff,
+        ).values_list('id', flat=True)
+    )
+    for earning_id in ids:
+        with transaction.atomic():
+            earning = WorkerEarning.objects.select_for_update().select_related(
+                'worker', 'booking', 'schedule',
+            ).get(pk=earning_id)
+            if earning.wallet_credited_at or _has_open_complaint(earning):
+                continue
+            if earning.worker_amount > 0:
+                wallet_service.credit_wallet(
+                    user=earning.worker,
+                    amount=earning.worker_amount,
+                    type=WalletTransaction.Type.EARNING,
+                    booking=earning.booking,
+                    note=f'Thu nhập buổi {earning.schedule.sequence_no} - {earning.booking.booking_code}',
+                    idempotency_key=f'earning:{earning.id}',
+                )
+            earning.wallet_credited_at = timezone.now()
+            earning.save(update_fields=['wallet_credited_at'])

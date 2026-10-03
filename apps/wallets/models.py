@@ -49,6 +49,15 @@ class WalletTransaction(models.Model):
         null=True,
     )
     note = models.TextField(blank=True, null=True)
+    idempotency_key = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    class Direction(models.TextChoices):
+        CREDIT = 'CREDIT', 'Cộng'
+        DEBIT = 'DEBIT', 'Trừ'
+
+    direction = models.CharField(max_length=10, choices=Direction.choices, blank=True, default='')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -94,6 +103,7 @@ class WorkerEarning(models.Model):
 
     completed_at = models.DateTimeField()
     settled_at = models.DateTimeField(blank=True, null=True)
+    wallet_credited_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

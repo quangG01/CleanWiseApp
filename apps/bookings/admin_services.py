@@ -8,13 +8,13 @@ from apps.notifications.services import (
     create_notification_with_push,
     notify_worker_booking_cancelled,
     notify_worker_removed_from_schedule,
-    notify_customer_booking_completed,
 )
 from apps.notifications.models import Notification
 from apps.payments.models import Payment
 from apps.vouchers.voucher_service import release_user_voucher
 from apps.wallets import earning_service, wallet_service
 from apps.worker.models import BookingAssignment
+from .booking_service import cancel_booking_core
 
 from .activity_service import record_booking_activity
 from .models import Booking, BookingActivity, BookingSchedule
@@ -46,6 +46,23 @@ def update_booking_by_admin(*, booking_id, actor, validated_data):
             customer=booking.customer,
             is_active=True,
         )
+        from apps.worker.assignment_service import _covers, _worker_area_index
+
+        assigned = BookingAssignment.objects.filter(
+            schedule__booking=booking,
+            status=BookingAssignment.Status.ACCEPTED,
+            schedule__status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),
+        ).select_related('worker')
+        uncovered = sorted({
+            a.worker.get_full_name() or a.worker.username
+            for a in assigned
+            if not _covers(_worker_area_index(a.worker), address)
+        })
+        if uncovered:
+            raise serializers.ValidationError({
+                'address_id': 'Nhân viên không hoạt động ở khu vực mới: '
+                              f'{", ".join(uncovered)}. Hãy bỏ phân công trước khi đổi địa chỉ.',
+            })
         old_data['address_id'] = booking.address_id
         booking.address = address
         new_data['address_id'] = address.id
@@ -219,103 +236,18 @@ def unassign_worker_by_admin(*, schedule_id, actor, reason):
 
 @transaction.atomic
 def cancel_booking_by_admin(*, booking_id, actor, reason):
-    booking = get_object_or_404(
-        Booking.objects.select_for_update(),
-        pk=booking_id,
-    )
-    if booking.status not in (Booking.Status.PENDING, Booking.Status.ASSIGNED):
-        raise serializers.ValidationError({'booking': 'Đơn không thể hủy ở trạng thái hiện tại.'})
-    if booking.schedules.filter(status=BookingSchedule.Status.IN_PROGRESS).exists():
-        raise serializers.ValidationError({'booking': 'Đơn đang được thực hiện, không thể hủy.'})
-
-    previous_status = booking.status
-    now = timezone.now()
-    was_paid = booking.payment_status == Booking.PaymentStatus.PAID
-    assignments = list(
-        BookingAssignment.objects.select_for_update(of=('self',)).filter(
-            schedule__booking=booking,
-            status=BookingAssignment.Status.ACCEPTED,
-        ).select_related('worker', 'schedule')
-    )
-    for assignment in assignments:
-        earning_service.release_cash_commission(assignment=assignment)
-        assignment.status = BookingAssignment.Status.CANCELLED
-        assignment.response_note = reason
-        assignment.responded_at = now
-        assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
-        notify_worker_booking_cancelled(assignment.schedule, assignment.worker)
-
-    booking.status = Booking.Status.CANCELLED
-    booking.cancelled_by = actor
-    booking.cancelled_at = now
-    booking.cancel_reason = reason
-    fields = ['status', 'cancelled_by', 'cancelled_at', 'cancel_reason', 'updated_at']
-    if was_paid:
-        booking.payment_status = Booking.PaymentStatus.REFUNDED
-        fields.append('payment_status')
-    booking.save(update_fields=fields)
-
-    booking.schedules.exclude(
-        status__in=(BookingSchedule.Status.COMPLETED, BookingSchedule.Status.CANCELLED),
-    ).update(
-        status=BookingSchedule.Status.CANCELLED,
-        cancelled_by=actor,
-        cancelled_at=now,
-        cancel_reason=reason,
-        updated_at=now,
-    )
-    booking.payments.filter(status=Payment.Status.PENDING).update(
-        status=Payment.Status.CANCELLED,
-        failure_reason='Booking đã bị quản trị viên hủy.',
-        updated_at=now,
-    )
-    if was_paid:
-        payment = booking.payments.filter(status=Payment.Status.SUCCESS).first()
-        record_booking_activity(
-            booking=booking,
-            actor=actor,
-            event_type=BookingActivity.EventType.REFUND_CREATED,
-            message='Yêu cầu hoàn tiền đã được tạo.',
-            metadata={'payment_id': payment.id if payment else None},
-        )
-        booking.payments.filter(status=Payment.Status.SUCCESS).update(
-            status=Payment.Status.REFUNDED,
-            updated_at=now,
-        )
-        wallet_service.credit_wallet(
-            user=booking.customer,
-            amount=booking.total_amount,
-            booking=booking,
-            note=f'Hoàn tiền do admin hủy đơn {booking.booking_code}',
-        )
-        record_booking_activity(
-            booking=booking,
-            actor=actor,
-            event_type=BookingActivity.EventType.REFUND_COMPLETED,
-            message='Đã hoàn tiền vào ví khách hàng.',
-            metadata={'payment_id': payment.id if payment else None},
-        )
-    if booking.user_voucher_id:
-        release_user_voucher(user_voucher_id=booking.user_voucher_id, allow_used=True)
-
-    record_booking_activity(
-        booking=booking,
-        actor=actor,
-        event_type=BookingActivity.EventType.BOOKING_CANCELLED,
-        message=f'Admin hủy đơn {booking.booking_code}.',
-        old_data={'status': previous_status},
-        new_data={'status': Booking.Status.CANCELLED, 'reason': reason},
-    )
-    return booking
+    booking = get_object_or_404(Booking.objects.select_for_update(), pk=booking_id)
+    return cancel_booking_core(booking=booking, actor=actor, reason=reason, by_admin=True)
 
 
 @transaction.atomic
 def complete_schedule_by_admin(*, schedule_id, actor, reason, completion_note=None):
+    ref = get_object_or_404(BookingSchedule.objects.only('booking_id'), pk=schedule_id)
+    booking = Booking.objects.select_for_update(of=('self',)).get(pk=ref.booking_id)
     schedule = get_object_or_404(
         BookingSchedule.objects.select_for_update(of=('self',)).select_related('booking'),
         pk=schedule_id,
     )
-    booking = Booking.objects.select_for_update(of=('self',)).get(pk=schedule.booking_id)
     if schedule.status != BookingSchedule.Status.IN_PROGRESS:
         raise serializers.ValidationError(
             {'schedule': 'Chỉ được xác nhận thủ công cho buổi đang thực hiện.'}
@@ -343,7 +275,6 @@ def complete_schedule_by_admin(*, schedule_id, actor, reason, completion_note=No
     if not still_active and booking.status == Booking.Status.IN_PROGRESS:
         booking.status = Booking.Status.COMPLETED
         booking.save(update_fields=['status', 'updated_at'])
-        notify_customer_booking_completed(booking)
 
     record_booking_activity(
         booking=booking,

@@ -18,7 +18,7 @@ from apps.vouchers.voucher_service import (
     mark_user_voucher_used,
     release_user_voucher,
 )
-from apps.wallets import earning_service
+from apps.wallets import earning_service, refund_service
 
 from .constants import MIN_CANCEL_HOURS
 from .models import BookingAssignment, WorkerWorkingArea
@@ -254,38 +254,37 @@ def get_cancel_deadline(schedule):
 
 @transaction.atomic
 def handle_missed_checkins():
-    """
-    Lazy check — gọi ngay đầu expire_unclaimed_schedules(), trước khi quét
-    MISSED, để giải phóng các assignment bị "bỏ rơi": worker đã ACCEPTED
-    nhưng quá scheduled_start + CHECKIN_MISSED_GRACE_MINUTES vẫn chưa
-    Check-in (schedule vẫn PENDING, actual_start vẫn NULL).
-
-    Không tự chuyển schedule sang MISSED ở đây — chỉ hủy assignment và
-    trả schedule về trống. Nếu không ai nhận lại kịp, lượt quét
-    expire_unclaimed_schedules() ngay sau đó (cùng 1 lần gọi) sẽ tự xử lý
-    tiếp thành MISSED/FAILED như bình thường.
-    """
+    """Gỡ assignment ACCEPTED mà nhân viên không check-in quá CHECKIN_MISSED_GRACE_MINUTES."""
     now = timezone.now()
     cutoff = now - timedelta(minutes=CHECKIN_MISSED_GRACE_MINUTES)
 
-    stale_assignments = (
-        BookingAssignment.objects.select_for_update(of=('self',))
-        .filter(
+    candidates = list(
+        BookingAssignment.objects.filter(
             status=BookingAssignment.Status.ACCEPTED,
             schedule__status=BookingSchedule.Status.PENDING,
             schedule__scheduled_start__lt=cutoff,
-        )
-        .select_related('schedule', 'schedule__booking', 'worker')
+        ).values_list('id', 'schedule__booking_id')
     )
 
-    for assignment in stale_assignments:
+    for assignment_id, booking_id in candidates:
+        booking = Booking.objects.select_for_update().get(pk=booking_id)  # booking trước
+        assignment = (
+            BookingAssignment.objects.select_for_update(of=('self',))
+            .select_related('schedule', 'worker').get(pk=assignment_id)
+        )
         schedule = assignment.schedule
-        booking = schedule.booking
+        if (
+            assignment.status != BookingAssignment.Status.ACCEPTED
+            or schedule.status != BookingSchedule.Status.PENDING
+        ):
+            continue
 
         assignment.status = BookingAssignment.Status.CANCELLED
         assignment.response_note = 'Tự động hủy do nhân viên không check-in đúng hạn.'
         assignment.responded_at = now
         assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
+
+        earning_service.release_cash_commission(assignment=assignment)
 
         if booking.status == Booking.Status.ASSIGNED:
             booking.status = Booking.Status.PENDING
@@ -300,7 +299,6 @@ def handle_missed_checkins():
             type=Notification.Type.ASSIGNMENT,
             related_booking=booking,
         )
-
         _notify_admins(
             title='Worker không check-in đúng hạn',
             message=f'{assignment.worker.username} đã nhận nhưng không check-in '
@@ -319,131 +317,50 @@ def handle_missed_checkins():
 
 
 @transaction.atomic
-def expire_unclaimed_schedules():
-    handle_missed_checkins() 
-
-    now = timezone.now()
-
-    stale_schedules = (
-        BookingSchedule.objects.select_for_update(of=('self',))
-        .filter(status=BookingSchedule.Status.PENDING, scheduled_start__lt=now)
-        .exclude(assignments__status=BookingAssignment.Status.ACCEPTED)
-        .select_related('booking')
-    )
-
-    for schedule in stale_schedules:
-        schedule.status = BookingSchedule.Status.MISSED
-        schedule.cancel_reason = 'Hết hạn, không có nhân viên nhận việc.'
-        schedule.cancelled_at = now
-        schedule.save(update_fields=['status', 'cancel_reason', 'cancelled_at', 'updated_at'])
-
-        booking = schedule.booking
-        if booking.status in (Booking.Status.PENDING, Booking.Status.ASSIGNED):
-            still_active = booking.schedules.filter(
-                status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),
-            ).exists()
-            ever_had_worker = BookingAssignment.objects.filter(
-                schedule__booking=booking, status=BookingAssignment.Status.ACCEPTED,
-            ).exists()
-
-            if not still_active and not ever_had_worker:
-                was_paid = booking.payment_status == Booking.PaymentStatus.PAID
-                booking.status = Booking.Status.FAILED
-                booking.cancel_reason = 'Không có nhân viên nhận việc trong thời gian yêu cầu.'
-                booking.cancelled_at = now
-                update_fields = ['status', 'cancel_reason', 'cancelled_at', 'updated_at']
-                if was_paid:
-                    booking.payment_status = Booking.PaymentStatus.REFUNDED
-                    update_fields.append('payment_status')
-                booking.save(update_fields=update_fields)
-
-                if was_paid:
-                    payment = Payment.objects.filter(
-                        booking=booking,
-                        status=Payment.Status.SUCCESS,
-                    ).first()
-                    record_booking_activity(
-                        booking=booking,
-                        event_type=BookingActivity.EventType.REFUND_CREATED,
-                        message='Yêu cầu hoàn tiền đã được tạo.',
-                        metadata={'payment_id': payment.id if payment else None},
-                    )
-                    from apps.wallets import wallet_service
-                    wallet_service.credit_wallet(
-                        user=booking.customer,
-                        amount=booking.total_amount,
-                        booking=booking,
-                        note=f'Hoàn tiền do không tìm được nhân viên - {booking.booking_code}',
-                    )
-                    Payment.objects.filter(
-                        booking=booking,
-                        status=Payment.Status.SUCCESS,
-                    ).update(status=Payment.Status.REFUNDED, updated_at=now)
-                    record_booking_activity(
-                        booking=booking,
-                        event_type=BookingActivity.EventType.REFUND_COMPLETED,
-                        message='Đã hoàn tiền vào ví khách hàng.',
-                        metadata={'payment_id': payment.id if payment else None},
-                    )
-
-                if booking.user_voucher_id:
-                    release_user_voucher(
-                        user_voucher_id=booking.user_voucher_id,
-                        allow_used=True,
-                    )
-                record_booking_activity(
-                    booking=booking,
-                    schedule=schedule,
-                    event_type=BookingActivity.EventType.BOOKING_FAILED,
-                    message=f'Đơn {booking.booking_code} thất bại vì không có nhân viên nhận.',
-                    old_data={'status': Booking.Status.PENDING},
-                    new_data={'status': Booking.Status.FAILED, 'reason': booking.cancel_reason},
-                    metadata={'automatic': True},
-                )
-
-
-@transaction.atomic
 def handle_missed_checkouts():
     now = timezone.now()
     cutoff = now - timedelta(minutes=CHECKOUT_GRACE_MINUTES)
 
-    overdue_schedules = (
-        BookingSchedule.objects.select_for_update(of=('self',))
-        .filter(status=BookingSchedule.Status.IN_PROGRESS, scheduled_end__lt=cutoff)
-        .select_related('booking', 'booking__customer')
+    candidates = list(
+        BookingSchedule.objects.filter(
+            status=BookingSchedule.Status.IN_PROGRESS, scheduled_end__lt=cutoff,
+        ).values_list('id', 'booking_id')
     )
 
-    for schedule in overdue_schedules:
+    for schedule_id, booking_id in candidates:
+        booking = Booking.objects.select_for_update().get(pk=booking_id)  # booking trước
+        schedule = BookingSchedule.objects.select_for_update().get(pk=schedule_id)
+        if schedule.status != BookingSchedule.Status.IN_PROGRESS:
+            continue
+
         assignment = schedule.assignments.filter(
             status=BookingAssignment.Status.ACCEPTED,
         ).select_related('worker').first()
         if not assignment:
             continue
-
         worker = assignment.worker
 
         schedule.actual_end = max(schedule.scheduled_end, schedule.actual_start or schedule.scheduled_end)
         schedule.status = BookingSchedule.Status.COMPLETED
         schedule.save(update_fields=['actual_end', 'status', 'updated_at'])
 
-        booking = schedule.booking
         still_active = booking.schedules.filter(
             status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),
         ).exclude(pk=schedule.pk).exists()
-
         if not still_active and booking.status == Booking.Status.IN_PROGRESS:
             booking.status = Booking.Status.COMPLETED
             booking.save(update_fields=['status', 'updated_at'])
 
         earning_service.record_schedule_earning(schedule=schedule, booking=booking, worker=worker)
 
-        Notification.objects.create(
-            user=booking.customer,
-            title='Dịch vụ đã hoàn thành',
-            message=f'Buổi {schedule.sequence_no} của đơn {booking.booking_code} đã hoàn thành.',
-            type=Notification.Type.ASSIGNMENT,
-            related_booking=booking,
-        )
+        if booking.status != Booking.Status.COMPLETED:
+            Notification.objects.create(
+                user=booking.customer,
+                title='Dịch vụ đã hoàn thành',
+                message=f'Buổi {schedule.sequence_no} của đơn {booking.booking_code} đã hoàn thành.',
+                type=Notification.Type.ASSIGNMENT,
+                related_booking=booking,
+            )
         record_booking_activity(
             booking=booking,
             schedule=schedule,
@@ -453,6 +370,93 @@ def handle_missed_checkouts():
             metadata={'automatic': True},
         )
 
+
+@transaction.atomic
+def expire_unclaimed_schedules():
+    handle_missed_checkins()
+
+    now = timezone.now()
+    stale = list(
+        BookingSchedule.objects
+        .filter(status=BookingSchedule.Status.PENDING, scheduled_start__lt=now)
+        .exclude(assignments__status=BookingAssignment.Status.ACCEPTED)
+        .values_list('id', 'booking_id')
+    )
+
+    for schedule_id, booking_id in stale:
+        # Lock booking TRƯỚC, schedule SAU (cùng thứ tự với cancel_booking)
+        booking = Booking.objects.select_for_update().get(pk=booking_id)
+        schedule = BookingSchedule.objects.select_for_update().get(pk=schedule_id)
+
+        # Có thể đã bị xử lý/nhận việc trong lúc chờ lock
+        if schedule.status != BookingSchedule.Status.PENDING:
+            continue
+        if schedule.assignments.filter(status=BookingAssignment.Status.ACCEPTED).exists():
+            continue
+        if booking.status not in OPEN_BOOKING_STATUSES:
+            continue
+
+        schedule.status = BookingSchedule.Status.MISSED
+        schedule.cancel_reason = 'Hết hạn, không có nhân viên nhận việc.'
+        schedule.cancelled_at = now
+        schedule.save(update_fields=['status', 'cancel_reason', 'cancelled_at', 'updated_at'])
+
+        # [Bug 6] Hoàn tiền riêng cho buổi này
+        if booking.payment_status == Booking.PaymentStatus.PAID:
+            refund_service.refund_booking(
+                booking=booking,
+                amount=refund_service.per_session_refund_amount(booking),
+                key=f'refund:schedule:{schedule.id}:missed',
+                note=f'Hoàn tiền buổi {schedule.sequence_no} không có nhân viên - {booking.booking_code}',
+            )
+
+        record_booking_activity(
+            booking=booking,
+            schedule=schedule,
+            event_type=BookingActivity.EventType.BOOKING_UPDATED,
+            message=f'Buổi {schedule.sequence_no} hết hạn vì không có nhân viên nhận.',
+            metadata={'automatic': True},
+        )
+
+        if booking.schedules.filter(status__in=ACTIVE_SCHEDULE_STATUSES).exists():
+            continue
+
+        # Không còn buổi nào chờ làm
+        if booking.schedules.filter(status=BookingSchedule.Status.COMPLETED).exists():
+            booking.status = Booking.Status.COMPLETED
+            booking.save(update_fields=['status', 'updated_at'])
+            continue
+
+        # Chưa làm buổi nào -> đơn thất bại
+        booking.status = Booking.Status.FAILED
+        booking.cancel_reason = 'Không có nhân viên nhận việc trong thời gian yêu cầu.'
+        booking.cancelled_at = now
+        booking.save(update_fields=['status', 'cancel_reason', 'cancelled_at', 'updated_at'])
+
+        # [Bug 2] Hủy payment đang chờ để webhook đến sau không set PAID nhầm
+        booking.payments.filter(status=Payment.Status.PENDING).update(
+            status=Payment.Status.CANCELLED, failure_reason=booking.cancel_reason, updated_at=now,
+        )
+        # Hoàn phần còn lại (làm tròn)
+        if booking.payment_status == Booking.PaymentStatus.PAID:
+            refund_service.refund_booking(
+                booking=booking,
+                key=f'refund:booking:{booking.id}:failed',
+                note=f'Hoàn tiền do không tìm được nhân viên - {booking.booking_code}',
+            )
+        if booking.user_voucher_id:
+            release_user_voucher(user_voucher_id=booking.user_voucher_id, allow_used=True)
+
+        record_booking_activity(
+            booking=booking,
+            schedule=schedule,
+            event_type=BookingActivity.EventType.BOOKING_FAILED,
+            message=f'Đơn {booking.booking_code} thất bại vì không có nhân viên nhận.',
+            new_data={'status': Booking.Status.FAILED, 'reason': booking.cancel_reason},
+            metadata={'automatic': True},
+        )
+
+
 def run_lazy_expiry(*, checkouts=False):
     """Dọn dẹp kiểu lazy trong request, CHỈ khi không có Celery Beat lo
     (dev với CELERY_EAGER=1 và test). Có worker + beat thật thì các task
@@ -460,6 +464,9 @@ def run_lazy_expiry(*, checkouts=False):
     if not getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
         return
     expire_unclaimed_schedules()
+    from apps.bookings.expiry_service import expire_unpaid_bookings
+    expire_unpaid_bookings()
+    earning_service.release_held_earnings()
     if checkouts:
         handle_missed_checkouts()
 

@@ -285,7 +285,7 @@ class BookingDetailSerializer(serializers.ModelSerializer):
             'pricing_config',
             'service_data',
             'address',
-            'delivery_address',  # ĐỔI: thêm vào fields
+            'delivery_address',
             'note',
             'status',
             'payment_status',
@@ -297,6 +297,9 @@ class BookingDetailSerializer(serializers.ModelSerializer):
             'schedules',
             'created_at',
             'updated_at',
+            'refunded_amount',
+            'cancelled_at',
+            'cancel_reason',
         ]
 
     def get_payment(self, obj):
@@ -361,6 +364,7 @@ class BookingCreateSerializer(serializers.Serializer):
                 Payment.Method.BANK_TRANSFER,
                 Payment.Method.BANK_TRANSFER.label,
             ),
+            (Payment.Method.WALLET, Payment.Method.WALLET.label),
         ],
     )
 
