@@ -1,4 +1,5 @@
 from django.db.models import F, OuterRef, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
@@ -8,6 +9,7 @@ from rest_framework.exceptions import ValidationError
 from apps.worker.models import BookingAssignment
 
 from .models import ChatConversation, ChatMessage
+from .queries import unread_message_filter, visible_message_filter
 from .serializers import (
     ChatMessageSerializer, MessageListInputSerializer,
     MessageReadInputSerializer, MessageSendInputSerializer,
@@ -17,27 +19,18 @@ from apps.common.throttling import WriteScopedThrottleMixin
 
 
 def visible_messages(conversation, user):
-    return ChatMessage.objects.filter(conversation=conversation).filter(
-        ~Q(message_type=ChatMessage.MessageType.SYSTEM)
-        | Q(message_type=ChatMessage.MessageType.SYSTEM, recipient=user)
-    )
+    return ChatMessage.objects.filter(conversation=conversation).filter(visible_message_filter(user))
 
 
 def received_unread_messages(conversation, user):
-    return visible_messages(conversation, user).filter(is_read=False).filter(
-        Q(message_type=ChatMessage.MessageType.SYSTEM, recipient=user)
-        | (~Q(message_type=ChatMessage.MessageType.SYSTEM) & ~Q(sender=user))
-    )
+    return ChatMessage.objects.filter(conversation=conversation).filter(unread_message_filter(user))
 
 
 def total_unread_messages(user):
     return ChatMessage.objects.filter(
         Q(conversation__customer=user) | Q(conversation__worker=user),
         is_read=False,
-    ).filter(
-        Q(message_type=ChatMessage.MessageType.SYSTEM, recipient=user)
-        | (~Q(message_type=ChatMessage.MessageType.SYSTEM) & ~Q(sender=user))
-    ).count()
+    ).filter(unread_message_filter(user)).count()
 
 
 def get_participant_conversation(conversation_id, user):
@@ -126,14 +119,13 @@ class ConversationListView(generics.GenericAPIView):
 
     def get(self, request):
         last_visible = ChatMessage.objects.filter(conversation_id=OuterRef('pk')).filter(
-            ~Q(message_type=ChatMessage.MessageType.SYSTEM)
-            | Q(message_type=ChatMessage.MessageType.SYSTEM, recipient=request.user)
+            visible_message_filter(request.user)
         ).order_by('-id')
         queryset = ChatConversation.objects.filter(
             Q(customer=request.user) | Q(worker=request.user)
         ).select_related('customer', 'worker', 'worker__worker_profile').annotate(
             last_visible_at=Subquery(last_visible.values('created_at')[:1]),
-        ).order_by(F('last_visible_at').desc(nulls_last=True), '-id')
+        ).order_by(Coalesce(F('last_visible_at'), F('updated_at')).desc(), '-id')
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request, view=self)
         results = [conversation_summary(conversation, request.user) for conversation in page]

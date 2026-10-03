@@ -130,6 +130,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def chat_read(self, event):
         await self.send_json({'type': 'messages.read', **event['payload']})
 
+    async def chat_conversation(self, event):
+        await self.send_json({'type': 'conversation.updated', **event['payload']})
+
     async def _publish_typing(self, conversation_id, recipient_id, is_typing):
         await self.channel_layer.group_send(user_group(recipient_id), {
             'type': 'chat.typing',

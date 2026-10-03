@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Review(models.Model):
@@ -16,6 +19,15 @@ class Review(models.Model):
     is_visible = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    edited_at = models.DateTimeField(blank=True, null=True)
+
+    @property
+    def edit_deadline(self):
+        return self.created_at + timedelta(days=30)
+
+    @property
+    def can_edit(self):
+        return timezone.now() < self.edit_deadline
 
     class Meta:
         db_table = 'reviews'

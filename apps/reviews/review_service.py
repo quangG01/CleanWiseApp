@@ -148,12 +148,15 @@ def update_customer_review(
     uploaded_public_ids = []
     deleted_image_urls = []
 
-    if image_ids_to_delete:
-        ensure_cloudinary_configured(field_name='delete_image_ids')
-
     try:
         with transaction.atomic():
             locked_review = Review.objects.select_for_update().select_related('assignment').get(pk=review.pk)
+            if not locked_review.can_edit:
+                raise serializers.ValidationError({
+                    'review': 'Đã hết thời hạn chỉnh sửa. Bạn chỉ được sửa đánh giá trong 30 ngày kể từ lần gửi đầu tiên.'
+                })
+            if image_ids_to_delete:
+                ensure_cloudinary_configured(field_name='delete_image_ids')
             existing_images = ReviewImage.objects.select_for_update().filter(review=locked_review)
             owned_delete_ids = set(
                 existing_images.filter(id__in=image_ids_to_delete).values_list('id', flat=True)
@@ -170,7 +173,8 @@ def update_customer_review(
                     'images': f'Mỗi đánh giá chỉ được có tối đa {settings.REVIEW_MAX_IMAGES} ảnh.'
                 })
 
-            update_fields = ['updated_at']
+            locked_review.edited_at = timezone.now()
+            update_fields = ['updated_at', 'edited_at']
             if rating is not None:
                 locked_review.rating = rating
                 update_fields.append('rating')

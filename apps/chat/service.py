@@ -8,7 +8,8 @@ from apps.bookings.models import Booking, BookingSchedule
 from apps.worker.models import BookingAssignment
 
 from .models import ChatConversation, ChatConversationAssignment, ChatMessage
-from .realtime import publish_message, publish_read
+from .realtime import publish_conversation, publish_message, publish_read
+from .queries import unread_message_filter
 from .serializers import MessageReadInputSerializer, MessageSendInputSerializer
 
 
@@ -30,7 +31,7 @@ def can_send(conversation):
 
 @transaction.atomic
 def ensure_chat_for_assignment(assignment):
-    """Persist one pair conversation and two private notices for an accepted assignment."""
+    """Link an accepted assignment to the pair's chat without creating messages."""
     if assignment.status != BookingAssignment.Status.ACCEPTED:
         raise ValueError('Only accepted assignments can create chat links.')
 
@@ -48,26 +49,8 @@ def ensure_chat_for_assignment(assignment):
     if not created:
         return conversation
 
-    start = timezone.localtime(schedule.scheduled_start).strftime('%d/%m/%Y %H:%M')
-    notices = [
-        ChatMessage.objects.create(
-            conversation=conversation,
-            recipient=customer,
-            related_assignment=assignment,
-            message_type=ChatMessage.MessageType.SYSTEM,
-            message=f'Nhân viên {display_name(worker)} đã nhận lịch làm ngày {start}. Bạn có thể liên hệ với nhân viên tại đây.',
-        ),
-        ChatMessage.objects.create(
-            conversation=conversation,
-            recipient=worker,
-            related_assignment=assignment,
-            message_type=ChatMessage.MessageType.SYSTEM,
-            message=f'Bạn đã nhận lịch làm ngày {start} của khách hàng {display_name(customer)}. Hãy liên hệ với khách hàng để trao đổi.',
-        ),
-    ]
     ChatConversation.objects.filter(pk=conversation.pk).update(updated_at=timezone.now())
-    for notice in notices:
-        transaction.on_commit(lambda message_id=notice.id: publish_message(message_id))
+    transaction.on_commit(lambda: publish_conversation(conversation.id))
     return conversation
 
 
@@ -100,10 +83,7 @@ def mark_messages_read(user, data):
     params = MessageReadInputSerializer(data=data)
     params.is_valid(raise_exception=True)
     conversation = participant_conversation(params.validated_data['conversation_id'], user)
-    unread = ChatMessage.objects.filter(conversation=conversation, is_read=False).filter(
-        Q(message_type=ChatMessage.MessageType.SYSTEM, recipient=user)
-        | (~Q(message_type=ChatMessage.MessageType.SYSTEM) & ~Q(sender=user))
-    )
+    unread = ChatMessage.objects.filter(conversation=conversation).filter(unread_message_filter(user))
     last_read_id = unread.order_by('-id').values_list('id', flat=True).first()
     count = unread.update(is_read=True)
     if last_read_id is not None:
