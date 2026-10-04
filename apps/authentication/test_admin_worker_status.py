@@ -121,3 +121,38 @@ class AdminWorkerStatusTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+
+    def test_revoke_preserves_general_reason_and_field_notes(self):
+        self.profile.status = WorkerProfile.Status.ACTIVE
+        self.profile.save(update_fields=['status'])
+        notes = {'portrait': 'Vui lòng cập nhật ảnh rõ mặt.'}
+        response = self.client.patch(self.url, {
+            'status': 'DRAFT', 'reason': 'Hồ sơ cần được xác minh lại.',
+            'rejected_fields': notes,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.rejection_reason, 'Hồ sơ cần được xác minh lại.')
+        self.assertEqual(self.profile.rejected_fields, notes)
+
+    def test_reject_preserves_general_reason_separately_from_field_notes(self):
+        notes = {'identity_number': 'Số CCCD không khớp ảnh giấy tờ.'}
+        response = self.client.patch(self.url, {
+            'status': 'REJECTED', 'reason': 'Vui lòng đối chiếu giấy tờ trước khi gửi lại.',
+            'rejected_fields': notes,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.rejection_reason, 'Vui lòng đối chiếu giấy tờ trước khi gửi lại.')
+        self.assertEqual(self.profile.rejected_fields, notes)
+
+    def test_revoke_rejects_invalid_or_empty_field_notes(self):
+        self.profile.status = WorkerProfile.Status.ACTIVE
+        self.profile.save(update_fields=['status'])
+        for notes in ({'unknown': 'Không hợp lệ.'}, {'portrait': ''}):
+            response = self.client.patch(self.url, {
+                'status': 'DRAFT', 'reason': 'Cần kiểm tra hồ sơ.', 'rejected_fields': notes,
+            }, format='json')
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.status, WorkerProfile.Status.ACTIVE)

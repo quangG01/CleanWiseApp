@@ -10,6 +10,7 @@ from .admin_views import (
     AdminBookingTimelineView,
     AdminBulkAssignView,
     AdminCustomerSearchView,
+    AdminWorkerSearchView,
     AdminScheduleAssignView,
     AdminScheduleCompleteView,
     AdminScheduleUnassignView,
@@ -17,6 +18,7 @@ from .admin_views import (
 )
 
 urlpatterns = [
+    path('workers/search/', AdminWorkerSearchView.as_view(), name='admin-worker-search'),
     path('workers/<int:worker_id>/schedule/', AdminWorkerScheduleView.as_view(), name='admin-worker-schedule'),
     path('bookings/', AdminBookingListCreateView.as_view(), name='admin-booking-list-create'),
     path('bookings/summary/', AdminBookingSummaryView.as_view(), name='admin-booking-summary'),

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AdminNotificationSummaryView,
     NotificationClearAllView,
     NotificationListView,
     NotificationMarkAllReadView,
@@ -11,6 +12,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path('admin/notifications/summary/', AdminNotificationSummaryView.as_view(), name='admin-notification-summary'),
     path('notifications/', NotificationListView.as_view(), name='notification-list'),
     path('notifications/unread-count/', NotificationUnreadCountView.as_view(), name='notification-unread-count'),
     path('notifications/<int:pk>/mark-read/', NotificationMarkReadView.as_view(), name='notification-mark-read'),

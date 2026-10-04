@@ -5,7 +5,9 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.common.permissions import IsCustomerOrWorkerRole
+from apps.common.permissions import IsCustomerOrWorkerRole, IsAdminRole
+from rest_framework.permissions import IsAuthenticated
+from .realtime import push_unread_count
 
 from .models import DeviceToken, Notification
 from apps.common.throttling import WriteScopedThrottleMixin
@@ -28,7 +30,7 @@ class NotificationPagination(PageNumberPagination):
 
 @notification_list_schema
 class NotificationListView(generics.GenericAPIView):
-    permission_classes = [IsCustomerOrWorkerRole]
+    permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializer
     pagination_class = NotificationPagination
 
@@ -66,7 +68,7 @@ class NotificationListView(generics.GenericAPIView):
 
 @notification_mark_read_schema
 class NotificationMarkReadView(APIView):
-    permission_classes = [IsCustomerOrWorkerRole]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, pk, *args, **kwargs):
         updated = Notification.objects.filter(
@@ -79,12 +81,13 @@ class NotificationMarkReadView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        push_unread_count(request.user.id)
         return Response({'message': 'Đã đánh dấu đã đọc.'})
 
 
 @notification_mark_all_read_schema
 class NotificationMarkAllReadView(APIView):
-    permission_classes = [IsCustomerOrWorkerRole]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         now = timezone.now()
@@ -92,6 +95,7 @@ class NotificationMarkAllReadView(APIView):
             user=request.user, is_read=False,
         ).update(is_read=True, read_at=now)
 
+        push_unread_count(request.user.id)
         return Response({
             'message': f'Đã đánh dấu {count} thông báo đã đọc.',
         })
@@ -99,7 +103,7 @@ class NotificationMarkAllReadView(APIView):
 
 @notification_unread_count_schema
 class NotificationUnreadCountView(APIView):
-    permission_classes = [IsCustomerOrWorkerRole]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
         count = Notification.objects.filter(user=request.user, is_read=False).count()
@@ -156,3 +160,13 @@ class RegisterPushTokenView(WriteScopedThrottleMixin, APIView):
             defaults={'user': request.user, 'platform': platform},
         )
         return Response({'message': 'Đã đăng ký push token.'})
+
+class AdminNotificationSummaryView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        from apps.authentication.models import WorkerProfile
+        return Response({'data': {
+            'pending_profiles': WorkerProfile.objects.filter(status=WorkerProfile.Status.PENDING).count(),
+            'unread_count': Notification.objects.filter(user=request.user, is_read=False).count(),
+        }})

@@ -20,11 +20,27 @@ def push_unread_count(user_id):
             return
         count = Notification.objects.filter(user_id=user_id, is_read=False).count()
         try:
-            async_to_sync(layer.group_send)(
-                user_group(user_id),
-                {"type": "notification.unread", "payload": {"unread_count": count}},
-            )
+            for group in (user_group(user_id), f"admin_notifications_{user_id}"):
+                async_to_sync(layer.group_send)(group, {
+                    "type": "notification.unread", "payload": {"unread_count": count},
+                })
         except Exception:
             logger.warning("push_unread_count failed", exc_info=True)
 
     transaction.on_commit(_send)
+
+ADMIN_REVIEW_GROUP = "admin_profile_review"
+
+
+def push_profile_review_changed(profile_id):
+    def send():
+        layer = get_channel_layer()
+        if layer is None:
+            return
+        try:
+            async_to_sync(layer.group_send)(ADMIN_REVIEW_GROUP, {
+                'type': 'profile.review.changed', 'payload': {'profile_id': profile_id},
+            })
+        except Exception:
+            logger.warning('Profile review broadcast failed', exc_info=True)
+    transaction.on_commit(send)
