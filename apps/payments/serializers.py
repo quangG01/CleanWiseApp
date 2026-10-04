@@ -5,8 +5,11 @@ from rest_framework import serializers
 
 from apps.common.encryption import decrypt_value, encrypt_value
 
+from .bank_catalog import get_bank_catalog
 from .models import UserPaymentMethod
 from .payment_method_service import set_default_payment_method
+
+MAX_BANK_ACCOUNTS_PER_USAGE = 5
 
 
 class UserPaymentMethodSerializer(serializers.ModelSerializer):
@@ -29,8 +32,9 @@ class UserPaymentMethodSerializer(serializers.ModelSerializer):
 
 class BankPaymentMethodCreateSerializer(serializers.Serializer):
     bank_bin = serializers.CharField(max_length=10)
-    bank_code = serializers.CharField(max_length=30)
-    bank_name = serializers.CharField(max_length=150)
+    # bank_code / bank_name do client gửi chỉ để tương thích, server luôn ghi đè bằng dữ liệu catalog.
+    bank_code = serializers.CharField(max_length=30, required=False, allow_blank=True)
+    bank_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     account_number = serializers.CharField(write_only=True, min_length=6, max_length=19)
     account_holder_name = serializers.CharField(max_length=150)
     display_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
@@ -60,13 +64,25 @@ class BankPaymentMethodCreateSerializer(serializers.Serializer):
             'usage_type',
             UserPaymentMethod.UsageType.PAYMENT,
         )
+
+        # BIN phải nằm trong catalog VietQR và hỗ trợ chuyển khoản; tên/mã ngân hàng lấy từ catalog,
+        # không tin dữ liệu client (tiền đi theo BIN, tên hiển thị không được phép lệch).
+        bank = next((b for b in get_bank_catalog() if b['bin'] == attrs['bank_bin']), None)
+        if not bank or not bank['transfer_supported']:
+            raise serializers.ValidationError({'bank_bin': 'Ngân hàng không được hỗ trợ.'})
+        attrs['bank_code'] = bank['code']
+        attrs['bank_name'] = bank['short_name'] or bank['name']
+
+        active = UserPaymentMethod.objects.filter(user=user, usage_type=usage_type, is_active=True)
+        if active.count() >= MAX_BANK_ACCOUNTS_PER_USAGE:
+            raise serializers.ValidationError({
+                'detail': f'Chỉ được lưu tối đa {MAX_BANK_ACCOUNTS_PER_USAGE} tài khoản ngân hàng.',
+            })
+
         account_number = attrs['account_number']
-        existing_methods = UserPaymentMethod.objects.filter(
-            user=user,
+        existing_methods = active.filter(
             method_type=UserPaymentMethod.MethodType.BANK_ACCOUNT,
-            usage_type=usage_type,
             bank_bin=attrs['bank_bin'],
-            is_active=True,
         )
         for method in existing_methods:
             try:

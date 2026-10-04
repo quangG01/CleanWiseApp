@@ -20,7 +20,25 @@ PAYOS_CLIENT_ID = os.environ.get("PAYOS_CLIENT_ID", "")
 PAYOS_API_KEY = os.environ.get("PAYOS_API_KEY", "")
 PAYOS_CHECKSUM_KEY = os.environ.get("PAYOS_CHECKSUM_KEY", "")
 PAYOS_RETURN_URL = os.environ.get("PAYOS_RETURN_URL", "https://cleanwise.vn/payment/return")
-PAYOS_CANCEL_URL = os.environ.get("PAYOS_CANCEL_URL", "https://cleanwise.vn/payment/cancel")
+PAYOS_CANCEL_URL = os.environ.get("PAYOS_CANCEL_URL", "https://cleanwise.vn/payment/cancel")  
+
+PAYOUT_MODE = os.environ.get("PAYOUT_MODE", "mock")
+TOPUP_MODE = os.environ.get("TOPUP_MODE", "mock")
+PAYOUT_ALLOW_MOCK = os.environ.get("PAYOUT_ALLOW_MOCK") == "1"
+
+PAYOS_PAYOUT_CLIENT_ID = os.environ.get("PAYOS_PAYOUT_CLIENT_ID", "")
+PAYOS_PAYOUT_API_KEY = os.environ.get("PAYOS_PAYOUT_API_KEY", "")
+PAYOS_PAYOUT_CHECKSUM_KEY = os.environ.get("PAYOS_PAYOUT_CHECKSUM_KEY", "")
+
+WALLET_TOPUP_MIN = int(os.environ.get("WALLET_TOPUP_MIN", 50000))
+WALLET_TOPUP_MAX = int(os.environ.get("WALLET_TOPUP_MAX", 20000000))
+WALLET_WITHDRAW_MIN = int(os.environ.get("WALLET_WITHDRAW_MIN", 50000))
+WALLET_WITHDRAW_MAX = int(os.environ.get("WALLET_WITHDRAW_MAX", 20000000))
+WALLET_WITHDRAW_DAILY_MAX = int(os.environ.get("WALLET_WITHDRAW_DAILY_MAX", 50000000))
+
+
+# ====================================
+
 
 REDIS_URL = os.environ.get('REDIS_URL')
 
@@ -313,27 +331,65 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 60.0,
         'options': {'expires': 55},
     },
+
     'handle-missed-checkouts': {
         'task': 'apps.worker.tasks.handle_missed_checkouts_task',
         'schedule': 60.0,
         'options': {'expires': 55},
     },
+
     'send-schedule-reminders': {
         'task': 'apps.worker.tasks.send_schedule_reminders_task',
         'schedule': 300.0,
         'options': {'expires': 290},
     },
+
     'expire-unpaid-bookings': {
-        'task': 'apps.worker.tasks.expire_unpaid_bookings_task',
+        'task': 'apps.bookings.tasks.expire_unpaid_bookings_task',
         'schedule': 60.0,
         'options': {'expires': 55},
     },
+
     'release-held-earnings': {
         'task': 'apps.worker.tasks.release_held_earnings_task',
         'schedule': 600.0,
         'options': {'expires': 590},
     },
+
+    'sync-withdraw-payouts': {
+        'task': 'apps.wallets.tasks.sync_withdraw_payouts_task',
+        'schedule': 60.0,
+        'options': {'expires': 55},
+    },
+
+    'expire-wallet-topups': {
+        'task': 'apps.wallets.tasks.expire_topups_task',
+        'schedule': 300.0,
+        'options': {'expires': 290},
+    },
+
+    'alert-stuck-withdraws': {
+        'task': 'apps.wallets.tasks.alert_stuck_withdraws_task',
+        'schedule': 300.0,
+        'options': {'expires': 290},
+    },
 }
 
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# =====================================================================================
+# DÁN KHỐI NÀY VÀO CUỐI FILE core/settings/base.py (sau dòng SECURE_PROXY_SSL_HEADER).
+# Các dòng WALLET_WITHDRAW_* ở đây ghi đè lại giá trị cũ ở phía trên (hạn mức giai đoạn đầu thấp hơn).
+# LƯU Ý: nếu .env đang set WALLET_WITHDRAW_MAX / WALLET_WITHDRAW_DAILY_MAX thì giá trị trong .env vẫn thắng.
+# =====================================================================================
+
+# ----- Ví / rút tiền: hạn mức giai đoạn đầu, mở dần khi đối soát ổn -----
+WALLET_WITHDRAW_MAX = int(os.environ.get("WALLET_WITHDRAW_MAX", 2000000))
+WALLET_WITHDRAW_DAILY_MAX = int(os.environ.get("WALLET_WITHDRAW_DAILY_MAX", 5000000))
+
+# Tài khoản ngân hàng mới thêm phải chờ bao lâu mới được rút về (test: đặt 0)
+PAYOUT_METHOD_COOLDOWN_HOURS = int(os.environ.get("PAYOUT_METHOD_COOLDOWN_HOURS", 24))
+
+# Trần mỗi lần admin điều chỉnh tay số dư ví
+WALLET_ADMIN_ADJUST_MAX = int(os.environ.get("WALLET_ADMIN_ADJUST_MAX", 10000000))

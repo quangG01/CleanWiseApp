@@ -46,6 +46,11 @@ def _payload(payment):
         'qr_code': payment.qr_code,
         'payment_link_id': payment.payment_link_id,
         'expires_at': payment.link_expires_at.isoformat() if payment.link_expires_at else None,
+        'bank_bin': payment.bank_bin,
+        'account_number': payment.account_number,
+        'account_name': payment.account_name,
+        'transfer_content': payment.transfer_content,
+        'amount': int(payment.amount),
     }
 
 
@@ -77,7 +82,12 @@ def create_payos_payment_link(payment: Payment, *, return_url: str, cancel_url: 
         payment.checkout_url = result.checkout_url or ''
         payment.qr_code = result.qr_code or ''
         payment.link_expires_at = datetime.fromtimestamp(expires_ts, tz=dt_timezone.utc)
+        payment.bank_bin = getattr(result, 'bin', '') or ''
+        payment.account_number = getattr(result, 'account_number', '') or ''
+        payment.account_name = getattr(result, 'account_name', '') or ''
+        payment.transfer_content = getattr(result, 'description', '') or ''
         payment.save(update_fields=[
-            'order_code', 'payment_link_id', 'checkout_url', 'qr_code', 'link_expires_at', 'updated_at',
+            'order_code', 'payment_link_id', 'checkout_url', 'qr_code', 'link_expires_at',
+            'bank_bin', 'account_number', 'account_name', 'transfer_content', 'updated_at',
         ])
         return _payload(payment)
