@@ -666,6 +666,7 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
             instance.rejection_reason = reason
         elif target_status == WorkerProfile.Status.DRAFT:
             instance.rejection_reason = reason
+            instance.rejected_fields = validated_data.get('rejected_fields', {})
         instance.save()
         return instance
 

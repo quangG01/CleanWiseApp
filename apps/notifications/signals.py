@@ -129,7 +129,7 @@ def handle_complaint_status_change(sender, instance, created, **kwargs):
 
 # ===================== WORKER PROFILE =====================
 
-pre_save.connect(_cache_old_status(WorkerProfile), sender=WorkerProfile)
+pre_save.connect(_cache_old_status(WorkerProfile), sender=WorkerProfile, weak=False)
 
 
 @receiver(post_save, sender=WorkerProfile)
@@ -140,6 +140,19 @@ def handle_worker_profile_status_change(sender, instance, created, **kwargs):
     if old_status == new_status:
         return
 
+    from django.contrib.auth import get_user_model
+    from django.db.models import Q
+    from .models import Notification
+    from .realtime import push_profile_review_changed, push_unread_count
+
+    if new_status == WorkerProfile.Status.PENDING:
+        name = f'{instance.user.last_name} {instance.user.first_name}'.strip() or instance.user.username
+        admins = get_user_model().objects.filter(Q(role='ADMIN') | Q(is_superuser=True), is_active=True)
+        for admin in admins:
+            Notification.objects.create(user=admin, title='Hồ sơ mới chờ duyệt',
+                message=f'{name} vừa gửi hồ sơ xét duyệt.', related_worker=instance)
+            push_unread_count(admin.id)
+    push_profile_review_changed(instance.pk)
     if new_status == WorkerProfile.Status.ACTIVE:
         notify_worker_profile_approved(instance)
     elif new_status == WorkerProfile.Status.REJECTED:

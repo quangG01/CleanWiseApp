@@ -19,6 +19,7 @@ class Notification(models.Model):
         'bookings.BookingSchedule', on_delete=models.SET_NULL,
         related_name='+', blank=True, null=True,
     )
+    related_worker = models.ForeignKey('authentication.WorkerProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     is_read = models.BooleanField(default=False)
     read_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
