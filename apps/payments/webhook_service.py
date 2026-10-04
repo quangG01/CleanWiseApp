@@ -42,13 +42,26 @@ def _return_to_wallet(*, payment, booking, amount, key, reason):
 
 @transaction.atomic
 def handle_payos_webhook(webhook_data):
+    # Chỉ xử lý giao dịch thành công ('00'). Webhook hủy/lỗi không được cộng tiền hay đổi trạng thái.
+    code = getattr(webhook_data, 'code', '00')
+    if str(code) != '00':
+        logger.info('payOS webhook không phải giao dịch thành công: code=%s', code)
+        return None
+
     order_code = webhook_data.order_code
     amount = Decimal(str(webhook_data.amount))
 
     candidate = _find_payment(order_code)
     if not candidate:
-        # Tiền đã vào mà không có Payment -> cần đối soát tay
-        logger.warning('payOS webhook: không có Payment orderCode=%s amount=%s', order_code, amount)
+        # Không phải thanh toán đơn -> có thể là nạp tiền vào ví
+        from apps.wallets import topup_service
+        topup = topup_service.confirm_topup(
+            order_code=order_code, amount=amount, reference=webhook_data.reference or '',
+        )
+        if topup:
+            return topup
+        # Tiền đã vào mà không có Payment/WalletTopup -> cần đối soát tay
+        logger.error('payOS webhook: không có Payment/WalletTopup orderCode=%s amount=%s', order_code, amount)
         return None
 
     # Lock booking trước, payment sau
@@ -58,7 +71,7 @@ def handle_payos_webhook(webhook_data):
     if payment.paid_at:
         return payment
 
-    # [Bug 1, 2] Tiền đến khi payment/đơn không còn chờ thanh toán -> hoàn vào ví
+    # Tiền đến khi payment/đơn không còn chờ thanh toán -> hoàn vào ví
     if (
         payment.status != Payment.Status.PENDING
         or booking.status in (Booking.Status.CANCELLED, Booking.Status.FAILED)
@@ -70,7 +83,7 @@ def handle_payos_webhook(webhook_data):
         )
         return payment
 
-    # [Bug 10] Chuyển thiếu -> hoàn toàn bộ vào ví, hủy đơn
+    # Chuyển thiếu -> hoàn toàn bộ vào ví, hủy đơn
     if amount < payment.amount:
         _return_to_wallet(
             payment=payment, booking=booking, amount=amount, key=f'under:{payment.id}',
@@ -96,7 +109,7 @@ def handle_payos_webhook(webhook_data):
         new_data={'status': Payment.Status.SUCCESS, 'payment_id': payment.id},
     )
 
-    # [Bug 10] Chuyển dư -> hoàn phần dư vào ví
+    # Chuyển dư -> hoàn phần dư vào ví
     extra = amount - payment.amount
     if extra > 0:
         refund_service.refund_unmatched_payment(

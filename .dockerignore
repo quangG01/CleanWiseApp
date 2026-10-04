@@ -9,3 +9,6 @@ docs/
 celerybeat-schedule*
 *.sqlite3
 .vscode/
+.venv/
+staticfiles/
+*.log

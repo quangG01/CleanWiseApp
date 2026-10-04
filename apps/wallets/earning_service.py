@@ -1,14 +1,17 @@
+from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
+
+from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
+
 from apps.bookings.models import BookingSchedule
 from apps.payments.models import Payment
+
 from . import wallet_service
 from .models import WalletTransaction, WorkerEarning
-from datetime import timedelta
-from django.conf import settings
-from django.db.models import Q
 
 # Hoa hồng của app: 10% trên mọi dịch vụ.
 COMMISSION_RATE = Decimal('0.10')
@@ -75,21 +78,35 @@ def reserve_cash_commission(*, schedule, booking, worker, assignment):
     assignment.save(update_fields=['commission_reserved'])
 
 
+@transaction.atomic
 def release_cash_commission(*, assignment):
     """Hoàn lại phần hoa hồng đã giữ chỗ — gọi khi hủy nhận việc trước khi
-    check-out (worker tự hủy, hết hạn check-in, hoặc admin gán lại người khác)."""
-    if not assignment.commission_reserved:
-        return
-    wallet_service.credit_wallet(
-        user=assignment.worker,
-        amount=assignment.commission_reserved,
-        type=WalletTransaction.Type.ADJUSTMENT,
-        booking=assignment.schedule.booking,
-        note=f'Hoàn giữ chỗ hoa hồng buổi {assignment.schedule.sequence_no} - '
-             f'{assignment.schedule.booking.booking_code}',
+    check-out (worker tự hủy, hết hạn check-in, hoặc admin gán lại người khác).
+
+    Khóa dòng assignment rồi đọc lại commission_reserved từ DB: 2 lần gọi song song
+    (task hết hạn + worker tự hủy) không thể cùng hoàn ví 2 lần.
+    """
+    locked = (
+        type(assignment).objects.select_for_update()
+        .select_related('schedule__booking', 'worker')
+        .get(pk=assignment.pk)
     )
-    assignment.commission_reserved = None
-    assignment.save(update_fields=['commission_reserved'])
+    reserved = locked.commission_reserved
+    if not reserved:
+        assignment.commission_reserved = None
+        return
+
+    wallet_service.credit_wallet(
+        user=locked.worker,
+        amount=reserved,
+        type=WalletTransaction.Type.ADJUSTMENT,
+        booking=locked.schedule.booking,
+        note=f'Hoàn giữ chỗ hoa hồng buổi {locked.schedule.sequence_no} - '
+             f'{locked.schedule.booking.booking_code}',
+    )
+    locked.commission_reserved = None
+    locked.save(update_fields=['commission_reserved'])
+    assignment.commission_reserved = None  # đồng bộ object của nơi gọi
 
 
 @transaction.atomic
@@ -143,6 +160,7 @@ def record_schedule_earning(*, schedule, booking, worker):
                 earning.settled_at = timezone.now()
                 earning.save(update_fields=['settled_at'])
             except serializers.ValidationError:
+                # Ví không đủ: settled_at để null = nhân viên còn nợ hoa hồng (cần theo dõi/đối soát).
                 pass
 
     return earning

@@ -63,10 +63,9 @@ PUSH_NOTIFICATIONS_ENABLED = os.environ.get('PUSH_NOTIFICATIONS_ENABLED', '0') =
 
 # One local runserver process can deliver chat events without a Redis service.
 # Deployments with REDIS_URL keep the shared channel layer from base settings.
-if not os.environ.get('REDIS_URL'):
-    CHANNEL_LAYERS = {
-        'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
-    }
+CHANNEL_LAYERS = {
+    'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
+}
     
     
 CSRF_TRUSTED_ORIGINS = ["https://take-unreeling-shaping.ngrok-free.dev"]

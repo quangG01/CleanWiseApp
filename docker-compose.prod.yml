@@ -1,8 +1,9 @@
+# Cần trong .env (cùng thư mục): RABBITMQ_USER, RABBITMQ_PASS (mật khẩu mạnh, không dùng cleanwise/cleanwise)
 x-app-env: &app-env
   DJANGO_SETTINGS_MODULE: core.settings.prod
   CELERY_EAGER: "0"
   REDIS_URL: redis://redis:6379/0
-  CELERY_BROKER_URL: amqp://cleanwise:cleanwise@rabbitmq:5672//
+  CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-cleanwise}:${RABBITMQ_PASS:?Thiếu RABBITMQ_PASS trong .env}@rabbitmq:5672//
 
 services:
   nginx:
@@ -12,7 +13,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro   # file này phải tồn tại, upstream là web:8000
     depends_on:
       - web
 
@@ -40,20 +41,25 @@ services:
       - redis
       - rabbitmq
 
+  # CHỈ chạy ĐÚNG 1 container beat (chạy 2 cái là mọi task định kỳ bị bắn đôi).
   celery-beat:
     build: .
     container_name: cleanwise-celery-beat
     restart: unless-stopped
     env_file: .env
     environment: *app-env
-    command: celery -A core beat -l info
+    command: celery -A core beat -l info -s /beat/celerybeat-schedule
+    volumes:
+      - beat_data:/beat
     depends_on:
+      - redis
       - rabbitmq
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    # volatile-lru: chỉ đá key CÓ TTL, tránh mất key idempotency khi đầy bộ nhớ.
+    command: redis-server --maxmemory 256mb --maxmemory-policy volatile-lru
     volumes:
       - redis_data:/data
 
@@ -61,11 +67,12 @@ services:
     image: rabbitmq:3-management-alpine
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: cleanwise
-      RABBITMQ_DEFAULT_PASS: cleanwise
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-cleanwise}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:?Thiếu RABBITMQ_PASS trong .env}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
 volumes:
   redis_data:
   rabbitmq_data:
+  beat_data:

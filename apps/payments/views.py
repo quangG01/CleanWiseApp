@@ -1,9 +1,16 @@
-from django.shortcuts import get_object_or_404
-from rest_framework import generics, status
-from rest_framework.response import Response
+import logging
 
+from django.shortcuts import get_object_or_404
+from payos import WebhookError
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
 from apps.common.permissions import IsCustomerRole, IsWorkerRole
 
+from . import history_service, webhook_service
 from .bank_catalog import get_bank_catalog
 from .models import UserPaymentMethod
 from .payment_method_service import set_default_payment_method, soft_delete_payment_method
@@ -13,12 +20,7 @@ from .serializers import (
     UserPaymentMethodUpdateSerializer,
 )
 
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from . import webhook_service
-from rest_framework.throttling import ScopedRateThrottle
+logger = logging.getLogger(__name__)
 
 
 class PaymentWriteThrottleMixin:
@@ -28,6 +30,7 @@ class PaymentWriteThrottleMixin:
             self.throttle_scope = 'payment'
             throttles.append(ScopedRateThrottle())
         return throttles
+
 
 class CustomerPaymentMethodListCreateView(PaymentWriteThrottleMixin, generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
@@ -163,10 +166,8 @@ class WorkerBankCatalogView(CustomerBankCatalogView):
     permission_classes = [IsWorkerRole]
 
 
-from payos import WebhookError
-
-
 class PayOSWebhookView(APIView):
+    authentication_classes = []  # header Authorization lạ không được làm webhook trả 401
     permission_classes = [AllowAny]
     throttle_classes = []
 
@@ -174,7 +175,43 @@ class PayOSWebhookView(APIView):
         try:
             webhook_data = webhook_service.verify_and_parse_payos_webhook(request.body)
         except WebhookError:
-            return Response({'success': False, 'message': 'Chữ ký không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'success': False, 'message': 'Chữ ký không hợp lệ.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception('Webhook payOS parse lỗi')
+            return Response({'success': False}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Lỗi xử lý nghiệp vụ -> để nổ 500 để payOS tự gửi lại webhook (các hàm xử lý đều idempotent).
         payment = webhook_service.handle_payos_webhook(webhook_data)
         return Response({'success': True, 'payment_status': payment.status if payment else None})
+    
+    
+def _positive_int(raw, default, maximum):
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return min(max(value, 1), maximum)
+
+
+class CustomerPaymentHistoryView(APIView):
+    """GET lịch sử thanh toán đơn (online / ví) và hoàn tiền. ?source=all|wallet|online&page=&page_size="""
+    permission_classes = [IsCustomerRole]
+
+    def get(self, request, *args, **kwargs):
+        source = request.query_params.get('source', 'all')
+        if source not in history_service.SOURCES:
+            raise ValidationError({'source': 'Giá trị không hợp lệ.'})
+        status_filter = request.query_params.get('status', 'all')
+        if status_filter not in history_service.STATUSES:
+            raise ValidationError({'status': 'Giá trị không hợp lệ.'})
+        data = history_service.get_payment_history(
+            user=request.user,
+            source=source,
+            status=status_filter,
+            page=_positive_int(request.query_params.get('page'), 1, 1000),
+            page_size=_positive_int(request.query_params.get('page_size'), 20, 50),
+        )
+        return Response({'message': 'Lấy lịch sử thanh toán thành công.', 'data': data})

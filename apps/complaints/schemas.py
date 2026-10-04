@@ -8,61 +8,61 @@ from drf_spectacular.utils import (
 
 COMPLAINT_ISSUE_TYPE_SCHEMA = extend_schema_view(
     get=extend_schema(
-        operation_id='customer_complaint_issue_type_list',
+        operation_id='complaint_issue_type_list',
         summary='Danh sách loại sự cố',
         description=(
-            'Lấy danh sách các loại sự cố đang hoạt động '
-            'để khách hàng lựa chọn khi tạo khiếu nại.'
+            'Lấy danh sách các loại sự cố đang hoạt động, đúng vai trò '
+            'người gọi (khách hàng hoặc nhân viên), để chọn khi tạo khiếu nại.'
         ),
-        tags=['Complaint - Customer'],
+        tags=['Complaint'],
     ),
 )
 
 
-COMPLAINT_CUSTOMER_SCHEMA = extend_schema_view(
+COMPLAINT_LIST_CREATE_SCHEMA = extend_schema_view(
     get=extend_schema(
-        operation_id='customer_complaint_list',
-        summary='Danh sách khiếu nại của khách hàng',
+        operation_id='complaint_list',
+        summary='Danh sách khiếu nại của tôi',
         description=(
-            'Khách hàng chỉ thấy khiếu nại của mình.'
+            'Khách hàng hoặc nhân viên chỉ thấy khiếu nại chính mình đã gửi.'
         ),
-        tags=['Complaint - Customer'],
+        tags=['Complaint'],
     ),
 
     post=extend_schema(
-        operation_id='customer_complaint_create',
+        operation_id='complaint_create',
         summary='Tạo khiếu nại mới',
         description=(
-            'Khách hàng chọn loại sự cố, nhập mô tả chi tiết '
-            'không bắt buộc và có thể đính kèm file.'
+            'Khách hàng hoặc nhân viên chọn loại sự cố, nhập mô tả chi tiết '
+            'không bắt buộc và có thể đính kèm file. Nhân viên bắt buộc gắn '
+            'đúng buổi làm việc (schedule) mình đã nhận.'
         ),
-        tags=['Complaint - Customer'],
+        tags=['Complaint'],
     ),
 )
 
 
-COMPLAINT_DETAIL_CUSTOMER_SCHEMA = extend_schema_view(
+COMPLAINT_DETAIL_SCHEMA = extend_schema_view(
     get=extend_schema(
-        operation_id='customer_complaint_detail',
+        operation_id='complaint_detail',
         summary='Chi tiết khiếu nại',
         description=(
-            'Xem chi tiết khiếu nại, loại sự cố, '
-            'nội dung, trạng thái xử lý và file đính kèm.'
+            'Xem chi tiết khiếu nại, loại sự cố, nội dung, trạng thái xử lý '
+            'và file đính kèm. Chỉ người gửi khiếu nại hoặc admin xem được.'
         ),
-        tags=['Complaint - Customer'],
+        tags=['Complaint'],
     ),
 )
 
 
 COMPLAINT_CANCEL_SCHEMA = extend_schema_view(
     post=extend_schema(
-        operation_id='customer_complaint_cancel',
+        operation_id='complaint_cancel',
         summary='Hủy khiếu nại',
         description=(
-            'Khách hàng có thể hủy khiếu nại '
-            'khi trạng thái là PENDING.'
+            'Người đã gửi khiếu nại có thể hủy khi trạng thái còn PENDING.'
         ),
-        tags=['Complaint - Customer'],
+        tags=['Complaint'],
     ),
 )
 

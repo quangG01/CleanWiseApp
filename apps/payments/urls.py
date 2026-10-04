@@ -6,7 +6,8 @@ from .views import (
     CustomerPaymentMethodListCreateView,
     CustomerPaymentMethodOptionsView,
     CustomerPaymentMethodSetDefaultView,
-    PayOSWebhookView
+    PayOSWebhookView,
+    CustomerPaymentHistoryView
 )
 
 
@@ -17,4 +18,5 @@ urlpatterns = [
     path('payment-methods/<int:pk>/', CustomerPaymentMethodDetailView.as_view(), name='customer-payment-method-detail'),
     path('payment-methods/<int:pk>/default/', CustomerPaymentMethodSetDefaultView.as_view(), name='customer-payment-method-set-default'),
     path('webhooks/payos/', PayOSWebhookView.as_view(), name='payos-webhook'),
+    path('payments/history/', CustomerPaymentHistoryView.as_view(), name='customer-payment-history'),
 ]

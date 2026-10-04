@@ -5,6 +5,8 @@ from rest_framework import serializers
 
 from apps.bookings.activity_service import record_booking_activity
 from apps.bookings.models import BookingActivity
+from apps.common.permissions import get_user_role
+from apps.worker.models import BookingAssignment
 
 from .models import (
     Complaint,
@@ -13,6 +15,7 @@ from .models import (
 )
 
 from django.db import transaction
+
 
 class ComplaintIssueTypeSerializer(serializers.ModelSerializer):
     stage_label = serializers.CharField(
@@ -29,6 +32,7 @@ class ComplaintIssueTypeSerializer(serializers.ModelSerializer):
             'description',
             'stage',
             'stage_label',
+            'applies_to',
             'is_active',
         ]
         read_only_fields = [
@@ -60,8 +64,24 @@ class ComplaintCreateSerializer(serializers.ModelSerializer):
 
     def validate_booking(self, booking):
         request = self.context['request']
-        if booking.customer_id != request.user.id:
-            raise serializers.ValidationError('Booking không thuộc về bạn.')
+        role = get_user_role(request.user)
+
+        if role == 'CUSTOMER':
+            if booking.customer_id != request.user.id:
+                raise serializers.ValidationError('Booking không thuộc về bạn.')
+        elif role == 'WORKER':
+            has_assignment = BookingAssignment.objects.filter(
+                schedule__booking=booking,
+                worker=request.user,
+                status=BookingAssignment.Status.ACCEPTED,
+            ).exists()
+            if not has_assignment:
+                raise serializers.ValidationError(
+                    'Bạn chưa từng nhận buổi làm nào thuộc đơn này.'
+                )
+        else:
+            raise serializers.ValidationError('Vai trò của bạn không được phép tạo khiếu nại.')
+
         if booking.status in [booking.Status.CANCELLED, booking.Status.FAILED]:
             raise serializers.ValidationError(
                 'Không thể tạo khiếu nại cho booking đã bị hủy hoặc thất bại.'
@@ -71,15 +91,35 @@ class ComplaintCreateSerializer(serializers.ModelSerializer):
     def validate_issue_type(self, issue_type):
         if not issue_type.is_active:
             raise serializers.ValidationError('Loại sự cố này hiện không còn được sử dụng.')
+
+        role = get_user_role(self.context['request'].user)
+        if issue_type.applies_to not in (role, ComplaintIssueType.AppliesTo.ANY):
+            raise serializers.ValidationError(
+                'Loại sự cố này không áp dụng cho vai trò của bạn.'
+            )
         return issue_type
 
     def validate(self, attrs):
+        request = self.context['request']
         booking = attrs['booking']
         schedule = attrs.get('schedule')
         issue_type = attrs['issue_type']
 
         if schedule and schedule.booking_id != booking.id:
             raise serializers.ValidationError({'schedule': 'Buổi làm việc không khớp với booking.'})
+
+        # Nhân viên bắt buộc gắn đúng buổi mình đã nhận, để suy ra `worker`
+        # chính xác và tránh khiếu nại chung chung không rõ buổi nào.
+        role = get_user_role(request.user)
+        if role == 'WORKER':
+            if not schedule:
+                raise serializers.ValidationError({'schedule': 'Vui lòng chọn buổi làm việc cụ thể.'})
+            owns_schedule = BookingAssignment.objects.filter(
+                schedule=schedule, worker=request.user,
+                status=BookingAssignment.Status.ACCEPTED,
+            ).exists()
+            if not owns_schedule:
+                raise serializers.ValidationError({'schedule': 'Buổi làm việc này không thuộc về bạn.'})
 
         stage = self._get_booking_stage(booking)
 
@@ -99,12 +139,15 @@ class ComplaintCreateSerializer(serializers.ModelSerializer):
             from apps.bookings.models import BookingSchedule
             BookingSchedule.objects.select_for_update(of=('self',)).get(pk=schedule.pk)
 
-            existing = Complaint.objects.filter(schedule=schedule).exclude(
-                status=Complaint.Status.CANCELLED,
-            ).exists()
+            # Khoá theo (schedule, reporter): khách và nhân viên của cùng
+            # 1 buổi có thể cùng khiếu nại (2 góc nhìn khác nhau), chỉ
+            # chặn trùng khi CHÍNH người này đã khiếu nại buổi đó rồi.
+            existing = Complaint.objects.filter(
+                schedule=schedule, reporter=request.user,
+            ).exclude(status=Complaint.Status.CANCELLED).exists()
             if existing:
                 raise serializers.ValidationError({
-                    'schedule': 'Buổi làm việc này đã có khiếu nại.'
+                    'schedule': 'Bạn đã tạo khiếu nại cho buổi làm việc này rồi.'
                 })
 
         return attrs
@@ -119,17 +162,38 @@ class ComplaintCreateSerializer(serializers.ModelSerializer):
             return Complaint.Stage.AFTER_SERVICE
         raise serializers.ValidationError('Booking hiện tại không cho phép tạo khiếu nại.')
 
+    def _infer_worker(self, *, role, user, schedule):
+        if role == 'WORKER':
+            return user
+        if schedule:
+            assignment = BookingAssignment.objects.filter(
+                schedule=schedule, status=BookingAssignment.Status.ACCEPTED,
+            ).select_related('worker').first()
+            if assignment:
+                return assignment.worker
+        return None
+
     def create(self, validated_data):
         request = self.context['request']
+        role = get_user_role(request.user)
         booking = validated_data['booking']
+        schedule = validated_data.get('schedule')
         stage = self._get_booking_stage(booking)
-        complaint = Complaint.objects.create(customer=request.user, stage=stage, **validated_data)
+        worker = self._infer_worker(role=role, user=request.user, schedule=schedule)
+
+        complaint = Complaint.objects.create(
+            reporter=request.user,
+            reporter_role=role,
+            worker=worker,
+            stage=stage,
+            **validated_data,
+        )
         record_booking_activity(
             booking=booking,
             schedule=complaint.schedule,
             actor=request.user,
             event_type=BookingActivity.EventType.COMPLAINT_CREATED,
-            message=f'Khách hàng tạo khiếu nại #{complaint.id}.',
+            message=f'{"Nhân viên" if role == "WORKER" else "Khách hàng"} tạo khiếu nại #{complaint.id}.',
             new_data={'complaint_id': complaint.id, 'stage': complaint.stage},
         )
         return complaint
@@ -155,18 +219,27 @@ class ComplaintListSerializer(serializers.ModelSerializer):
         source='get_status_display',
         read_only=True,
     )
+    
+    reporter_name = serializers.CharField(
+        source='reporter.get_full_name', read_only=True,
+    )
+    worker_name = serializers.CharField(
+        source='worker.get_full_name', read_only=True, default=None,
+    )
 
     class Meta:
         model = Complaint
         fields = [
             'id',
             'booking',
+            'reporter_role',
             'issue_type',
             'issue_type_code',
             'issue_type_name',
             'stage',
             'stage_label',
             'status',
+            'reporter_name', 'worker', 'worker_name',
             'status_label',
             'created_at',
         ]
@@ -178,14 +251,21 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
-    customer_name = serializers.CharField(
-        source='customer.get_full_name',
+    reporter_name = serializers.CharField(
+        source='reporter.get_full_name',
         read_only=True,
+    )
+
+    worker_name = serializers.CharField(
+        source='worker.get_full_name',
+        read_only=True,
+        default=None,
     )
 
     resolved_by_name = serializers.CharField(
         source='resolved_by.get_full_name',
         read_only=True,
+        default=None,
     )
 
     issue_type_name = serializers.CharField(
@@ -212,8 +292,11 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
         model = Complaint
         fields = [
             'id',
-            'customer',
-            'customer_name',
+            'reporter',
+            'reporter_role',
+            'reporter_name',
+            'worker',
+            'worker_name',
             'booking',
 
             'issue_type',
@@ -262,6 +345,10 @@ class ComplaintResolveSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Khiếu nại đã đóng, không thể xử lý lại.')
         if attrs.get('refund_amount') and attrs['status'] != Complaint.Status.RESOLVED:
             raise serializers.ValidationError({'refund_amount': 'Chỉ hoàn tiền khi trạng thái là RESOLVED.'})
+        # Hoàn tiền chỉ có ý nghĩa khi người khiếu nại là khách (tiền của
+        # khách); khiếu nại do nhân viên gửi không có đối tượng để hoàn.
+        if attrs.get('refund_amount') and self.instance.reporter_role != Complaint.ReporterRole.CUSTOMER:
+            raise serializers.ValidationError({'refund_amount': 'Chỉ hoàn tiền cho khiếu nại của khách hàng.'})
         return attrs
 
     def update(self, instance, validated_data):
@@ -290,8 +377,8 @@ class ComplaintResolveSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
-    
-    
+
+
 class ComplaintCancelSerializer(serializers.Serializer):
     def save(self):
         complaint = self.context['complaint']
