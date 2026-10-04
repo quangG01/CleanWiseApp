@@ -1,4 +1,5 @@
 from django.urls import path
+from .admin_customer_views import AdminCustomerDetailView, AdminCustomerStatusView
 from .views import (
     UserListView,
     CustomerProfileView,
@@ -19,6 +20,8 @@ from .views import (
 )
 
 urlpatterns = [
+    path('admin/customers/<int:pk>/', AdminCustomerDetailView.as_view(), name='admin-customer-detail'),
+    path('admin/customers/<int:pk>/status/', AdminCustomerStatusView.as_view(), name='admin-customer-status'),
     path('users/', UserListView.as_view(), name='user-list'),
     path('customer/profile/', CustomerProfileView.as_view(), name='customer-profile'),
     path('register/', CustomerRegisterView.as_view(), name='register'),

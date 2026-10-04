@@ -15,7 +15,7 @@ from apps.wallets.models import Wallet
 from apps.worker.models import Area, BookingAssignment, WorkerWorkingArea
 
 from .booking_service import create_booking
-from .models import Booking, BookingActivity
+from .models import Booking, BookingActivity, BookingSchedule
 
 User = get_user_model()
 
@@ -105,6 +105,88 @@ class AdminBookingApiTests(APITestCase):
     def test_non_admin_cannot_list_bookings(self):
         self.client.force_authenticate(self.customer)
         response = self.client.get(reverse('admin-booking-list-create'))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unassigned_filter_excludes_failed_before_pagination(self):
+        failed = self._create_booking(days=3)
+        failed.status = Booking.Status.FAILED
+        failed.save(update_fields=['status'])
+        url = reverse('admin-booking-list-create')
+        for value in ('true', '1'):
+            response = self.client.get(url, {'unassigned': value, 'page_size': 1})
+            self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+            self.assertEqual(response.data['data']['count'], 1)
+            self.assertFalse(response.data['data']['has_next'])
+            self.assertEqual(response.data['data']['results'][0]['id'], self.booking.id)
+        # Failed orders remain accessible when not filtering unassigned work.
+        response = self.client.get(url, {'status': Booking.Status.FAILED})
+        self.assertEqual(response.data['data']['count'], 1)
+        response = self.client.get(url, {'status': Booking.Status.FAILED, 'unassigned': 'true'})
+        self.assertEqual(response.data['data']['count'], 0)
+
+    def test_worker_search_matches_name_phone_username_and_id(self):
+        url = reverse('admin-worker-search')
+        for search in ('Binh Tran', 'Tran Binh', '092222', self.worker.username, str(self.worker.id)):
+            response = self.client.get(url, {'search': search})
+            self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+            self.assertEqual(response.data['data']['count'], 1)
+            self.assertEqual(response.data['data']['results'][0]['id'], self.worker.id)
+        response = self.client.get(url, {'search': 'nonexistent-worker'})
+        self.assertEqual(response.data['data']['count'], 0)
+
+    def test_unassigned_filter_excludes_overdue_and_non_pending_sessions(self):
+        now = timezone.now()
+        expired = self._create_booking(days=3)
+        expired.schedules.update(scheduled_start=now - timedelta(hours=3), scheduled_end=now - timedelta(hours=1))
+        started = self._create_booking(days=4)
+        started.schedules.update(scheduled_start=now - timedelta(minutes=1), scheduled_end=now + timedelta(hours=2))
+        missed = self._create_booking(days=5)
+        missed.schedules.update(status=BookingSchedule.Status.MISSED)
+        response = self.client.get(reverse('admin-booking-list-create'), {'unassigned': 'true', 'page_size': 1})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['data']['count'], 1)
+        self.assertEqual(response.data['data']['results'][0]['id'], self.booking.id)
+        self.assertFalse(response.data['data']['has_next'])
+
+    def test_unassigned_filter_keeps_booking_with_future_unassigned_session(self):
+        now = timezone.now()
+        self.schedule.scheduled_start = now - timedelta(hours=3)
+        self.schedule.scheduled_end = now - timedelta(hours=1)
+        self.schedule.save(update_fields=['scheduled_start', 'scheduled_end'])
+        future = BookingSchedule.objects.create(
+            booking=self.booking, sequence_no=2,
+            scheduled_start=now + timedelta(days=1), scheduled_end=now + timedelta(days=1, hours=2),
+        )
+        url = reverse('admin-booking-list-create')
+        self.assertEqual(self.client.get(url, {'unassigned': 'true'}).data['data']['count'], 1)
+        BookingAssignment.objects.create(schedule=future, worker=self.worker, status=BookingAssignment.Status.ACCEPTED)
+        self.assertEqual(self.client.get(url, {'unassigned': 'true'}).data['data']['count'], 0)
+
+    def test_worker_search_paginated_and_restricted_to_active_workers(self):
+        for index in range(21):
+            worker = User.objects.create_user(
+                username=f'lookup-worker-{index}', email=f'lookup-{index}@example.com',
+                role=User.Role.WORKER, first_name='Lookup', last_name=str(index),
+            )
+            WorkerProfile.objects.create(user=worker, status=WorkerProfile.Status.ACTIVE)
+        url = reverse('admin-worker-search')
+        first = self.client.get(url).data['data']
+        second = self.client.get(url, {'page': 2}).data['data']
+        self.assertEqual(first['count'], 22)
+        self.assertEqual(len(first['results']), 20)
+        self.assertTrue(first['has_next'])
+        self.assertEqual(len(second['results']), 2)
+        self.assertFalse({w['id'] for w in first['results']} & {w['id'] for w in second['results']})
+        WorkerProfile.objects.filter(user=self.worker).update(status=WorkerProfile.Status.SUSPENDED)
+        self.assertEqual(self.client.get(url).data['data']['count'], 21)
+        WorkerProfile.objects.filter(user=self.worker).update(status=WorkerProfile.Status.ACTIVE)
+        self.worker.is_active = False
+        self.worker.save(update_fields=['is_active'])
+        self.assertEqual(self.client.get(url).data['data']['count'], 21)
+
+    def test_non_admin_cannot_search_workers(self):
+        self.client.force_authenticate(self.customer)
+        response = self.client.get(reverse('admin-worker-search'))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_admin_can_create_booking_for_customer(self):

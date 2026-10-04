@@ -1,8 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Count, F, Min, Prefetch, Q
+from django.db.models import Count, Exists, F, Min, OuterRef, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -24,6 +25,7 @@ from .admin_serializers import (
     AdminBookingUpdateSerializer,
     AdminBulkAssignSerializer,
     AdminCustomerSearchSerializer,
+    AdminUserSummarySerializer,
     AdminCompleteScheduleSerializer,
     AdminReasonSerializer,
     AdminScheduleSerializer,
@@ -165,7 +167,17 @@ class AdminBookingListCreateView(generics.GenericAPIView):
                 schedules__assignments__status=accepted,
             )
         if params.get('unassigned', '').lower() in ('true', '1'):
-            queryset = queryset.filter(assigned_schedules__lt=F('total_schedules'))
+            accepted_assignment = BookingAssignment.objects.filter(
+                schedule_id=OuterRef('pk'), status=accepted,
+            )
+            assignable_schedules = BookingSchedule.objects.filter(
+                booking_id=OuterRef('pk'),
+                status=BookingSchedule.Status.PENDING,
+                scheduled_start__gt=timezone.now(),
+            ).filter(~Exists(accepted_assignment))
+            queryset = queryset.exclude(status=Booking.Status.FAILED).filter(
+                Exists(assignable_schedules),
+            )
         elif params.get('unassigned', '').lower() in ('false', '0'):
             queryset = queryset.filter(assigned_schedules__gte=F('total_schedules'))
 
@@ -454,6 +466,37 @@ class AdminBulkAssignView(generics.GenericAPIView):
                 'data': {'assigned': assigned, 'skipped': skipped},
             },
             status=status.HTTP_201_CREATED if assigned else status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class AdminWorkerSearchView(generics.GenericAPIView):
+    permission_classes = [IsAdminRole]
+    pagination_class = AdminBookingPagination
+    serializer_class = AdminUserSummarySerializer
+
+    def get(self, request):
+        queryset = User.objects.filter(
+            role=User.Role.WORKER, is_active=True, worker_profile__status='ACTIVE',
+        )
+        search = request.query_params.get('search', '').strip()
+        # Match every word, including names split across first_name/last_name.
+        for word in search.split():
+            matches = (
+                Q(first_name__icontains=word) | Q(last_name__icontains=word)
+                | Q(username__icontains=word) | Q(phone_number__icontains=word)
+            )
+            if word.isdecimal() and len(word) <= 18:
+                matches |= Q(pk=int(word))
+            queryset = queryset.filter(matches)
+        paginator = self.pagination_class()
+        paginator.request = request
+        page = paginator.paginate_queryset(
+            queryset.order_by('first_name', 'last_name', 'id'), request, view=self,
+        )
+        return _page_response(
+            paginator=paginator,
+            data=self.get_serializer(page, many=True).data,
+            message='Tìm nhân viên thành công.',
         )
 
 
