@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import DecimalField, F, Q, Value
 from django.db.models.functions import Coalesce
@@ -7,18 +8,22 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, serializers, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.bookings.models import Booking
 from apps.common.distributed_lock import distributed_lock
 from apps.common.idempotency import idempotent
 from apps.common.permissions import IsAdminRole
 
-from . import refund_service, wallet_service
-from .models import WalletTransaction
+from . import refund_service, wallet_service, withdraw_service
+from .models import WalletTransaction, WithdrawRequest
 from .serializers import WalletTransactionSerializer
 
 User = get_user_model()
 WALLET_ROLES = ('CUSTOMER', 'WORKER')
+
+# Trần cho mỗi lần điều chỉnh tay: admin bị chiếm tài khoản cũng không cộng vô hạn được.
+ADMIN_ADJUST_MAX = int(getattr(settings, 'WALLET_ADMIN_ADJUST_MAX', 10000000))
 
 
 class AdminRefundSerializer(serializers.Serializer):
@@ -29,9 +34,15 @@ class AdminRefundSerializer(serializers.Serializer):
 class AdminAdjustSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
     direction = serializers.ChoiceField(choices=['CREDIT', 'DEBIT'])
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=1)
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=1, max_value=ADMIN_ADJUST_MAX)
     reason = serializers.CharField(max_length=500)
     booking_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class AdminWithdrawResolveSerializer(serializers.Serializer):
+    # SUCCESS = đã tra dashboard payOS và tiền ĐÃ chi; FAILED = tiền CHƯA chi (sẽ hoàn ví)
+    result = serializers.ChoiceField(choices=['SUCCESS', 'FAILED'])
+    note = serializers.CharField(min_length=10, max_length=500)
 
 
 class AdminWalletTransactionSerializer(WalletTransactionSerializer):
@@ -92,7 +103,7 @@ class AdminBookingRefundView(generics.GenericAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = AdminRefundSerializer
 
-    @idempotent
+    @idempotent(required=True)
     def post(self, request, pk):
         s = self.get_serializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -116,7 +127,7 @@ class AdminWalletAdjustView(generics.GenericAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = AdminAdjustSerializer
 
-    @idempotent
+    @idempotent(required=True)
     def post(self, request):
         s = self.get_serializer(data=request.data)
         s.is_valid(raise_exception=True)
@@ -275,3 +286,60 @@ class AdminWalletTargetListView(generics.GenericAPIView):
             for u in page
         ]
         return _page_response(paginator=paginator, data=data, message='Tìm người dùng thành công.')
+
+
+# ------------------------------------------------------------------ đối soát lệnh rút (needs_review)
+
+class AdminWithdrawReviewListView(APIView):
+    """GET danh sách lệnh rút cần đối soát tay (không rõ tiền đã chi chưa)."""
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        rows = (
+            WithdrawRequest.objects.select_related('user')
+            .filter(status=WithdrawRequest.Status.PROCESSING, needs_review=True)
+            .order_by('created_at')[:100]
+        )
+        data = [
+            {
+                'id': w.id,
+                'user_id': w.user_id,
+                'username': w.user.username,
+                'amount': str(w.amount),
+                'reference_id': w.reference_id,
+                'payout_id': w.payout_id,
+                'bank_name': w.bank_name,
+                'account_number_masked': w.account_number_masked,
+                'review_note': w.review_note,
+                'created_at': w.created_at,
+            }
+            for w in rows
+        ]
+        return Response({'message': 'Lấy danh sách lệnh rút cần đối soát thành công.', 'data': data})
+
+
+class AdminWithdrawResolveView(generics.GenericAPIView):
+    """
+    POST chốt lệnh needs_review SAU KHI đã tra dashboard payOS theo reference_id.
+    result=SUCCESS: tiền đã chi, không hoàn ví. result=FAILED: tiền chưa chi, hoàn ví.
+    """
+
+    permission_classes = [IsAdminRole]
+    serializer_class = AdminWithdrawResolveSerializer
+
+    @idempotent(required=True)
+    def post(self, request, pk):
+        s = self.get_serializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        withdraw = get_object_or_404(WithdrawRequest, pk=pk)
+        result = withdraw_service.resolve_review(
+            withdraw_id=withdraw.pk,
+            success=s.validated_data['result'] == 'SUCCESS',
+            admin_user=request.user,
+            note=s.validated_data['note'],
+        )
+        return Response({
+            'message': 'Đã chốt lệnh rút.',
+            'data': {'id': result.id, 'status': result.status},
+        })

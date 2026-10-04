@@ -28,6 +28,10 @@ from .schedule_builder import build_schedules
 from apps.wallets import earning_service, refund_service
 from apps.worker.models import BookingAssignment
 
+from datetime import timedelta
+
+CUSTOMER_MIN_CANCEL_HOURS = 6
+
 CANCELLABLE_STATUSES = (Booking.Status.PENDING, Booking.Status.ASSIGNED, Booking.Status.IN_PROGRESS)
 _DONE_SCHEDULE_STATUSES = (
     BookingSchedule.Status.COMPLETED,
@@ -249,10 +253,16 @@ def _validate_schedules(schedules):
             )
 
 
-def _validate_payment_method(payment_method):
-    allowed_methods = {Payment.Method.CASH, Payment.Method.BANK_TRANSFER, Payment.Method.WALLET}
-    if payment_method not in allowed_methods:
+def _validate_payment_method(payment_method, *, form_schema, sessions_count):
+    allowed = {Payment.Method.CASH, Payment.Method.BANK_TRANSFER, Payment.Method.WALLET}
+    if payment_method not in allowed:
         raise serializers.ValidationError({'payment_method': 'Phương thức thanh toán không hợp lệ.'})
+
+    is_multi = (form_schema or {}).get('schedule_type', 'ONCE') != 'ONCE' or sessions_count > 1
+    if is_multi and payment_method == Payment.Method.CASH:
+        raise serializers.ValidationError(
+            {'payment_method': 'Dịch vụ định kỳ/nhiều buổi phải thanh toán trước (chuyển khoản hoặc ví).'}
+        )
 
 
 @transaction.atomic
@@ -298,7 +308,6 @@ def create_booking(
     trước giảm được lưu riêng ở 'base_unit_price' để tham khảo/đối soát.
     """
 
-    _validate_payment_method(payment_method)
 
     service = get_object_or_404(
         Service.objects,
@@ -339,6 +348,9 @@ def create_booking(
 
     schedules = build_schedules(service.form_schema, service_data)
     _validate_schedules(schedules)
+    _validate_payment_method(
+        payment_method, form_schema=service.form_schema, sessions_count=len(schedules),
+    )
 
     pricing_config = service.pricing_config or {}
     per_session = pricing_config.get('pricing_unit') == 'PER_SESSION'
@@ -505,18 +517,18 @@ def create_booking(
     if user_voucher:
         reserve_user_voucher(user_voucher_id=user_voucher.id)
 
-        if payment_method == Payment.Method.WALLET:
-            wallet_service.debit_wallet(
-                user=customer, amount=total, type=WalletTransaction.Type.PAYMENT,
-                booking=booking, note=f'Thanh toán đơn {booking_code}',
-            )
-            payment.status = Payment.Status.SUCCESS
-            payment.paid_at = timezone.now()
-            payment.save(update_fields=['status', 'paid_at', 'updated_at'])
-            booking.payment_status = Booking.PaymentStatus.PAID
-            booking.save(update_fields=['payment_status', 'updated_at'])
-            if user_voucher:
-                mark_user_voucher_used(user_voucher_id=user_voucher.id)
+    if payment_method == Payment.Method.WALLET:
+        wallet_service.debit_wallet(
+            user=customer, amount=total, type=WalletTransaction.Type.PAYMENT,
+            booking=booking, note=f'Thanh toán đơn {booking_code}',
+        )
+        payment.status = Payment.Status.SUCCESS
+        payment.paid_at = timezone.now()
+        payment.save(update_fields=['status', 'paid_at', 'updated_at'])
+        booking.payment_status = Booking.PaymentStatus.PAID
+        booking.save(update_fields=['payment_status', 'updated_at'])
+        if user_voucher:
+            mark_user_voucher_used(user_voucher_id=user_voucher.id)
 
     creator = actor or customer
     record_booking_activity(
@@ -623,6 +635,22 @@ def cancel_booking(*, booking_id, customer, reason):
         raise serializers.ValidationError({
             'booking': 'Đơn nhiều buổi không hủy cả đơn. Vui lòng hủy từng buổi.',
         })
+
+    # Đơn chưa trả tiền online thì không có tiền để hoàn và sẽ tự hết hạn,
+    # nên không áp giới hạn giờ. Các đơn còn lại phải hủy trước giờ làm 6 giờ.
+    if not is_unpaid_online:
+        earliest_start = (
+            booking.schedules
+            .filter(status=BookingSchedule.Status.PENDING)
+            .order_by('scheduled_start')
+            .values_list('scheduled_start', flat=True)
+            .first()
+        )
+        if earliest_start and earliest_start - timezone.now() < timedelta(hours=CUSTOMER_MIN_CANCEL_HOURS):
+            raise serializers.ValidationError({
+                'booking': f'Chỉ hủy được đơn trước giờ bắt đầu ít nhất {CUSTOMER_MIN_CANCEL_HOURS} giờ.',
+            })
+
     return cancel_booking_core(booking=booking, actor=customer, reason=reason)
 
 
@@ -638,6 +666,10 @@ def cancel_schedule_by_customer(*, schedule_id, customer, reason):
         raise serializers.ValidationError({'schedule': 'Đơn hàng không thể hủy ở trạng thái hiện tại.'})
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'schedule': 'Chỉ hủy được buổi chưa bắt đầu.'})
+    if schedule.scheduled_start - timezone.now() < timedelta(hours=CUSTOMER_MIN_CANCEL_HOURS):
+        raise serializers.ValidationError({
+            'schedule': f'Chỉ hủy được buổi trước giờ bắt đầu ít nhất {CUSTOMER_MIN_CANCEL_HOURS} giờ.'
+        })
 
     others_active = booking.schedules.filter(
         status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),

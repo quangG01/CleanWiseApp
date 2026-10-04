@@ -6,8 +6,9 @@ from rest_framework.permissions import BasePermission
 
 class IsComplaintOwnerOrAdmin(BasePermission):
     """
-    Chỉ chủ khiếu nại hoặc ADMIN/superuser
-    mới xem được complaint.
+    Chỉ người GỬI khiếu nại (khách hoặc nhân viên) hoặc ADMIN/superuser
+    mới xem được complaint. Người bị khiếu nại (worker khi reporter là
+    khách) KHÔNG tự động xem được — tránh biến đây thành kênh đối chất.
     """
 
     message = 'Bạn không có quyền truy cập khiếu nại này.'
@@ -21,4 +22,4 @@ class IsComplaintOwnerOrAdmin(BasePermission):
         ):
             return True
 
-        return obj.customer_id == user.id
+        return obj.reporter_id == user.id

@@ -31,6 +31,10 @@ class Payment(models.Model):
     checkout_url = models.TextField(blank=True, default='')
     qr_code = models.TextField(blank=True, default='')
     link_expires_at = models.DateTimeField(blank=True, null=True)
+    bank_bin = models.CharField(max_length=10, blank=True, default='')
+    account_number = models.CharField(max_length=30, blank=True, default='')
+    account_name = models.CharField(max_length=150, blank=True, default='')
+    transfer_content = models.CharField(max_length=100, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

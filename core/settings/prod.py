@@ -1,10 +1,13 @@
 import os
 from urllib.parse import parse_qs, urlparse
-from .base import * 
+
+from django.core.exceptions import ImproperlyConfigured
+
+from .base import *
 
 DEBUG = False
 
-SECRET_KEY = os.environ["SECRET_KEY"] 
+SECRET_KEY = os.environ["SECRET_KEY"]
 
 ALLOWED_HOSTS = [h for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h]
 CORS_ALLOWED_ORIGINS = [o for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o]
@@ -53,3 +56,28 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "0") == "1"
 SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
 CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
+
+
+# ============================================= Chốt an toàn tiền: sai cấu hình thì KHÔNG khởi động =============================================
+if DEBUG or PAYOUT_ALLOW_MOCK:
+    raise ImproperlyConfigured('Production không được bật DEBUG / PAYOUT_ALLOW_MOCK.')
+
+if PAYOUT_MODE != 'payos' or TOPUP_MODE != 'payos':
+    raise ImproperlyConfigured('Production phải để PAYOUT_MODE=payos và TOPUP_MODE=payos.')
+
+if SECRET_KEY.startswith('django-insecure'):
+    raise ImproperlyConfigured('SECRET_KEY production đang là giá trị mặc định không an toàn.')
+
+_required_settings = {
+    'FIELD_ENCRYPTION_KEY': FIELD_ENCRYPTION_KEY,
+    'PAYOS_CLIENT_ID': PAYOS_CLIENT_ID,
+    'PAYOS_API_KEY': PAYOS_API_KEY,
+    'PAYOS_CHECKSUM_KEY': PAYOS_CHECKSUM_KEY,
+    'PAYOS_PAYOUT_CLIENT_ID': PAYOS_PAYOUT_CLIENT_ID,
+    'PAYOS_PAYOUT_API_KEY': PAYOS_PAYOUT_API_KEY,
+    'PAYOS_PAYOUT_CHECKSUM_KEY': PAYOS_PAYOUT_CHECKSUM_KEY,
+    'REDIS_URL': REDIS_URL,  # idempotency + cache chống trùng cần Redis thật, không dùng locmem
+}
+_missing = [name for name, value in _required_settings.items() if not value]
+if _missing:
+    raise ImproperlyConfigured(f'Thiếu cấu hình bắt buộc cho production: {", ".join(_missing)}')

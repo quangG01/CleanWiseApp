@@ -1,4 +1,4 @@
-# apps/complaints/urls.py
+# apps/complaints/worker_urls.py
 
 from django.urls import path
 
@@ -15,29 +15,29 @@ urlpatterns = [
     path(
         'complaint-issue-types/',
         ComplaintIssueTypeListView.as_view(),
-        name='customer-complaint-issue-types',
+        name='worker-complaint-issue-types',
     ),
 
     path(
         'complaints/',
         ComplaintListCreateView.as_view(),
-        name='customer-complaint-list-create',
+        name='worker-complaint-list-create',
     ),
 
     path(
         'complaints/<int:pk>/',
         ComplaintDetailView.as_view(),
-        name='customer-complaint-detail',
+        name='worker-complaint-detail',
     ),
 
     path(
         'complaints/<int:pk>/cancel/',
         ComplaintCancelView.as_view(),
-        name='customer-complaint-cancel',
+        name='worker-complaint-cancel',
     ),
     path(
         'complaints/<int:pk>/attachments/',
         ComplaintAttachmentUploadView.as_view(),
-        name='customer-complaint-attachment-upload',
+        name='worker-complaint-attachment-upload',
     ),
 ]
