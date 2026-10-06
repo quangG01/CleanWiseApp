@@ -102,7 +102,7 @@ class WorkerEarning(models.Model):
     commission_rate = models.DecimalField(max_digits=5, decimal_places=4)
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2)
     worker_amount = models.DecimalField(max_digits=12, decimal_places=2)
-
+    voided_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField()
     settled_at = models.DateTimeField(blank=True, null=True)
     wallet_credited_at = models.DateTimeField(blank=True, null=True)

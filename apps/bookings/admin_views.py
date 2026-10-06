@@ -194,14 +194,26 @@ class AdminBookingListCreateView(generics.GenericAPIView):
                     raise ValidationError({param: 'Ngày phải có định dạng YYYY-MM-DD.'})
                 queryset = queryset.filter(**{lookup: raw})
 
-        allowed_ordering = {
-            'created_at', '-created_at', 'updated_at', '-updated_at',
-            'total_amount', '-total_amount', 'next_schedule_start', '-next_schedule_start',
+        sort_fields = {
+            'created_at': ('created_at',),
+            'updated_at': ('updated_at',),
+            'total_amount': ('total_amount',),
+            'next_schedule_start': ('next_schedule_start',),
+            'status': ('status',),
+            'customer': ('customer__first_name', 'customer__last_name', 'customer__username'),
+            'service': ('service__name',),
         }
         ordering = params.get('ordering', '-created_at')
-        if ordering not in allowed_ordering:
+        descending = ordering.startswith('-')
+        columns = sort_fields.get(ordering.removeprefix('-'))
+        if not columns:
             raise ValidationError({'ordering': 'Kiểu sắp xếp không hợp lệ.'})
-        return queryset.order_by(ordering, '-id').distinct()
+        # Đơn không có buổi sắp tới (next_schedule_start = NULL) luôn nằm cuối.
+        expressions = [
+            F(column).desc(nulls_last=True) if descending else F(column).asc(nulls_last=True)
+            for column in columns
+        ]
+        return queryset.order_by(*expressions, '-id').distinct()
 
     def get(self, request):
         paginator = self.pagination_class()

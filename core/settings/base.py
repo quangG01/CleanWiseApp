@@ -345,7 +345,7 @@ CELERY_BEAT_SCHEDULE = {
     },
 
     'expire-unpaid-bookings': {
-        'task': 'apps.bookings.tasks.expire_unpaid_bookings_task',
+        'task': 'apps.worker.tasks.expire_unpaid_bookings_task',
         'schedule': 60.0,
         'options': {'expires': 55},
     },

@@ -6,6 +6,7 @@ from apps.bookings.models import Booking, BookingSchedule
 from apps.complaints.models import Complaint
 from apps.payments.models import Payment
 from apps.worker.models import BookingAssignment
+from django.db import transaction
 
 from .services import (
     notify_customer_booking_cancelled,
@@ -88,7 +89,7 @@ def handle_assignment_status_change(sender, instance, created, **kwargs):
         return
 
     if new_status == BookingAssignment.Status.ACCEPTED:
-        notify_customer_worker_assigned(instance)
+        transaction.on_commit(lambda: notify_customer_worker_assigned(instance))
 
 
 # ===================== PAYMENT =====================

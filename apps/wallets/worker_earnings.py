@@ -78,7 +78,7 @@ class WorkerEarningSerializer(serializers.ModelSerializer):
         model = WorkerEarning
         fields = [
             'id', 'booking_code', 'service_name', 'completed_at', 'payment_method',
-            'gross_amount', 'commission_amount', 'worker_amount','wallet_credited_at'
+            'gross_amount', 'commission_amount', 'worker_amount', 'wallet_credited_at'
         ]
         read_only_fields = fields
 
@@ -94,7 +94,8 @@ class WorkerEarningSummaryView(APIView):
         start, end = _resolve_period(period)
         lower, upper = _range_bounds(start, end)
 
-        mine = WorkerEarning.objects.filter(worker=request.user)
+        # Khoản đã bị thu hồi qua khiếu nại (voided) không tính vào thu nhập.
+        mine = WorkerEarning.objects.filter(worker=request.user, voided_at__isnull=True)
         in_period = mine.filter(completed_at__gte=lower, completed_at__lt=upper)
 
         agg = in_period.aggregate(
@@ -109,7 +110,7 @@ class WorkerEarningSummaryView(APIView):
         commission_owed = mine.filter(
             payment_method=WorkerEarning.PaymentMethod.CASH, settled_at__isnull=True,
         ).aggregate(total=_sum('commission_amount'))['total']
-        
+
         pending_release = mine.filter(
             payment_method=WorkerEarning.PaymentMethod.ONLINE, wallet_credited_at__isnull=True,
         ).aggregate(total=_sum('worker_amount'))['total']
@@ -135,7 +136,7 @@ class WorkerEarningSummaryView(APIView):
                     'gross_amount': str(agg['gross_amount']),
                     'income': str(agg['income']),
                     'online_earned': str(agg['online_earned']),
-                    'bank_earned': str(agg['online_earned']),  
+                    'bank_earned': str(agg['online_earned']),
                     'cash_commission': str(agg['cash_commission']),
                 },
                 'series': series,
@@ -154,7 +155,8 @@ class WorkerEarningHistoryView(APIView):
 
         queryset = (
             WorkerEarning.objects.filter(
-                worker=request.user, completed_at__gte=lower, completed_at__lt=upper,
+                worker=request.user, voided_at__isnull=True,
+                completed_at__gte=lower, completed_at__lt=upper,
             )
             .select_related('booking', 'booking__service')
             .order_by('-completed_at')[:HISTORY_LIMIT]

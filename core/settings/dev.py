@@ -1,11 +1,14 @@
 import os
 from urllib.parse import parse_qs, urlparse
 from .base import *
+from corsheaders.defaults import default_headers
 
 DEBUG = True
-DEBUG_PROPAGATE_EXCEPTIONS = True 
+# DEBUG_PROPAGATE_EXCEPTIONS = True 
 ALLOWED_HOSTS = ['*']
 
+CORS_ALLOW_HEADERS = list(default_headers) + ["ngrok-skip-browser-warning"]
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 def build_database_config():
     database_url = os.environ.get('DATABASE_URL')

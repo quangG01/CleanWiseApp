@@ -13,7 +13,7 @@ from apps.reviews.models import Review
 from apps.services.models import Service
 from apps.wallets.models import WorkerEarning
 from apps.worker.models import BookingAssignment
-from .models import Booking, BookingSchedule
+from apps.bookings.models import Booking, BookingSchedule
 
 ZONE = ZoneInfo('Asia/Ho_Chi_Minh')
 User = get_user_model()
