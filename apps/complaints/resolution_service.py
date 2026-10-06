@@ -9,7 +9,7 @@ from apps.bookings.activity_service import record_booking_activity
 from apps.bookings.models import Booking, BookingActivity, BookingSchedule
 from apps.payments.models import Payment
 from apps.wallets import earning_service, refund_service, wallet_service
-from apps.wallets.models import WalletTransaction as TX, WorkerEarning
+from apps.wallets.models import Wallet, WalletTransaction as TX, WorkerEarning
 
 from .models import Complaint
 
@@ -188,3 +188,64 @@ def apply_outcome(*, complaint, admin, outcome, charge_worker=True):
         metadata={k: str(v) for k, v in r.items()},
     )
     return complaint
+
+
+def _balance(user):
+    return Wallet.objects.filter(user=user).values_list('balance', flat=True).first() or ZERO
+
+
+def preview_outcome(*, complaint, outcome, charge_worker=True):
+    """Tính trước số tiền sẽ cộng/trừ, KHÔNG ghi gì."""
+    if complaint.schedule_id is None:
+        raise serializers.ValidationError({'outcome': 'Khiếu nại chưa gắn buổi làm nên không xử lý tiền được.'})
+
+    booking, schedule = complaint.booking, complaint.schedule
+    cash = _is_cash(booking)
+    session_paid = refund_service.per_session_refund_amount(booking)
+    earning = WorkerEarning.objects.filter(schedule=schedule).first()
+    notes = []
+
+    if outcome == Complaint.Outcome.REFUND_CUSTOMER:
+        if cash:
+            raise serializers.ValidationError(
+                {'outcome': 'Đơn tiền mặt: khách đã trả trực tiếp cho nhân viên, không hoàn qua ví được.'})
+        remaining = (booking.total_amount or ZERO) - (booking.refunded_amount or ZERO)
+        refund = min(session_paid - _net_refunded(schedule), remaining)
+        if refund <= 0:
+            raise serializers.ValidationError({'outcome': 'Buổi này đã được hoàn đủ cho khách.'})
+
+        worker_delta = short = ZERO
+        if charge_worker and earning and not earning.voided_at:
+            if earning.wallet_credited_at:
+                take = min(earning.worker_amount, _balance(earning.worker))
+                worker_delta, short = -take, earning.worker_amount - take
+            else:
+                notes.append(
+                    f'Hủy khoản thu nhập {earning.worker_amount:,.0f}đ của nhân viên đang được giữ (chưa vào ví).')
+        return {'customer_delta': str(refund), 'worker_delta': str(worker_delta),
+                'shortfall': str(short), 'notes': notes}
+
+    if outcome == Complaint.Outcome.PAY_WORKER:
+        if earning and earning.voided_at:
+            raise serializers.ValidationError({'outcome': 'Thu nhập buổi này đã bị thu hồi trước đó.'})
+        if earning and earning.wallet_credited_at:
+            raise serializers.ValidationError({'outcome': 'Nhân viên đã nhận thu nhập buổi này.'})
+
+        if earning is None:
+            gross = earning_service.calculate_gross_amount(schedule, booking)
+            if gross <= 0:
+                raise serializers.ValidationError({'outcome': 'Không tính được giá buổi.'})
+            payout = gross - earning_service.calculate_commission(gross)
+        elif earning.payment_method == WorkerEarning.PaymentMethod.CASH:
+            payout = earning.gross_amount if earning.settled_at else earning.worker_amount
+        else:
+            payout = earning.worker_amount
+
+        owed = max(ZERO, session_paid - _clawed(schedule)) if cash else _net_refunded(schedule)
+        take = min(owed, _balance(booking.customer))
+        if owed > take:
+            notes.append('Ví khách không đủ để thu hồi hết, nền tảng chịu phần thiếu.')
+        return {'customer_delta': str(-take), 'worker_delta': str(payout),
+                'shortfall': str(owed - take), 'notes': notes}
+
+    raise serializers.ValidationError({'outcome': 'Kết quả không hợp lệ.'})

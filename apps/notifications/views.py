@@ -166,7 +166,9 @@ class AdminNotificationSummaryView(APIView):
 
     def get(self, request):
         from apps.authentication.models import WorkerProfile
+        from apps.complaints.models import Complaint
         return Response({'data': {
             'pending_profiles': WorkerProfile.objects.filter(status=WorkerProfile.Status.PENDING).count(),
+            'pending_complaints': Complaint.objects.filter(status=Complaint.Status.PENDING).count(),
             'unread_count': Notification.objects.filter(user=request.user, is_read=False).count(),
         }})

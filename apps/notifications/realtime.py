@@ -44,3 +44,17 @@ def push_profile_review_changed(profile_id):
         except Exception:
             logger.warning('Profile review broadcast failed', exc_info=True)
     transaction.on_commit(send)
+
+
+def push_complaint_changed(complaint_id):
+    def send():
+        layer = get_channel_layer()
+        if layer is None:
+            return
+        try:
+            async_to_sync(layer.group_send)(ADMIN_REVIEW_GROUP, {
+                'type': 'complaint.changed', 'payload': {'complaint_id': complaint_id},
+            })
+        except Exception:
+            logger.warning('Complaint broadcast failed', exc_info=True)
+    transaction.on_commit(send)

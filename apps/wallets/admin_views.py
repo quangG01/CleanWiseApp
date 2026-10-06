@@ -1,14 +1,19 @@
 from decimal import Decimal
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import DecimalField, F, Q, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, serializers, status
+from rest_framework import generics, serializers
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from django.http import HttpResponse
+from django.utils import timezone
+from django.utils.dateparse import parse_date
+
+from apps.common.xlsx import workbook_bytes
 
 from apps.common.idempotency import idempotent
 from apps.common.permissions import IsAdminRole
@@ -20,16 +25,7 @@ from .serializers import WalletTransactionSerializer
 User = get_user_model()
 WALLET_ROLES = ('CUSTOMER', 'WORKER')
 
-# Trần cho mỗi lần điều chỉnh tay: admin bị chiếm tài khoản cũng không cộng vô hạn được.
-ADMIN_ADJUST_MAX = int(getattr(settings, 'WALLET_ADMIN_ADJUST_MAX', 2000000))
 
-
-class AdminAdjustSerializer(serializers.Serializer):
-    # Không có booking_id: mọi khoản tiền gắn với đơn/buổi phải đi qua khiếu nại.
-    user_id = serializers.IntegerField()
-    direction = serializers.ChoiceField(choices=['CREDIT', 'DEBIT'])
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=1, max_value=ADMIN_ADJUST_MAX)
-    reason = serializers.CharField(min_length=10, max_length=500)
 
 
 class AdminWithdrawResolveSerializer(serializers.Serializer):
@@ -91,29 +87,6 @@ def _int_param(params, name):
         raise serializers.ValidationError({name: 'Giá trị phải là số.'})
     return int(raw)
 
-
-class AdminWalletAdjustView(generics.GenericAPIView):
-    permission_classes = [IsAdminRole]
-    serializer_class = AdminAdjustSerializer
-
-    @idempotent(required=True)
-    def post(self, request):
-        s = self.get_serializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        d = s.validated_data
-
-        user = get_object_or_404(User, pk=d['user_id'], is_active=True)
-        if user.role not in WALLET_ROLES:
-            raise serializers.ValidationError({'user_id': 'Chỉ điều chỉnh ví khách hàng hoặc nhân viên.'})
-
-        tx = wallet_service.admin_adjust_wallet(
-            user=user, amount=d['amount'], direction=d['direction'],
-            reason=d['reason'], admin_user=request.user,
-        )
-        return Response(
-            {'message': 'Điều chỉnh số dư ví thành công.', 'data': WalletTransactionSerializer(tx).data},
-            status=status.HTTP_201_CREATED,
-        )
 
 
 class AdminUserWalletView(generics.GenericAPIView):
@@ -196,6 +169,17 @@ class AdminWalletTransactionListView(generics.GenericAPIView):
         if booking_id:
             qs = qs.filter(booking_id=booking_id)
 
+        for name, lookup in (
+            ('date_from', 'created_at__date__gte'),
+            ('date_to', 'created_at__date__lte'),
+        ):
+            raw = params.get(name)
+            if raw:
+                parsed = parse_date(raw)
+                if parsed is None:
+                    raise serializers.ValidationError({name: 'Định dạng ngày phải là YYYY-MM-DD.'})
+                qs = qs.filter(**{lookup: parsed})
+                
         return qs.order_by('-created_at', '-id')
 
     def get(self, request):
@@ -207,6 +191,66 @@ class AdminWalletTransactionListView(generics.GenericAPIView):
             data=AdminWalletTransactionSerializer(page, many=True).data,
             message='Lấy danh sách giao dịch ví thành công.',
         )
+        
+        
+EXPORT_MAX_ROWS = 20000
+_DEBIT_TYPES = (WalletTransaction.Type.PAYMENT, WalletTransaction.Type.WITHDRAW)
+
+
+def _signed_amount(t):
+    """Cộng dương, trừ âm. Giao dịch cũ chưa có direction thì suy từ loại giao dịch."""
+    if t.direction == WalletTransaction.Direction.DEBIT:
+        return -t.amount
+    if t.direction == WalletTransaction.Direction.CREDIT:
+        return t.amount
+    return -t.amount if t.type in _DEBIT_TYPES else t.amount
+
+
+class AdminWalletTransactionExportView(AdminWalletTransactionListView):
+    """
+    GET /api/admin/wallets/transactions/export/
+    Cùng bộ lọc với danh sách (kể cả date_from, date_to), trả file .xlsx.
+    """
+
+    def get(self, request):
+        qs = self.get_queryset()
+        total = qs.count()
+        if total > EXPORT_MAX_ROWS:
+            raise serializers.ValidationError({
+                'detail': f'Có {total} giao dịch, vượt giới hạn {EXPORT_MAX_ROWS}. '
+                          f'Hãy lọc theo ngày hoặc loại giao dịch.',
+            })
+
+        rows = [[
+            'Thời gian', 'Mã giao dịch', 'Chủ ví', 'Vai trò', 'Tên đăng nhập',
+            'Loại', 'Chiều', 'Số tiền (+/−)', 'Số dư sau', 'Trạng thái',
+            'Mã đơn', 'Ghi chú', 'Thực hiện bởi',
+        ]]
+        for t in qs.iterator(chunk_size=1000):
+            user = t.wallet.user
+            rows.append([
+                timezone.localtime(t.created_at).strftime('%d/%m/%Y %H:%M:%S'),
+                t.id,
+                user.get_full_name() or user.username,
+                user.role,
+                user.username,
+                t.get_type_display(),
+                t.get_direction_display() if t.direction else '',
+                _signed_amount(t),
+                t.balance_after,
+                t.get_status_display(),
+                t.booking.booking_code if t.booking_id else '',
+                t.note or '',
+                (t.created_by.get_full_name() or t.created_by.username) if t.created_by_id else 'Hệ thống',
+            ])
+
+        filename = f'so-giao-dich-vi-{timezone.localdate():%Y%m%d}.xlsx'
+        response = HttpResponse(
+            workbook_bytes([('Giao dịch ví', rows)]),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
 
 
 class AdminWalletTargetListView(generics.GenericAPIView):
