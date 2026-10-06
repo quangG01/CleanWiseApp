@@ -189,7 +189,7 @@ def release_held_earnings():
             earning = WorkerEarning.objects.select_for_update().select_related(
                 'worker', 'booking', 'schedule',
             ).get(pk=earning_id)
-            if earning.wallet_credited_at or _has_open_complaint(earning):
+            if earning.wallet_credited_at or earning.voided_at or _has_open_complaint(earning):
                 continue
             if earning.worker_amount > 0:
                 wallet_service.credit_wallet(

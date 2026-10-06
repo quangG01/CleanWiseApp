@@ -247,6 +247,8 @@ class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
     receiver_phone = serializers.CharField(source='booking.address.receiver_phone', read_only=True)
     can_cancel = serializers.SerializerMethodField()
     cancel_deadline = serializers.SerializerMethodField()
+    completed_sessions = serializers.SerializerMethodField()
+    accepted_sessions = serializers.SerializerMethodField()
     images = BookingScheduleImageSerializer(many=True, read_only=True)
     form_schema = serializers.JSONField(source='booking.service.form_schema', read_only=True)
     delivery_address_line = serializers.CharField(
@@ -255,10 +257,17 @@ class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
     class Meta(WorkerScheduleSerializer.Meta):
         fields = WorkerScheduleSerializer.Meta.fields + [
             'form_schema', 'note', 'address_line', 'receiver_name', 'receiver_phone',
-            'can_cancel', 'cancel_deadline', 'images','completion_note','delivery_address_line'
+            'can_cancel', 'cancel_deadline', 'images','completion_note','delivery_address_line',
+            'completed_sessions', 'accepted_sessions',
         ]
         read_only_fields = fields
 
+    def get_completed_sessions(self, obj):
+        return getattr(obj, 'completed_sessions', None)
+
+    def get_accepted_sessions(self, obj):
+        return getattr(obj, 'accepted_sessions', None)
+    
     def get_can_cancel(self, obj):
         return (
             obj.status == BookingSchedule.Status.PENDING

@@ -307,9 +307,14 @@ class WorkerMyScheduleListView(generics.GenericAPIView):
 
         booking_id = _parse_booking_id_param(request)
 
+        tab = request.query_params.get('tab')
+        if tab and tab not in assignment_service.MY_TABS:
+            raise ValidationError({'tab': 'Tab không hợp lệ.'})
+
         queryset = _prefetch_assignments(
             assignment_service.list_my_schedules(
-                request.user, schedule_status=schedule_status, booking_id=booking_id,
+                request.user, schedule_status=schedule_status,
+                booking_id=booking_id, tab=tab,
             ),
             with_images=True,
         )
@@ -345,10 +350,24 @@ class WorkerClaimScheduleView(APIView):
 
     @idempotent
     def post(self, request, *args, **kwargs):
-        with distributed_lock(f"schedule:{kwargs['schedule_id']}"):
+        import logging, time
+        logger = logging.getLogger(__name__)
+        t0 = time.monotonic()
+
+        with distributed_lock(f"schedule:{kwargs['schedule_id']}", ttl=30):
             assignment = assignment_service.claim_schedule(
                 schedule_id=kwargs['schedule_id'], worker=request.user,
             )
+        t1 = time.monotonic()
+
+        # Tạo chat SAU khi claim đã commit và nhả lock; lỗi chat không làm hỏng việc nhận.
+        from apps.chat.service import ensure_chat_for_assignment
+        try:
+            ensure_chat_for_assignment(assignment)
+        except Exception:
+            pass
+
+        logger.warning('claim: db=%.2fs chat=%.2fs', t1 - t0, time.monotonic() - t1)
         return Response({
             'message': 'Nhận việc thành công.',
             'data': {

@@ -4,7 +4,6 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Count, Exists, OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
@@ -20,8 +19,11 @@ from apps.vouchers.voucher_service import (
 )
 from apps.wallets import earning_service, refund_service
 
-from .constants import MIN_CANCEL_HOURS
+from .constants import MIN_CANCEL_HOURS, AUTO_CANCEL_NOTE
 from .models import BookingAssignment, WorkerWorkingArea
+
+from django.db.models import Count, Exists, IntegerField, Max, Min, OuterRef, Q, Subquery
+from django.db.models.functions import Coalesce
 
 User = get_user_model()
 
@@ -280,7 +282,7 @@ def handle_missed_checkins():
             continue
 
         assignment.status = BookingAssignment.Status.CANCELLED
-        assignment.response_note = 'Tự động hủy do nhân viên không check-in đúng hạn.'
+        assignment.response_note = AUTO_CANCEL_NOTE
         assignment.responded_at = now
         assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
 
@@ -551,20 +553,90 @@ def list_available_schedules_for_worker(
     return _annotate_total_sessions(result).order_by('scheduled_start', 'id')
 
 
-def list_my_schedules(worker, schedule_status=None, booking_id=None):
+MY_TABS = ('upcoming', 'today', 'completed', 'cancelled')
+
+
+def _my_assignment_exists(worker):
+    """Buổi 'của tôi': đang ACCEPTED, hoặc buổi MISSED mà assignment của tôi bị
+    hệ thống tự hủy do không check-in (để còn xem và khiếu nại)."""
+    A = BookingAssignment
+    return Exists(
+        A.objects.filter(schedule=OuterRef('pk'), worker=worker).filter(
+            Q(status=A.Status.ACCEPTED)
+            | Q(
+                status=A.Status.CANCELLED,
+                response_note=AUTO_CANCEL_NOTE,
+                schedule__status=BookingSchedule.Status.MISSED,
+            )
+        )
+    )
+
+
+def _my_schedules_in_booking(worker):
+    return BookingSchedule.objects.filter(booking=OuterRef('booking')).filter(
+        _my_assignment_exists(worker)
+    )
+
+
+def _annotate_my_progress(queryset, worker):
+    base = _my_schedules_in_booking(worker).order_by().values('booking')
+    completed = base.filter(status=BookingSchedule.Status.COMPLETED).annotate(
+        c=Count('id', distinct=True)).values('c')
+    accepted = base.exclude(
+        status__in=(BookingSchedule.Status.CANCELLED, BookingSchedule.Status.MISSED),
+    ).annotate(c=Count('id', distinct=True)).values('c')
+    return queryset.annotate(
+        completed_sessions=Coalesce(Subquery(completed, output_field=IntegerField()), 0),
+        accepted_sessions=Coalesce(Subquery(accepted, output_field=IntegerField()), 0),
+    )
+
+
+def _booking_anchor(worker, statuses, agg):
+    """Mốc thời gian của cả đơn, để các buổi cùng đơn nằm sát nhau."""
+    return Subquery(
+        _my_schedules_in_booking(worker).filter(status__in=statuses)
+        .order_by().values('booking').annotate(k=agg('scheduled_start')).values('k')
+    )
+
+
+def list_my_schedules(worker, schedule_status=None, booking_id=None, tab=None):
     run_lazy_expiry(checkouts=True)
 
-    queryset = BookingSchedule.objects.filter(
-        assignments__worker=worker,
-        assignments__status=BookingAssignment.Status.ACCEPTED,
-    ).select_related('booking', 'booking__service', 'booking__address',
-                'booking__delivery_address', 'booking__customer').prefetch_related('images')
+    queryset = BookingSchedule.objects.filter(_my_assignment_exists(worker)).select_related(
+        'booking', 'booking__service', 'booking__address',
+        'booking__delivery_address', 'booking__customer',
+    ).prefetch_related('images')
     if schedule_status:
         queryset = queryset.filter(status=schedule_status)
     if booking_id:
         queryset = queryset.filter(booking_id=booking_id)
-    return _annotate_total_sessions(queryset).order_by('scheduled_start')
+    queryset = _annotate_total_sessions(queryset)
 
+    if tab is None:
+        return queryset.order_by('scheduled_start')
+
+    S = BookingSchedule.Status
+    queryset = _annotate_my_progress(queryset, worker)
+
+    if tab == 'upcoming':
+        # Đang làm ghim trên cùng, rồi tới buổi gần nhất; buổi cùng đơn nằm sát nhau.
+        return queryset.filter(status__in=ACTIVE_SCHEDULE_STATUSES).annotate(
+            booking_running=Exists(
+                _my_schedules_in_booking(worker).filter(status=S.IN_PROGRESS)
+            ),
+            booking_anchor=_booking_anchor(worker, ACTIVE_SCHEDULE_STATUSES, Min),
+        ).order_by('-booking_running', 'booking_anchor', 'booking_id', 'scheduled_start')
+
+    if tab == 'today':
+        return queryset.filter(
+            scheduled_start__date=timezone.localdate(),
+        ).exclude(status__in=(S.CANCELLED, S.MISSED)).order_by('scheduled_start', 'id')
+
+    statuses = (S.COMPLETED,) if tab == 'completed' else (S.CANCELLED, S.MISSED)
+    return queryset.filter(status__in=statuses).annotate(
+        booking_anchor=_booking_anchor(worker, statuses, Max),
+    ).order_by('-booking_anchor', 'booking_id', '-scheduled_start')
+    
 
 def list_booking_schedules_for_worker(worker, *, booking_id):
     run_lazy_expiry()
@@ -618,6 +690,13 @@ def claim_schedule(*, schedule_id, worker):
         pk=schedule_id,
     )
     booking = schedule.booking
+    existing = BookingAssignment.objects.filter(
+        schedule=schedule, status=BookingAssignment.Status.ACCEPTED,
+    ).first()
+    if existing:
+        if existing.worker_id == worker.id:
+            return existing
+        raise serializers.ValidationError({'schedule': 'Buổi làm việc này đã có người nhận.'})
 
     if booking.status not in OPEN_BOOKING_STATUSES:
         raise serializers.ValidationError({'schedule': 'Đơn hàng không còn nhận nhân viên.'})
@@ -661,7 +740,6 @@ def claim_schedule(*, schedule_id, worker):
         )
 
     _sync_booking_status_after_claim(booking)
-    ensure_chat_for_assignment(assignment)
     record_booking_activity(
         booking=booking,
         schedule=schedule,

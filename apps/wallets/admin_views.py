@@ -10,12 +10,10 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.bookings.models import Booking
-from apps.common.distributed_lock import distributed_lock
 from apps.common.idempotency import idempotent
 from apps.common.permissions import IsAdminRole
 
-from . import refund_service, wallet_service, withdraw_service
+from . import wallet_service, withdraw_service
 from .models import WalletTransaction, WithdrawRequest
 from .serializers import WalletTransactionSerializer
 
@@ -23,20 +21,15 @@ User = get_user_model()
 WALLET_ROLES = ('CUSTOMER', 'WORKER')
 
 # Trần cho mỗi lần điều chỉnh tay: admin bị chiếm tài khoản cũng không cộng vô hạn được.
-ADMIN_ADJUST_MAX = int(getattr(settings, 'WALLET_ADMIN_ADJUST_MAX', 10000000))
-
-
-class AdminRefundSerializer(serializers.Serializer):
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=1, required=False)
-    reason = serializers.CharField(max_length=500)
+ADMIN_ADJUST_MAX = int(getattr(settings, 'WALLET_ADMIN_ADJUST_MAX', 2000000))
 
 
 class AdminAdjustSerializer(serializers.Serializer):
+    # Không có booking_id: mọi khoản tiền gắn với đơn/buổi phải đi qua khiếu nại.
     user_id = serializers.IntegerField()
     direction = serializers.ChoiceField(choices=['CREDIT', 'DEBIT'])
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=1, max_value=ADMIN_ADJUST_MAX)
-    reason = serializers.CharField(max_length=500)
-    booking_id = serializers.IntegerField(required=False, allow_null=True)
+    reason = serializers.CharField(min_length=10, max_length=500)
 
 
 class AdminWithdrawResolveSerializer(serializers.Serializer):
@@ -99,30 +92,6 @@ def _int_param(params, name):
     return int(raw)
 
 
-class AdminBookingRefundView(generics.GenericAPIView):
-    permission_classes = [IsAdminRole]
-    serializer_class = AdminRefundSerializer
-
-    @idempotent(required=True)
-    def post(self, request, pk):
-        s = self.get_serializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        with distributed_lock(f'booking:{pk}'):
-            booking, refunded = refund_service.admin_refund_booking(
-                booking_id=pk, admin_user=request.user,
-                reason=s.validated_data['reason'], amount=s.validated_data.get('amount'),
-            )
-        return Response({
-            'message': 'Hoàn tiền vào ví khách hàng thành công.',
-            'data': {
-                'booking_id': booking.id,
-                'refunded': str(refunded),
-                'refunded_amount': str(booking.refunded_amount),
-                'payment_status': booking.payment_status,
-            },
-        })
-
-
 class AdminWalletAdjustView(generics.GenericAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = AdminAdjustSerializer
@@ -136,11 +105,10 @@ class AdminWalletAdjustView(generics.GenericAPIView):
         user = get_object_or_404(User, pk=d['user_id'], is_active=True)
         if user.role not in WALLET_ROLES:
             raise serializers.ValidationError({'user_id': 'Chỉ điều chỉnh ví khách hàng hoặc nhân viên.'})
-        booking = get_object_or_404(Booking, pk=d['booking_id']) if d.get('booking_id') else None
 
         tx = wallet_service.admin_adjust_wallet(
             user=user, amount=d['amount'], direction=d['direction'],
-            reason=d['reason'], admin_user=request.user, booking=booking,
+            reason=d['reason'], admin_user=request.user,
         )
         return Response(
             {'message': 'Điều chỉnh số dư ví thành công.', 'data': WalletTransactionSerializer(tx).data},

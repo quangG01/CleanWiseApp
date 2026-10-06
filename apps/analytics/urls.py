@@ -1,5 +1,5 @@
 from django.urls import path
-from .report_views import (
+from .views import (
     ReportOverviewView, ReportWorkersView, ReportServicesView,
     ReportRevenueView, ReportBookingsView, ReportExportView,
 )

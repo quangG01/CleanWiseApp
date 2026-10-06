@@ -15,37 +15,22 @@ MIN_WORKER_ESCROW_BALANCE = Decimal('400000')
 def get_or_create_wallet_locked(user):
     """
     Lấy ví kèm lock (select_for_update), tự tạo nếu user chưa có ví.
-
-    select_for_update() chỉ khóa được hàng ĐÃ TỒN TẠI. Nếu đây là lần đầu
-    user thao tác ví, 2 request cùng lúc sẽ cùng "miss" (chưa có hàng để
-    khóa) rồi cùng INSERT -> 1 trong 2 dính IntegrityError do OneToOneField
-    unique trên user_id. Bắt lỗi đó trong 1 savepoint riêng (transaction.atomic
-    lồng bên trong) để không làm hỏng transaction ngoài, rồi đọc lại lần nữa
-    kèm lock — lúc này hàng đã tồn tại nên select_for_update lấy được bình
-    thường.
-
-    Dùng hàm này thay vì gọi thẳng Wallet.objects.select_for_update().get_or_create()
-    ở MỌI nơi cần sửa balance.
+    Bắt IntegrityError trong savepoint riêng để 2 request đầu tiên cùng lúc không làm hỏng nhau.
     """
     wallet = Wallet.objects.select_for_update().filter(user=user).first()
     if wallet:
         return wallet, False
 
     try:
-        with transaction.atomic():  # savepoint riêng, lỗi ở đây không kéo sập transaction cha
+        with transaction.atomic():
             wallet = Wallet.objects.create(user=user)
         return wallet, True
     except IntegrityError:
-        # Request khác vừa tạo xong trong lúc mình insert -> lấy lại, lần này có lock thật
         return Wallet.objects.select_for_update().get(user=user), False
 
 
 def get_or_create_wallet(user):
-    """
-    Bản không lock — dùng cho các view chỉ ĐỌC (GET số dư), không sửa balance.
-    Vẫn cần bắt IntegrityError vì get_or_create() thường (không lock) cũng
-    có thể dính race y hệt ở lần đầu.
-    """
+    """Bản không lock — dùng cho các view chỉ ĐỌC."""
     try:
         return Wallet.objects.get_or_create(user=user)
     except IntegrityError:
@@ -78,11 +63,17 @@ def credit_wallet(*, user, amount, type=WalletTransaction.Type.REFUND, booking=N
 
 @transaction.atomic
 def debit_wallet(*, user, amount, type=WalletTransaction.Type.PAYMENT, booking=None, note=None,
-                 created_by=None):
+                 created_by=None, idempotency_key=None):
     if amount is None or amount <= 0:
         raise serializers.ValidationError({'amount': 'Số tiền phải lớn hơn 0.'})
 
     wallet, _ = get_or_create_wallet_locked(user)
+
+    if idempotency_key:
+        existing = WalletTransaction.objects.filter(idempotency_key=idempotency_key).first()
+        if existing:
+            return existing
+
     if wallet.balance < amount:
         shortage = Decimal(amount) - wallet.balance
         raise serializers.ValidationError({
@@ -95,16 +86,14 @@ def debit_wallet(*, user, amount, type=WalletTransaction.Type.PAYMENT, booking=N
     return WalletTransaction.objects.create(
         wallet=wallet, type=type, amount=amount, balance_after=wallet.balance,
         status=WalletTransaction.Status.SUCCESS, booking=booking, note=note,
+        idempotency_key=idempotency_key,
         direction=WalletTransaction.Direction.DEBIT, created_by=created_by,
     )
 
+
 @transaction.atomic
 def request_withdraw(*, user, amount, min_remaining_balance=Decimal('0')):
-    """Yêu cầu rút tiền — trừ balance ngay, tạo transaction PENDING chờ admin duyệt.
-
-    min_remaining_balance: số dư tối thiểu phải còn lại sau khi rút.
-    Khách hàng: 0 (rút hết được). Nhân viên ký quỹ: MIN_WORKER_ESCROW_BALANCE.
-    """
+    """Yêu cầu rút tiền — trừ balance ngay, tạo transaction PENDING chờ admin duyệt."""
     if amount is None or amount <= 0:
         raise serializers.ValidationError({'amount': 'Số tiền phải lớn hơn 0.'})
 

@@ -10,12 +10,6 @@ from apps.payments.models import Payment
 from . import wallet_service
 from .models import WalletTransaction
 
-import uuid
-
-from django.shortcuts import get_object_or_404
-from rest_framework import serializers
-
-
 _VND = Decimal('1')
 
 
@@ -108,28 +102,4 @@ def refund_unmatched_payment(*, payment, booking, amount, key, note):
     return amount
 
 
-@transaction.atomic
-def admin_refund_booking(*, booking_id, admin_user, reason, amount=None, key=None):
-    booking = get_object_or_404(Booking.objects.select_for_update(), pk=booking_id)
 
-    if booking.payment_status != Booking.PaymentStatus.PAID:
-        raise serializers.ValidationError({'booking': 'Chỉ hoàn tiền cho đơn đã thanh toán.'})
-    if not booking.payments.filter(status=Payment.Status.SUCCESS).exclude(
-        method=Payment.Method.CASH,
-    ).exists():
-        raise serializers.ValidationError({
-            'booking': 'Đơn tiền mặt không hoàn qua ví. Dùng chức năng Điều chỉnh số dư ví.',
-        })
-
-    remaining = (booking.total_amount or Decimal('0')) - (booking.refunded_amount or Decimal('0'))
-    if amount is not None and Decimal(amount) > remaining:
-        raise serializers.ValidationError({'amount': f'Chỉ còn hoàn được tối đa {remaining:,.0f}đ.'})
-
-    refunded = refund_booking(
-        booking=booking, amount=amount, actor=admin_user,
-        key=key or f'refund:admin:{booking.id}:{uuid.uuid4().hex}',
-        note=f'Admin hoàn tiền đơn {booking.booking_code}: {reason}',
-    )
-    if not refunded:
-        raise serializers.ValidationError({'booking': 'Không còn số tiền để hoàn.'})
-    return booking, refunded
