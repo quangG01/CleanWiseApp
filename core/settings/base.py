@@ -391,5 +391,3 @@ WALLET_WITHDRAW_DAILY_MAX = int(os.environ.get("WALLET_WITHDRAW_DAILY_MAX", 5000
 # Tài khoản ngân hàng mới thêm phải chờ bao lâu mới được rút về (test: đặt 0)
 PAYOUT_METHOD_COOLDOWN_HOURS = int(os.environ.get("PAYOUT_METHOD_COOLDOWN_HOURS", 24))
 
-# Trần mỗi lần admin điều chỉnh tay số dư ví
-WALLET_ADMIN_ADJUST_MAX = int(os.environ.get("WALLET_ADMIN_ADJUST_MAX", 10000000))

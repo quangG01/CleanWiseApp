@@ -148,19 +148,3 @@ def admin_reject_withdraw(*, transaction_id, reason=None):
     return tx
 
 
-@transaction.atomic
-def admin_adjust_wallet(*, user, amount, direction, reason, admin_user, booking=None):
-    reason = (reason or '').strip()
-    if not reason:
-        raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do.'})
-
-    note = f'[Admin {admin_user.username}] {reason}'
-    fn = credit_wallet if direction == WalletTransaction.Direction.CREDIT else debit_wallet
-    tx = fn(
-        user=user, amount=amount, type=WalletTransaction.Type.ADJUSTMENT,
-        booking=booking, note=note, created_by=admin_user,
-    )
-
-    from apps.notifications.services import notify_wallet_adjustment
-    transaction.on_commit(lambda: notify_wallet_adjustment(user, amount, direction, reason))
-    return tx

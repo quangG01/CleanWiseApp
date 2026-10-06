@@ -5,6 +5,7 @@ from django.urls import path
 from .views import (
     ComplaintDetailView,
     ComplaintListCreateView,
+    ComplaintPreviewView,
     ComplaintResolveView,
 )
 
@@ -26,5 +27,10 @@ urlpatterns = [
         'complaints/<int:pk>/resolve/',
         ComplaintResolveView.as_view(),
         name='admin-complaint-resolve',
+    ),
+        path(
+        'complaints/<int:pk>/preview/',
+        ComplaintPreviewView.as_view(),
+        name='admin-complaint-preview',
     ),
 ]

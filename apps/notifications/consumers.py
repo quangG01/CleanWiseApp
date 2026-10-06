@@ -48,3 +48,6 @@ class AdminNotificationConsumer(AsyncJsonWebsocketConsumer):
 
     async def profile_review_changed(self, event):
         await self.send_json({'type': 'profile.review.changed', **event['payload']})
+        
+    async def complaint_changed(self, event):
+        await self.send_json({'type': 'complaint.changed', **event['payload']})
