@@ -93,6 +93,14 @@ class BookingSchedule(models.Model):
     actual_end = models.DateTimeField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     note = models.TextField(blank=True, null=True)
+    preferred_worker = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='preferred_bookings',
+        blank=True,
+        null=True,
+    )
+    preferred_worker_expires_at = models.DateTimeField(blank=True, null=True)
     completion_note = models.TextField(blank=True, null=True)
 
     cancelled_by = models.ForeignKey(

@@ -184,6 +184,19 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
     service_data = serializers.JSONField(source='booking.service_data', read_only=True)
     assignment_id = serializers.SerializerMethodField()
     available_sessions = serializers.SerializerMethodField()
+    is_preferred_for_me = serializers.SerializerMethodField()
+    preferred_until = serializers.SerializerMethodField()
+
+    def get_is_preferred_for_me(self, instance):
+        request = self.context.get('request')
+        worker_id = getattr(getattr(request, 'user', None), 'id', None)
+        return bool(worker_id and instance.preferred_worker_id == worker_id)
+
+    def get_preferred_until(self, instance):
+        if not self.get_is_preferred_for_me(instance):
+            return None
+        expires_at = instance.preferred_worker_expires_at
+        return expires_at if expires_at and expires_at > timezone.now() else None
 
     def get_available_sessions(self, instance):
         # Chỉ có giá trị khi list được gộp theo booking (group_by=booking); còn lại None.
@@ -196,7 +209,7 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
             'sequence_no', 'total_sessions', 'scheduled_start', 'scheduled_end', 'status',
             'address_city', 'address_ward', 'address_latitude', 'address_longitude',
             'customer_avatar', 'customer_name', 'payment_status', 'price',
-            'service_data', 'assignment_id',"available_sessions",'delivery_city', 'delivery_ward'
+            'service_data', 'assignment_id',"available_sessions",'delivery_city', 'delivery_ward','is_preferred_for_me', 'preferred_until'
         ]
         read_only_fields = fields
 

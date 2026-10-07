@@ -3,9 +3,11 @@ from django.db import transaction
 from rest_framework.exceptions import NotFound, PermissionDenied
 
 from apps.authentication.models import WorkerProfile
-
 from .models import BookingAssignment, CustomerFavoriteWorker
+from apps.addresses.models import CustomerAddress
+from apps.services.models import Service
 
+from . import assignment_service
 
 User = get_user_model()
 
@@ -43,8 +45,8 @@ def get_worker_for_customer(*, customer, worker_id):
     return worker
 
 
-def list_favorite_workers(*, customer):
-    return (
+def list_favorite_workers(*, customer, service_id=None, address_id=None):
+    queryset = (
         CustomerFavoriteWorker.objects
         .filter(
             customer=customer,
@@ -54,6 +56,33 @@ def list_favorite_workers(*, customer):
         .select_related('worker', 'worker__worker_profile')
         .order_by('-created_at', '-id')
     )
+    if not service_id and not address_id:
+        return queryset
+
+    if service_id:
+        section_code = (
+            Service.objects.filter(pk=service_id)
+            .values_list('section_code', flat=True).first()
+        )
+        if section_code is None:
+            return queryset.none()
+        queryset = queryset.filter(
+            worker__worker_profile__registered_service__section_code=section_code,
+        )
+
+    if address_id:
+        address = CustomerAddress.objects.filter(
+            pk=address_id, customer=customer, is_active=True,
+        ).first()
+        if address is None:
+            return queryset.none()
+        return [
+            fav for fav in queryset
+            if assignment_service._covers(
+                assignment_service._worker_area_index(fav.worker), address,
+            )
+        ]
+    return queryset
 
 
 @transaction.atomic
