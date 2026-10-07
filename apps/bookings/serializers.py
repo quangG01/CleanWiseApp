@@ -268,12 +268,15 @@ class BookingDetailSerializer(serializers.ModelSerializer):
 
     address = BookingAddressSerializer(read_only=True)
 
-    # ĐỔI: thêm delivery_address — null với dịch vụ 1 địa chỉ,
-    # có giá trị với dịch vụ cần 2 địa chỉ (vd chuyển nhà).
+    # null với dịch vụ 1 địa chỉ, có giá trị với dịch vụ 2 địa chỉ (chuyển nhà).
     delivery_address = BookingAddressSerializer(
         read_only=True,
         allow_null=True,
     )
+
+    # preferred_worker nằm ở BookingSchedule, nên lấy từ buổi đầu có chỉ định.
+    preferred_worker = serializers.SerializerMethodField()
+    preferred_worker_expires_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -287,6 +290,8 @@ class BookingDetailSerializer(serializers.ModelSerializer):
             'address',
             'delivery_address',
             'note',
+            'preferred_worker',
+            'preferred_worker_expires_at',
             'status',
             'payment_status',
             'payment',
@@ -301,6 +306,21 @@ class BookingDetailSerializer(serializers.ModelSerializer):
             'cancelled_at',
             'cancel_reason',
         ]
+
+    def _preferred_schedule(self, obj):
+        # Dùng .all() để tận dụng prefetch của view, không phát sinh query thừa.
+        return next(
+            (s for s in obj.schedules.all() if s.preferred_worker_id),
+            None,
+        )
+
+    def get_preferred_worker(self, obj):
+        schedule = self._preferred_schedule(obj)
+        return schedule.preferred_worker_id if schedule else None
+
+    def get_preferred_worker_expires_at(self, obj):
+        schedule = self._preferred_schedule(obj)
+        return schedule.preferred_worker_expires_at if schedule else None
 
     def get_payment(self, obj):
         """
@@ -320,8 +340,8 @@ class BookingDetailSerializer(serializers.ModelSerializer):
             payment,
             context=self.context,
         ).data
-
-
+        
+        
 class BookingCreateSerializer(serializers.Serializer):
     service_id = serializers.IntegerField()
     address_id = serializers.IntegerField()
@@ -330,6 +350,11 @@ class BookingCreateSerializer(serializers.Serializer):
     # service.form_schema.address_count >= 2, được validate trong
     # create_booking() ở booking_service.py.
     delivery_address_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+    )
+    
+    preferred_worker_id = serializers.IntegerField(
         required=False,
         allow_null=True,
     )
@@ -373,9 +398,10 @@ class BookingCreateSerializer(serializers.Serializer):
             customer=self.context['request'].user,
             service_id=validated_data['service_id'],
             address_id=validated_data['address_id'],
-            delivery_address_id=validated_data.get('delivery_address_id'),  # ĐỔI
+            delivery_address_id=validated_data.get('delivery_address_id'),
             service_data=validated_data['service_data'],
             note=validated_data.get('note') or None,
+            preferred_worker_id=validated_data.get('preferred_worker_id'),
             voucher_code=(
                 validated_data.get('voucher_code') or ''
             ).strip() or None,

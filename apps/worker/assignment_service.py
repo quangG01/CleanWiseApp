@@ -20,9 +20,9 @@ from apps.vouchers.voucher_service import (
 from apps.wallets import earning_service, refund_service
 
 from .constants import MIN_CANCEL_HOURS, AUTO_CANCEL_NOTE
-from .models import BookingAssignment, WorkerWorkingArea
+from .models import BookingAssignment, CustomerFavoriteWorker, WorkerWorkingArea
 
-from django.db.models import Count, Exists, IntegerField, Max, Min, OuterRef, Q, Subquery
+from django.db.models import Case, Count, Exists, IntegerField, Max, Min, OuterRef, Q, Subquery, When
 from django.db.models.functions import Coalesce
 
 User = get_user_model()
@@ -37,8 +37,10 @@ ACTIVE_SCHEDULE_STATUSES = (
     BookingSchedule.Status.IN_PROGRESS,
 )
 
-CHECKOUT_GRACE_MINUTES = getattr(settings, 'CHECKOUT_GRACE_MINUTES', 60)
-CHECKIN_MISSED_GRACE_MINUTES = getattr(settings, 'CHECKIN_MISSED_GRACE_MINUTES', 60)
+CHECKOUT_GRACE_MINUTES = getattr(settings, 'CHECKOUT_GRACE_MINUTES', 30)
+CHECKIN_MISSED_GRACE_MINUTES = getattr(settings, 'CHECKIN_MISSED_GRACE_MINUTES', 30)
+PREFERRED_WORKER_WINDOW = timedelta(hours=1)
+PREFERRED_WORKER_START_BUFFER = timedelta(minutes=30)
 
 
 # ---------------------------------------------------------------- helpers
@@ -85,6 +87,72 @@ def _has_cash_payment(booking):
 def _is_bookable(booking):
     return booking.payment_status == Booking.PaymentStatus.PAID or _has_cash_payment(booking)
 
+
+def _exclusive_to_other(booking, worker):
+    """True nếu có buổi đang trong thời gian ưu tiên của nhân viên khác."""
+    return booking.schedules.filter(
+        preferred_worker__isnull=False,
+        preferred_worker_expires_at__gt=timezone.now(),
+    ).exclude(preferred_worker=worker).exists()
+
+
+def validate_preferred_worker(*, customer, worker_id, service, address):
+    worker = (
+        User.objects
+        .select_related('worker_profile', 'worker_profile__registered_service')
+        .filter(
+            pk=worker_id, role='WORKER', is_active=True,
+            worker_profile__status='ACTIVE',
+        )
+        .first()
+    )
+    if worker is None or not CustomerFavoriteWorker.objects.filter(
+        customer=customer, worker=worker,
+    ).exists():
+        raise serializers.ValidationError(
+            {'preferred_worker_id': 'Nhân viên không có trong danh sách yêu thích của bạn.'}
+        )
+    profile = worker.worker_profile
+    if (
+        not profile.registered_service_id
+        or profile.registered_service.section_code != service.section_code
+    ):
+        raise serializers.ValidationError(
+            {'preferred_worker_id': 'Nhân viên này không làm dịch vụ bạn chọn.'}
+        )
+    if not _covers(_worker_area_index(worker), address):
+        raise serializers.ValidationError(
+            {'preferred_worker_id': 'Nhân viên này không hoạt động tại khu vực của bạn.'}
+        )
+    return worker
+
+
+def activate_preferred_worker_request(booking):
+    """Bắt đầu thời gian ưu tiên + báo nhân viên. Idempotent."""
+    schedules = list(
+        booking.schedules.select_for_update().filter(
+            status=BookingSchedule.Status.PENDING,
+            preferred_worker__isnull=False,
+            preferred_worker_expires_at__isnull=True,
+        ).order_by('scheduled_start')
+    )
+    if not schedules:
+        return
+
+    now = timezone.now()
+    for schedule in schedules:
+        schedule.preferred_worker_expires_at = min(
+            now + PREFERRED_WORKER_WINDOW,
+            schedule.scheduled_start - PREFERRED_WORKER_START_BUFFER,
+        )
+        schedule.save(update_fields=['preferred_worker_expires_at', 'updated_at'])
+
+    from apps.notifications.services import notify_worker_preferred_request
+    notify_worker_preferred_request(
+        booking,
+        schedules[0].preferred_worker,
+        schedules[0].preferred_worker_expires_at,
+    )
 
 _CITY_PREFIX_RE = re.compile(r'^(thành phố|tp\.?|tỉnh)\s+', re.IGNORECASE)
 
@@ -509,6 +577,14 @@ def list_available_schedules_for_worker(
         .exclude(Exists(my_overlapping))
         .select_related('booking', 'booking__service', 'booking__address')
     )
+    
+    now = timezone.now()
+    queryset = queryset.filter(
+        Q(preferred_worker__isnull=True)
+        | Q(preferred_worker=worker)
+        | Q(preferred_worker_expires_at__isnull=True)
+        | Q(preferred_worker_expires_at__lte=now)
+    )
 
     cash_payment_subquery = Payment.objects.filter(booking=OuterRef('booking'), method=Payment.Method.CASH)
     queryset = queryset.annotate(has_cash=Exists(cash_payment_subquery)).filter(
@@ -550,7 +626,17 @@ def list_available_schedules_for_worker(
         'booking', 'booking__service', 'booking__address',
         'booking__delivery_address', 'booking__customer',
     )
-    return _annotate_total_sessions(result).order_by('scheduled_start', 'id')
+    return _annotate_total_sessions(result).annotate(
+        preferred_rank=Case(
+            When(
+                preferred_worker=worker,
+                preferred_worker_expires_at__gt=timezone.now(),
+                then=0,
+            ),
+            default=1,
+            output_field=IntegerField(),
+        ),
+    ).order_by('preferred_rank', 'scheduled_start', 'id')
 
 
 MY_TABS = ('upcoming', 'today', 'completed', 'cancelled')
@@ -655,7 +741,9 @@ def list_booking_schedules_for_worker(worker, *, booking_id):
         schedule__booking=booking, worker=worker, status=BookingAssignment.Status.ACCEPTED,
     ).exists()
 
-    if not already_assigned and not (same_section and in_area):
+    if not already_assigned and (
+        not (same_section and in_area) or _exclusive_to_other(booking, worker)
+    ):
         return BookingSchedule.objects.none()
 
     mine = BookingAssignment.objects.filter(
@@ -706,7 +794,10 @@ def claim_schedule(*, schedule_id, worker):
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không còn khả dụng.'})
     if schedule.scheduled_start <= timezone.now():
         raise serializers.ValidationError({'schedule': 'Buổi làm việc đã quá giờ bắt đầu.'})
-
+    if _exclusive_to_other(booking, worker):
+        raise serializers.ValidationError(
+            {'schedule': 'Đơn này đang dành riêng cho nhân viên khách đã chọn. Vui lòng quay lại sau.'}
+        )
     if booking.service.section_code != profile.registered_service.section_code:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không thuộc dịch vụ bạn đã đăng ký.'})
 
@@ -765,6 +856,11 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
         raise serializers.ValidationError({'booking': 'Đơn hàng không còn nhận nhân viên.'})
     if not _is_bookable(booking):
         raise serializers.ValidationError({'booking': 'Đơn hàng chưa thanh toán, chưa thể nhận việc.'})
+    if _exclusive_to_other(booking, worker):
+        raise serializers.ValidationError(
+            {'booking': 'Đơn này đang dành riêng cho nhân viên khách đã chọn. Vui lòng quay lại sau.'}
+        )
+    
     if booking.service.section_code != profile.registered_service.section_code:
         raise serializers.ValidationError({'booking': 'Gói này không thuộc dịch vụ bạn đã đăng ký.'})
     if not _covers(_worker_area_index(worker), booking.address):
@@ -1010,3 +1106,48 @@ def admin_assign_worker(*, schedule_id, worker_id, admin_user, note=None):
         },
     )
     return assignment
+
+
+@transaction.atomic
+def decline_preferred_request(*, booking_id, worker):
+    booking = get_object_or_404(Booking.objects.select_for_update(), pk=booking_id)
+    if booking.status not in OPEN_BOOKING_STATUSES:
+        raise serializers.ValidationError({'booking': 'Đơn hàng không còn nhận nhân viên.'})
+
+    now = timezone.now()
+    mine = list(
+        booking.schedules.select_for_update().filter(
+            preferred_worker=worker, status=BookingSchedule.Status.PENDING,
+        )
+    )
+    if not mine:
+        raise serializers.ValidationError({'booking': 'Đơn này không được chỉ định cho bạn.'})
+    if BookingAssignment.objects.filter(
+        schedule__booking=booking, worker=worker,
+        status=BookingAssignment.Status.ACCEPTED,
+    ).exists():
+        raise serializers.ValidationError(
+            {'booking': 'Bạn đã nhận đơn này, hãy dùng chức năng hủy nhận việc.'}
+        )
+
+    active_ids = [
+        s.id for s in mine
+        if s.preferred_worker_expires_at is None or s.preferred_worker_expires_at > now
+    ]
+    if not active_ids:
+        return booking  # đã mở cho mọi người rồi, bấm lại cũng không lỗi
+
+    BookingSchedule.objects.filter(pk__in=active_ids).update(
+        preferred_worker_expires_at=now, updated_at=now,
+    )
+
+    record_booking_activity(
+        booking=booking,
+        actor=worker,
+        event_type=BookingActivity.EventType.BOOKING_UPDATED,
+        message=f'{worker.get_full_name() or worker.username} từ chối yêu cầu chỉ định, đơn mở cho mọi nhân viên.',
+    )
+
+    from apps.notifications.services import notify_customer_preferred_declined
+    notify_customer_preferred_declined(booking, worker)
+    return booking

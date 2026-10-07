@@ -12,14 +12,20 @@ from .views import (
     WorkerCheckOutView,
     WorkerScheduleImageUploadView,
     WorkerBookingScheduleListView,
-    WorkerActiveProvinceListView
+    WorkerActiveProvinceListView,
+    WorkerDeclinePreferredView
 )
 
 
 urlpatterns = [
     path('schedules/available/', WorkerAvailableScheduleListView.as_view(), name='worker-schedule-available'),
     path('schedules/my-schedules/', WorkerMyScheduleListView.as_view(), name='worker-schedule-my'),
-    path('bookings/<int:booking_id>/schedules/', WorkerBookingScheduleListView.as_view(), name='worker-booking-schedules'),  # THÊM DÒNG NÀY
+    path('bookings/<int:booking_id>/schedules/', WorkerBookingScheduleListView.as_view(), name='worker-booking-schedules'),
+    path(
+        'bookings/<int:booking_id>/decline/',
+        WorkerDeclinePreferredView.as_view(),
+        name='worker-decline-preferred',
+    ),
     path('schedules/<int:schedule_id>/claim/', WorkerClaimScheduleView.as_view(), name='worker-schedule-claim'),
     path('bookings/<int:booking_id>/claim/', WorkerClaimBookingPackageView.as_view(), name='worker-booking-claim-package'),
     path('assignments/<int:assignment_id>/cancel/', WorkerCancelAssignmentView.as_view(), name='worker-assignment-cancel'),

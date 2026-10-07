@@ -275,6 +275,7 @@ def create_booking(
     service_data,
     note=None,
     voucher_code=None,
+    preferred_worker_id=None,
     payment_method,
     actor=None,
 ):
@@ -341,6 +342,13 @@ def create_booking(
             {'delivery_address_id': 'Dịch vụ này không cần địa chỉ chuyển đến.'}
         )
 
+    preferred_worker = None
+    if preferred_worker_id:
+        from apps.worker.assignment_service import validate_preferred_worker
+        preferred_worker = validate_preferred_worker(
+            customer=customer, worker_id=preferred_worker_id,
+            service=service, address=address,
+        )
     validate_service_data(
         service.form_schema,
         service_data,
@@ -451,7 +459,6 @@ def create_booking(
         address=address,
         delivery_address=delivery_address,
         note=note,
-
         status=Booking.Status.PENDING,
 
         payment_status=Booking.PaymentStatus.UNPAID,
@@ -499,6 +506,7 @@ def create_booking(
             sequence_no=idx,
             scheduled_start=schedule['scheduled_start'],
             scheduled_end=schedule['scheduled_end'],
+            preferred_worker=preferred_worker,
         )
         for idx, schedule in enumerate(schedules, start=1)
     ])
@@ -530,6 +538,12 @@ def create_booking(
         if user_voucher:
             mark_user_voucher_used(user_voucher_id=user_voucher.id)
 
+    # Ví / tiền mặt: đơn nhận việc được ngay -> bắt đầu thời gian ưu tiên.
+    # Chuyển khoản: kích hoạt khi thanh toán xong (xem webhook).
+    if preferred_worker and payment_method in (Payment.Method.CASH, Payment.Method.WALLET):
+        from apps.worker.assignment_service import activate_preferred_worker_request
+        activate_preferred_worker_request(booking)
+        
     creator = actor or customer
     record_booking_activity(
         booking=booking,

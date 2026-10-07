@@ -75,6 +75,16 @@ class CustomerWorkerProfileView(generics.GenericAPIView):
         })
 
 
+def _int_param(request, name):
+    raw = request.query_params.get(name)
+    if not raw:
+        return None
+    if not raw.isdigit():
+        raise ValidationError({name: f'{name} phải là số nguyên.'})
+    return int(raw)
+
+
+
 @CUSTOMER_FAVORITE_WORKER_LIST_SCHEMA
 class CustomerFavoriteWorkerListView(generics.GenericAPIView):
     permission_classes = [IsCustomerRole]
@@ -84,7 +94,11 @@ class CustomerFavoriteWorkerListView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(
-            favorite_worker_service.list_favorite_workers(customer=request.user),
+            favorite_worker_service.list_favorite_workers(
+                customer=request.user,
+                service_id=_int_param(request, 'service_id'),
+                address_id=_int_param(request, 'address_id'),
+            ),
             request,
             view=self,
         )
@@ -182,12 +196,12 @@ def _paginate_or_full(request, view, queryset, serializer_class, booking_id, mes
     tải hết mọi buổi (gói tháng có thể 20-30 buổi) trong 1 lần.
     """
     if booking_id:
-        serializer = serializer_class(queryset, many=True)
+        serializer = serializer_class(queryset, many=True, context={'request': request})
         return Response({'message': message, 'data': serializer.data})
 
     paginator = WorkerSchedulePagination()
     page = paginator.paginate_queryset(queryset, request, view=view)
-    serializer = serializer_class(page, many=True)
+    serializer = serializer_class(page, many=True, context={'request': request})
     return Response({
         'message': message,
         'data': {
@@ -437,6 +451,19 @@ class WorkerClaimBookingPackageView(generics.GenericAPIView):
             },
         }, status=201)
 
+
+class WorkerDeclinePreferredView(APIView):
+    permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'worker_action'
+
+    @idempotent
+    def post(self, request, *args, **kwargs):
+        with distributed_lock(f"booking:{kwargs['booking_id']}"):
+            assignment_service.decline_preferred_request(
+                booking_id=kwargs['booking_id'], worker=request.user,
+            )
+        return Response({'message': 'Đã từ chối. Đơn được mở cho nhân viên khác.'})
 
 @WORKER_CANCEL_ASSIGNMENT_SCHEMA
 class WorkerCancelAssignmentView(generics.GenericAPIView):

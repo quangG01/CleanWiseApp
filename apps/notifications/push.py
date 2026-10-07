@@ -32,6 +32,8 @@ def deliver_push_to_user(user_id, title, message, data=None):
             'body': message,
             'data': data or {},
             'sound': 'default',
+            'priority': 'high',
+            'channelId': 'default',
         }
         for token in tokens
     ]
