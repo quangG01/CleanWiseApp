@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     'apps.bookings',
     'apps.vouchers',
     'apps.ai_engine',
+    'apps.chatbot',
     'apps.analytics',
     'apps.common',
     'apps.wallets',
@@ -232,10 +233,24 @@ REST_FRAMEWORK = {
         'upload': '10/min',
         'content': '10/min',
         'chat': '60/min',
+        'chatbot': os.environ.get('CHATBOT_RATE_LIMIT', '10/min'),
         'device': '10/min',
     },
     'NUM_PROXIES': int(os.environ.get('NUM_PROXIES', 0)),
 }
+
+# M1: read-only customer assistant. Set a Gemini key before enabling real replies.
+CHATBOT_ENABLED = os.environ.get('CHATBOT_ENABLED', '1') == '1'
+CHATBOT_MODEL = os.environ.get('CHATBOT_MODEL', 'gemini-3.5-flash-lite')
+CHATBOT_CHECKPOINT_DB_HOST = os.environ.get('CHATBOT_CHECKPOINT_DB_HOST', '')
+CHATBOT_GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY') or os.environ.get('GEMINI_API_KEY', '')
+CHATBOT_MODEL_TIMEOUT = int(os.environ.get('CHATBOT_MODEL_TIMEOUT', '20'))
+CHATBOT_RUN_TIMEOUT = int(os.environ.get('CHATBOT_RUN_TIMEOUT', '90'))
+CHATBOT_MAX_MODEL_CALLS = int(os.environ.get('CHATBOT_MAX_MODEL_CALLS', '6'))
+CHATBOT_MAX_TOOL_CALLS = int(os.environ.get('CHATBOT_MAX_TOOL_CALLS', '8'))
+CHATBOT_MAX_OUTPUT_TOKENS = int(os.environ.get('CHATBOT_MAX_OUTPUT_TOKENS', '2048'))
+CHATBOT_HISTORY_TURNS = int(os.environ.get('CHATBOT_HISTORY_TURNS', '6'))
+CHATBOT_HISTORY_CHARACTERS = int(os.environ.get('CHATBOT_HISTORY_CHARACTERS', '16000'))
 
 # ============================================= Cấu hình Simple JWT=============================================
 SIMPLE_JWT = {

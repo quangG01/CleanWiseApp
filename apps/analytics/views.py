@@ -77,7 +77,9 @@ class ReportExportView(ReportView):
             raise serializers.ValidationError('Báo cáo vượt 50.000 buổi; chọn kỳ nhỏ hơn để xuất Excel.')
         summary = [['Chỉ số', 'Giá trị'], ['Kỳ', report.params['period']], ['Từ ngày', report.start.isoformat()],
             ['Đến ngày (không bao gồm)', report.end.isoformat()], ['Múi giờ', str(ZONE)],
-            ['Cơ sở doanh thu', 'Hoa hồng đã ghi sổ, chưa trừ điều chỉnh hoàn tiền']]
+            ['Cơ sở doanh thu', 'Hoa hồng đã ghi sổ, chưa trừ điều chỉnh hoàn tiền'],
+            ['Cơ sở yêu thích', 'Số khách đang lưu nhân viên hiện tại, không giới hạn theo kỳ'],
+            ['Cơ sở khiếu nại', 'Khách gửi trong kỳ, gắn nhân viên, không gồm đã hủy; đã xử lý không đồng nghĩa nhân viên có lỗi']]
         labels = {'total_orders': 'Tổng số đơn', 'total_order_value': 'Tổng giá trị đơn (VND)',
             'cancelled_failed_order_value': 'Giá trị đơn hủy/thất bại (VND)', 'valid_order_value': 'Giá trị đơn còn lại (VND)',
             'cleanwise_revenue': 'Hoa hồng CleanWise (VND)', 'completed_service_value': 'Giá trị buổi đã ghi sổ (VND)',
@@ -95,8 +97,8 @@ class ReportExportView(ReportView):
         summary.extend([[f'Đơn {status}', count] for status, count in totals['order_statuses'].items()])
         timeline = [['Từ ngày', 'Đến ngày (không bao gồm)', 'Số đơn', 'Giá trị đơn (VND)', 'Hoa hồng (VND)', 'Giá trị buổi (VND)']]
         timeline.extend([[r['start'], r['end'], r['orders'], Decimal(r['order_value']), Decimal(r['cleanwise_revenue']), Decimal(r['completed_service_value'])] for r in report.timeline()])
-        workers = [['Hạng', 'ID', 'Nhân viên', 'Đang hoạt động', 'Đơn có buổi hoàn thành', 'Buổi hoàn thành', 'Điểm trung bình', 'Lượt đánh giá', 'Hoa hồng (VND)', 'Thu nhập (VND)']]
-        workers.extend([[r['rank'], r['worker_id'], r['name'], 'Có' if r['active_current'] else 'Không', r['completed_orders'], r['completed_sessions'], r['average_rating'], r['review_count'], Decimal(r['cleanwise_revenue']), Decimal(r['worker_income'])] for r in report.workers()])
+        workers = [['Hạng', 'ID', 'Nhân viên', 'Đang hoạt động', 'Đơn có buổi hoàn thành', 'Buổi hoàn thành', 'Điểm trung bình', 'Lượt đánh giá', 'Khách yêu thích hiện tại', 'Khiếu nại khách gửi trong kỳ không gồm đã hủy', 'Khiếu nại đang xử lý', 'Khiếu nại đã xử lý', 'Khiếu nại bị từ chối', 'Hoa hồng (VND)', 'Thu nhập (VND)']]
+        workers.extend([[r['rank'], r['worker_id'], r['name'], 'Có' if r['active_current'] else 'Không', r['completed_orders'], r['completed_sessions'], r['average_rating'], r['review_count'], r['favorite_count_current'], r['complaint_count'], r['complaint_pending_count'], r['complaint_resolved_count'], r['complaint_rejected_count'], Decimal(r['cleanwise_revenue']), Decimal(r['worker_income'])] for r in report.workers()])
         services = [['ID', 'Dịch vụ', 'Số đơn', 'Tỉ lệ đơn (%)', 'Đơn hủy', 'Đơn thất bại', 'Buổi hoàn thành', 'Giá trị đơn (VND)', 'Giá trị buổi (VND)', 'Hoa hồng (VND)']]
         services.extend([[r['service_id'], r['name'], r['orders'], r['order_share_percent'], r['cancelled_orders'], r['failed_orders'], r['completed_sessions'], Decimal(r['order_value']), Decimal(r['completed_service_value']), Decimal(r['cleanwise_revenue'])] for r in report.services()])
         def detail_rows():
