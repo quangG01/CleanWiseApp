@@ -10,7 +10,7 @@ from django.utils import timezone
 from apps.addresses.models import CustomerAddress
 from apps.authentication.models import WorkerProfile
 from apps.bookings.models import Booking, BookingSchedule
-from apps.bookings.report_service import ZONE
+from apps.analytics.report_service import ZONE
 from apps.payments.models import Payment
 from apps.reviews.models import Review
 from apps.services.models import Service

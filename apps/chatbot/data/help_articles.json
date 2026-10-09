@@ -1,0 +1,218 @@
+[
+  {
+    "slug": "quy-trinh-dich-vu",
+    "version": 1,
+    "title": "Quy trình sử dụng dịch vụ CleanWise",
+    "summary": "Tài liệu dành cho khách hàng, mô tả trình tự từ chọn dịch vụ đến theo dõi buổi làm và kiểm tra giao dịch. Bạn nên kiểm tra thông tin đơn và trạng thái thanh toán trong ứng dụng sau mỗi thao tác.",
+    "sections": [
+      {
+        "heading": "Quy trình từ chuẩn bị đến đặt đơn",
+        "text": "1. Chuẩn bị tài khoản và địa chỉ. Đăng nhập tài khoản khách hàng. Vào Cá nhân rồi Địa chỉ của tôi để kiểm tra tên người nhận, số điện thoại và địa chỉ thực hiện dịch vụ.\n\n2. Chọn dịch vụ. Ở Trang chủ, mở một dịch vụ trong mục Dịch vụ. Xem mô tả và điền các lựa chọn hiển thị trên biểu mẫu của dịch vụ đó.\n\n3. Chọn lịch và nơi thực hiện. Chọn ngày giờ tương lai cho dịch vụ một lần. Với dịch vụ định kỳ, điền các ngày trong tuần, giờ bắt đầu và thời hạn gói theo biểu mẫu. Dịch vụ chuyển nhà cần cả địa chỉ chuyển đi và chuyển đến.\n\n4. Kiểm tra trước khi gửi. Nhấn Đặt dịch vụ để mở Xác nhận và thanh toán. Đối chiếu thời gian làm việc, chi tiết công việc, địa chỉ và Tổng thanh toán; chọn voucher và nhân viên yêu thích nếu phù hợp.\n\n5. Đăng việc và thanh toán. Chọn phương thức đang khả dụng rồi nhấn Đăng việc. Nếu chọn Chuyển khoản, hoàn tất bước thanh toán ở màn hình Thanh toán đơn hàng. Nếu chọn Ví CleanWise, kiểm tra số dư đủ trước khi gửi."
+      },
+      {
+        "heading": "Kết quả cần kiểm tra",
+        "text": "Mở Đơn hàng để tìm đơn vừa tạo theo mã đơn hoặc tên dịch vụ. Việc tạo đơn thành công không đồng nghĩa đã thanh toán hoặc đã có nhân viên nhận việc; kiểm tra từng trạng thái trong chi tiết đơn."
+      },
+      {
+        "heading": "Theo dõi đơn và buổi dịch vụ",
+        "text": "Vào Đơn hàng, tìm đơn cần xem rồi mở chi tiết. Với gói nhiều buổi, xem từng buổi để biết lịch dự kiến, nhân viên và tiến độ. Thông tin của một buổi không đại diện cho toàn bộ gói.\n\nChờ nhận việc: đơn đang chờ nhân viên nhận.\n\nĐã nhận: đã có nhân viên nhận việc; hãy xem thêm thông tin buổi làm để biết thời gian thực tế.\n\nĐang thực hiện: công việc đang được thực hiện.\n\nHoàn thành: đơn đã được ghi nhận hoàn thành.\n\nĐã hủy: đơn đã hủy.\n\nHết hạn nhận đơn: đơn không tiếp tục trong luồng nhận việc hiện tại; kiểm tra chi tiết trước khi đặt đơn mới."
+      },
+      {
+        "heading": "Liên lạc và phản hồi",
+        "text": "Khi buổi làm có hội thoại với nhân viên, mở hội thoại tương ứng để trao đổi hoặc vào Tin nhắn để xem các hội thoại của bạn. Sau khi buổi làm hoàn thành, dùng chức năng Đánh giá nếu được hiển thị. Vào Cá nhân rồi Đánh giá và khiếu nại để xem lại các phản hồi."
+      },
+      {
+        "heading": "Thay đổi kế hoạch",
+        "text": "Nếu có nút Hủy đơn hàng hoặc hủy buổi, mở đúng đơn hoặc buổi cần hủy, đọc nội dung xác nhận, chọn hoặc nhập lý do rồi nhấn Xác nhận hủy. Chỉ coi thao tác thành công khi ứng dụng báo kết quả và trạng thái đã cập nhật. Số tiền hoàn, nếu có, xem theo kết quả thực tế và lịch sử ví."
+      },
+      {
+        "heading": "Kiểm tra sau dịch vụ",
+        "text": "1. Xem buổi đã thực hiện. Mở đơn và buổi tương ứng để kiểm tra trạng thái, thời gian dự kiến và thời gian thực tế khi có dữ liệu.\n\n2. Kiểm tra thanh toán. Xem chi tiết thanh toán của đơn. Đối chiếu thêm ở Cá nhân rồi Lịch sử thanh toán; giao dịch ví xem ở Ví / Thẻ thanh toán.\n\n3. Gửi đánh giá. Nếu chức năng đánh giá khả dụng, chọn số sao, nhập trải nghiệm, thêm ảnh khi cần và nhấn Gửi đánh giá."
+      },
+      {
+        "heading": "Đơn đã tạo nhưng chưa thấy nhân viên thì sao",
+        "text": "Mở chi tiết đơn để kiểm tra trạng thái và thông tin từng buổi. Trạng thái Chờ nhận việc chưa xác nhận có nhân viên nhận."
+      },
+      {
+        "heading": "Đã chọn nhân viên yêu thích có chắc người đó đến không",
+        "text": "Việc chọn nhân viên yêu thích gửi yêu cầu cho người được chọn. Bạn cần kiểm tra kết quả nhận việc trong đơn hoặc buổi dịch vụ; lựa chọn này chưa xác nhận nhân viên đã đến."
+      },
+      {
+        "heading": "Không thấy nút hủy thì làm gì",
+        "text": "Khả năng hủy phụ thuộc trạng thái đơn, buổi và thanh toán. Với gói nhiều buổi, kiểm tra từng buổi còn chờ thực hiện. Nếu ứng dụng báo không thể hủy, đọc lý do trả về."
+      },
+      {
+        "heading": "Khi gặp lỗi cần giữ thông tin gì",
+        "text": "Ghi lại mã đơn, buổi dịch vụ liên quan, thời điểm thao tác và nội dung lỗi. Với lỗi thanh toán, giữ thêm mã giao dịch, số tiền và biên nhận để phục vụ đối chiếu."
+      }
+    ],
+    "keywords": "quy trình sử dụng dịch vụ theo dõi nhận việc hoàn thành hủy",
+    "source_document": "01_Quy_trinh_su_dung_dich_vu_CleanWise.docx",
+    "role": "CUSTOMER",
+    "effective_from": "2026-10-09"
+  },
+  {
+    "slug": "su-dung-app-khach-hang",
+    "version": 1,
+    "title": "Hướng dẫn sử dụng ứng dụng khách hàng CleanWise",
+    "summary": "Tài liệu giúp khách hàng tìm đúng màn hình để quản lý địa chỉ, xem đơn, nhắn tin, kiểm tra giao dịch và dùng trợ lý. Các bước đặt đơn và thanh toán chi tiết có trong hai tài liệu hướng dẫn riêng.",
+    "sections": [
+      {
+        "heading": "Các khu vực chính",
+        "text": "Trang chủ: xem danh mục Dịch vụ và mục Ưu đãi cho bạn; mở dịch vụ để chọn thông tin đặt.\n\nĐơn hàng: xem Đơn dịch vụ của tôi, tìm theo mã đơn hoặc tên dịch vụ và lọc theo trạng thái.\n\nTrợ lý: gửi câu hỏi về dịch vụ và tra cứu đơn, lịch, thanh toán của tài khoản đang đăng nhập.\n\nTin nhắn: xem các hội thoại và tin nhắn với nhân viên.\n\nCá nhân: truy cập thông tin cá nhân, địa chỉ, nhân viên yêu thích, ví, lịch sử thanh toán, khuyến mãi, đánh giá và khiếu nại, cài đặt."
+      },
+      {
+        "heading": "Đăng nhập và quản lý thông tin",
+        "text": "Đăng nhập bằng thông tin tài khoản của bạn. Khi cần cập nhật hồ sơ, mở Cá nhân rồi Thông tin cá nhân và lưu thay đổi bằng chức năng trên màn hình. Khi không còn sử dụng tài khoản trên thiết bị, dùng Đăng xuất trong Cá nhân."
+      },
+      {
+        "heading": "Cách dùng danh mục dịch vụ",
+        "text": "Mở Trang chủ rồi chọn dịch vụ. Các trường và lựa chọn thay đổi theo dịch vụ, vì vậy hãy đọc nhãn trường và thông báo thiếu thông tin. Nếu danh sách tải lỗi, dùng thao tác thử lại khi được hiển thị."
+      },
+      {
+        "heading": "Thêm và chọn địa chỉ",
+        "text": "1. Mở danh sách. Vào Cá nhân rồi Địa chỉ của tôi, hoặc nhấn trường địa chỉ khi đang chọn dịch vụ.\n\n2. Thêm địa chỉ. Chọn Thêm địa chỉ, sau đó chọn Chọn trên bản đồ hoặc Nhập thủ công.\n\n3. Điền thông tin. Kiểm tra tên người nhận, số điện thoại, địa chỉ cụ thể và thông tin khu vực hiển thị. Có thể dùng nhãn Nhà, Công ty, Khác hoặc tự đặt nhãn.\n\n4. Lưu và kiểm tra. Nhấn Thêm địa chỉ. Khi đang đặt dịch vụ, chọn địa chỉ trong danh sách và kiểm tra địa chỉ đã hiện ở trường tương ứng.\n\n5. Cập nhật khi cần. Mở địa chỉ đã lưu, chỉnh sửa rồi nhấn Lưu thay đổi. Với dịch vụ có hai địa chỉ, kiểm tra riêng địa chỉ chuyển đi và chuyển đến."
+      },
+      {
+        "heading": "Tìm và xem đơn",
+        "text": "Vào Đơn hàng. Nhập mã đơn hoặc tên dịch vụ vào ô Tìm theo mã đơn hoặc tên dịch vụ. Dùng các bộ lọc Tất cả, Chờ nhận, Đã nhận đơn, Đang làm, Hoàn thành, Đã hủy hoặc Hết hạn nhận đơn. Mở đơn để xem lịch, địa chỉ, chi tiết công việc và thanh toán."
+      },
+      {
+        "heading": "Xem gói nhiều buổi",
+        "text": "Trong chi tiết đơn, mở buổi cần xem. Đối chiếu số thứ tự buổi và ngày giờ để tránh nhầm. Kiểm tra nhân viên, thời gian thực tế và ảnh công việc khi các thông tin này có sẵn."
+      },
+      {
+        "heading": "Ví và lịch sử thanh toán",
+        "text": "Vào Cá nhân rồi Ví / Thẻ thanh toán để xem số dư và Lịch sử giao dịch. Có thể lọc Tất cả, Tiền vào hoặc Tiền ra. Vào Cá nhân rồi Lịch sử thanh toán để xem các giao dịch trong danh sách, lọc Qua ví hoặc Online và trạng thái phù hợp."
+      },
+      {
+        "heading": "Voucher và nhân viên yêu thích",
+        "text": "Mở Khuyến mãi trong Cá nhân hoặc mục ưu đãi trên Trang chủ để xem voucher. Khi xác nhận đặt dịch vụ, dùng Thêm voucher và kiểm tra số tiền sau khi áp dụng. Nhân viên yêu thích được quản lý ở Cá nhân; tại màn hình xác nhận, chỉ chọn trong danh sách nhân viên phù hợp được hiển thị."
+      },
+      {
+        "heading": "Sử dụng Trợ lý",
+        "text": "Mở Trợ lý, nhập câu hỏi rõ ràng, ví dụ “Đơn gần nhất của tôi đã thanh toán chưa?” hoặc “Đơn này còn mấy buổi?”. Nếu có nhiều đơn phù hợp, cung cấp mã đơn để xác định đúng đơn. Nhấn thẻ dịch vụ, đơn hoặc buổi trong câu trả lời để mở màn hình chi tiết.\n\nTrợ lý hỗ trợ tra cứu; thao tác đặt đơn, hủy đơn hoặc gửi phản hồi được thực hiện tại màn hình tương ứng của ứng dụng. Khi cần trạng thái mới nhất, xem lại chi tiết đơn hoặc gửi câu hỏi tra cứu mới."
+      },
+      {
+        "heading": "Đánh giá và khiếu nại",
+        "text": "Sau khi buổi làm hoàn thành và nút đánh giá khả dụng, chọn số sao, nhập nội dung, thêm ảnh nếu cần rồi nhấn Gửi đánh giá. Vào Cá nhân rồi Đánh giá và khiếu nại để xem hai mục Đánh giá và Khiếu nại."
+      },
+      {
+        "heading": "Không tìm thấy đơn trong danh sách",
+        "text": "Chọn Tất cả, bỏ từ khóa hoặc kiểm tra lại mã đơn. Xác nhận bạn đang đăng nhập đúng tài khoản đã đặt dịch vụ."
+      }
+    ],
+    "keywords": "sử dụng app địa chỉ tin nhắn voucher đánh giá khiếu nại trợ lý",
+    "source_document": "02_Huong_dan_su_dung_app_khach_hang.docx",
+    "role": "CUSTOMER",
+    "effective_from": "2026-10-09"
+  },
+  {
+    "slug": "dat-don-dich-vu",
+    "version": 1,
+    "title": "Hướng dẫn đặt đơn dịch vụ CleanWise",
+    "summary": "Tài liệu hướng dẫn khách hàng chọn dịch vụ, điền thông tin, kiểm tra chi phí và gửi đơn. Hãy hoàn tất bước xác nhận rồi kiểm tra mã đơn trong Đơn hàng để biết kết quả đặt.",
+    "sections": [
+      {
+        "heading": "Chuẩn bị trước khi đặt",
+        "text": "Bạn cần đăng nhập tài khoản khách hàng, có địa chỉ và số điện thoại người nhận chính xác, xác định thời gian mong muốn và chuẩn bị phương thức thanh toán đang khả dụng. Nội dung biểu mẫu phụ thuộc dịch vụ được chọn."
+      },
+      {
+        "heading": "Chọn dịch vụ và điền nhu cầu",
+        "text": "1. Chọn dịch vụ. Vào Trang chủ, mở dịch vụ trong danh mục Dịch vụ và đọc nội dung hiển thị.\n\n2. Điền chi tiết công việc. Chọn các trường bắt buộc theo biểu mẫu, chẳng hạn thời lượng, quy mô hoặc hạng mục nếu dịch vụ có yêu cầu. Với danh sách hạng mục có thể thêm nhiều dòng, thêm đủ các hạng mục cần làm.\n\n3. Chọn địa chỉ. Nhấn trường địa chỉ, chọn địa chỉ đã lưu hoặc thêm mới. Dịch vụ chuyển nhà cần chọn cả địa chỉ chuyển đi và chuyển đến.\n\n4. Chọn lịch. Với dịch vụ một lần, chọn ngày và giờ bắt đầu ở tương lai. Với gói định kỳ, chọn ngày trong tuần, giờ bắt đầu và thời hạn gói theo các lựa chọn hiển thị.\n\n5. Mở bước xác nhận. Kiểm tra Tạm tính rồi nhấn Đặt dịch vụ. Nếu app báo Thiếu thông tin, bổ sung các trường được nêu trước khi tiếp tục.\n\nNếu hiển thị Chờ báo giá hoặc chưa có số tiền, không tự coi đó là giá bằng không. Đọc thông báo của ứng dụng và kiểm tra chi phí được xác nhận cho đơn."
+      },
+      {
+        "heading": "Kiểm tra Xác nhận và thanh toán",
+        "text": "1. Kiểm tra lịch. Xem Thời gian làm việc, ngày giờ và thông tin gói nếu có. Khi cần sửa, quay lại màn hình dịch vụ để điều chỉnh.\n\n2. Kiểm tra công việc và địa chỉ. Đối chiếu Chi tiết công việc, địa chỉ thực hiện và địa chỉ chuyển đến nếu có. Bổ sung ghi chú trong trường của dịch vụ nếu biểu mẫu cung cấp.\n\n3. Kiểm tra voucher. Nhấn Thêm voucher nếu khả dụng, chọn voucher và xem kết quả áp dụng. Có thể dùng Đổi voucher hoặc Bỏ voucher; kiểm tra lại Tổng thanh toán sau khi đổi.\n\n4. Chọn nhân viên yêu thích khi cần. Nếu có nhân viên phù hợp trong danh sách, chọn người muốn gửi yêu cầu. Nếu không có, tiếp tục đặt mà không chọn. Theo dõi đơn để biết kết quả nhận việc.\n\n5. Chọn phương thức thanh toán. Mở Phương thức thanh toán hoặc nhấn Đổi, rồi chọn phương thức khả dụng. Gói định kỳ hoặc nhiều buổi yêu cầu thanh toán trước, nên tiền mặt không xuất hiện trong danh sách.\n\n6. Gửi đơn. Đối chiếu Giá dịch vụ, Giảm giá và Tổng thanh toán, sau đó nhấn Đăng việc. Chờ ứng dụng trả kết quả trước khi thao tác tiếp."
+      },
+      {
+        "heading": "Điều cần lưu ý về giá",
+        "text": "Tạm tính giúp bạn xem chi phí theo lựa chọn. Kiểm tra Tổng thanh toán ở bước xác nhận và số tiền của đơn sau khi tạo. Nếu hệ thống trả lỗi về giá, voucher hoặc số dư, xử lý theo thông báo rồi kiểm tra lại trước khi gửi."
+      },
+      {
+        "heading": "Hoàn tất và kiểm tra đơn",
+        "text": "Chuyển khoản: ứng dụng mở Thanh toán đơn hàng. Kiểm tra mã đơn và số tiền, hoàn tất chuyển khoản theo trang thanh toán hoặc VietQR rồi chờ xác nhận.\n\nVí CleanWise: cần đủ số dư. Sau khi đặt thành công, kiểm tra trạng thái thanh toán của đơn và giao dịch trừ ví.\n\nTiền mặt: sau khi đặt thành công, mở đơn để kiểm tra thông tin. Màn hình đặt thành công chưa xác nhận đã trả tiền mặt.\n\nVào Đơn hàng để tìm đơn theo mã hoặc tên dịch vụ. Xem trạng thái nhận việc và các buổi dịch vụ. Giữ mã đơn để dùng khi tra cứu hoặc đối chiếu thanh toán."
+      },
+      {
+        "heading": "App báo thiếu địa chỉ hoặc ngày giờ",
+        "text": "Quay lại màn hình dịch vụ, bổ sung địa chỉ và lịch còn thiếu. Giờ bắt đầu của dịch vụ một lần phải ở tương lai."
+      },
+      {
+        "heading": "Voucher không còn hợp lệ",
+        "text": "Kiểm tra thông báo, chọn voucher khác hoặc bỏ voucher. Đối chiếu lại Tổng thanh toán trước khi nhấn Đăng việc."
+      },
+      {
+        "heading": "Ví không đủ tiền",
+        "text": "Nạp thêm tiền vào Ví CleanWise hoặc chọn phương thức khác đang khả dụng. Gói định kỳ không cho chọn tiền mặt."
+      },
+      {
+        "heading": "Mất mạng sau khi nhấn Đăng việc",
+        "text": "Kiểm tra danh sách Đơn hàng để biết đơn đã được tạo chưa. Nếu chưa xác định được kết quả, tránh vội tạo đơn mới với cùng nhu cầu; giữ thông tin lỗi để đối chiếu."
+      },
+      {
+        "heading": "Đơn chuyển khoản hết hạn hoặc đã hủy",
+        "text": "Kiểm tra đơn và thanh toán trước khi dùng Đặt lại. Nếu đã chuyển tiền, giữ biên nhận và đối chiếu giao dịch trước khi thanh toán lần nữa."
+      }
+    ],
+    "keywords": "đặt đơn đặt lịch định kỳ chuyển nhà xác nhận voucher nhân viên",
+    "source_document": "03_Huong_dan_dat_don_dich_vu.docx",
+    "role": "CUSTOMER",
+    "effective_from": "2026-10-09"
+  },
+  {
+    "slug": "thanh-toan-va-vi",
+    "version": 1,
+    "title": "Hướng dẫn thanh toán và sử dụng Ví CleanWise",
+    "summary": "Tài liệu giúp khách hàng chọn phương thức thanh toán, chuyển khoản cho đơn dịch vụ, nạp ví và kiểm tra giao dịch. Luôn đối chiếu đúng mã đơn, số tiền và trạng thái trong ứng dụng trước khi thực hiện thêm giao dịch.",
+    "sections": [
+      {
+        "heading": "Chọn phương thức thanh toán",
+        "text": "Ở Xác nhận và thanh toán, mở Phương thức thanh toán hoặc nhấn Đổi. Dịch vụ một lần có các lựa chọn Tiền mặt, Chuyển khoản và Ví CleanWise. Gói định kỳ hoặc nhiều buổi chỉ cho chọn phương thức thanh toán trước. Nếu số dư không đủ, lựa chọn ví có thể bị vô hiệu hóa và hiển thị Không đủ."
+      },
+      {
+        "heading": "Thanh toán chuyển khoản VietQR",
+        "text": "1. Tạo đơn. Chọn Chuyển khoản rồi nhấn Đăng việc để mở Thanh toán đơn hàng.\n\n2. Đối chiếu đơn. Kiểm tra mã đơn, Số tiền cần thanh toán và thời gian còn lại của liên kết.\n\n3. Mở công cụ thanh toán. Nhấn Mở trang thanh toán. Nếu có các nút ngân hàng, có thể mở app ngân hàng tương ứng. Hoặc nhấn Hoặc quét mã QR để hiện mã cho thiết bị có khả năng quét.\n\n4. Kiểm tra giao dịch. Trong trang thanh toán hoặc app ngân hàng, kiểm tra tài khoản nhận, số tiền và nội dung chuyển khoản. Giữ đúng nội dung được cung cấp cho giao dịch.\n\n5. Xác nhận tại ngân hàng. Hoàn tất xác nhận chuyển khoản trong app ngân hàng rồi quay lại CleanWise.\n\n6. Kiểm tra kết quả. Ứng dụng theo dõi trạng thái và chuyển sang màn hình thành công khi nhận xác nhận đã trả. Mở lại chi tiết đơn để kiểm tra trạng thái thanh toán.\n\nKhông dùng một mã QR hoặc liên kết thanh toán của đơn khác. Khi app ngân hàng không mở được, sử dụng Mở trang thanh toán nếu liên kết còn hiệu lực."
+      },
+      {
+        "heading": "Thanh toán bằng Ví CleanWise",
+        "text": "1. Kiểm tra số dư. Vào Cá nhân rồi Ví / Thẻ thanh toán. Đối chiếu số dư với tổng tiền cần trả.\n\n2. Chọn ví khi đặt. Ở Xác nhận và thanh toán, chọn Ví CleanWise. Kiểm tra Tổng thanh toán rồi nhấn Đăng việc.\n\n3. Kiểm tra giao dịch. Sau khi đặt thành công, mở chi tiết đơn để xem thanh toán và mở ví để đối chiếu giao dịch Tiền ra."
+      },
+      {
+        "heading": "Nạp tiền vào ví",
+        "text": "1. Mở chức năng nạp. Vào Cá nhân rồi Ví / Thẻ thanh toán và nhấn Nạp tiền.\n\n2. Nhập số tiền. Nhập số tiền hoặc chọn mức gợi ý. Tuân theo mức tối thiểu và tối đa hiển thị trên màn hình.\n\n3. Tạo yêu cầu nạp. Nhấn Tiếp tục thanh toán rồi mở trang thanh toán để chuyển khoản theo thông tin được cung cấp.\n\n4. Quay lại kiểm tra. Sau khi chuyển khoản, quay lại app. Khi giao dịch được xác nhận, app hiển thị Nạp tiền thành công và cập nhật số dư. Có thể chọn Đóng, kiểm tra sau nếu vẫn đang chờ."
+      },
+      {
+        "heading": "Tiền mặt và rút tiền",
+        "text": "Với đơn có lựa chọn Tiền mặt, chọn phương thức rồi đăng việc. Kiểm tra chi tiết thanh toán của đơn; việc tạo đơn chưa xác nhận đã thu tiền. Không dùng màn hình đặt thành công làm bằng chứng đã thanh toán.\n\nNếu cần rút tiền từ ví, nhấn Rút tiền, chọn tài khoản ngân hàng, nhập số tiền rồi Gửi yêu cầu. Khi chưa có tài khoản ngân hàng, dùng Thêm tài khoản ngân hàng. Kiểm tra trạng thái yêu cầu sau khi gửi."
+      },
+      {
+        "heading": "Tra cứu và đối chiếu",
+        "text": "Vào Cá nhân rồi Lịch sử thanh toán để xem danh sách. Dùng bộ lọc Qua ví hoặc Online và trạng thái Đã thanh toán, Chờ thanh toán, Đã hủy hoặc Đã hoàn. Giao dịch ví được xem thêm ở Lịch sử giao dịch trong Ví / Thẻ thanh toán, với bộ lọc Tiền vào và Tiền ra."
+      },
+      {
+        "heading": "Không tạo được liên kết thanh toán",
+        "text": "Kiểm tra kết nối mạng và nhấn Thử lại trên màn hình Thanh toán đơn hàng. Đối chiếu đúng mã đơn trước khi tiếp tục."
+      },
+      {
+        "heading": "Liên kết thanh toán đã hết hạn",
+        "text": "Ứng dụng có thể lấy liên kết mới khi đơn còn khả dụng. Dùng Lấy link mới nếu cần và chỉ sử dụng thông tin của liên kết đang hiệu lực."
+      },
+      {
+        "heading": "Đã chuyển tiền nhưng app vẫn đang chờ",
+        "text": "Quay lại app, kiểm tra chi tiết đơn và Lịch sử thanh toán. Giữ biên nhận gồm mã giao dịch, thời gian, số tiền và nội dung chuyển khoản. Đối chiếu giao dịch trước khi chuyển thêm tiền cho cùng đơn."
+      },
+      {
+        "heading": "Lệnh nạp ví hết hạn nhưng đã chuyển tiền",
+        "text": "Theo dõi lại số dư và lịch sử ví; màn hình nạp thông báo số dư sẽ được cộng khi hệ thống nhận xác nhận. Giữ biên nhận để đối chiếu nếu trạng thái chưa cập nhật."
+      },
+      {
+        "heading": "Đơn đã hủy có tiền hoàn ở đâu",
+        "text": "Nếu kết quả hủy thông báo đã hoàn vào ví, mở Ví / Thẻ thanh toán để kiểm tra số dư và giao dịch Tiền vào. Số tiền hoàn phải lấy từ kết quả thực tế của đơn hoặc buổi.\n\nTrạng thái đơn và trạng thái thanh toán là hai thông tin riêng. Một đơn đã hủy không tự chứng minh giao dịch đã được hoàn; hãy kiểm tra kết quả hoàn và lịch sử ví."
+      }
+    ],
+    "keywords": "thanh toán chuyển khoản VietQR QR ví nạp tiền rút tiền tiền mặt hoàn tiền",
+    "source_document": "04_Huong_dan_thanh_toan_va_vi_CleanWise.docx",
+    "role": "CUSTOMER",
+    "effective_from": "2026-10-09"
+  }
+]

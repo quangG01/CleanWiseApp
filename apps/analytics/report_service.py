@@ -12,7 +12,8 @@ from rest_framework import serializers
 from apps.reviews.models import Review
 from apps.services.models import Service
 from apps.wallets.models import WorkerEarning
-from apps.worker.models import BookingAssignment
+from apps.worker.models import BookingAssignment, CustomerFavoriteWorker
+from apps.complaints.models import Complaint
 from apps.bookings.models import Booking, BookingSchedule
 
 ZONE = ZoneInfo('Asia/Ho_Chi_Minh')
@@ -25,7 +26,7 @@ class ReportParams(serializers.Serializer):
     start = serializers.DateField(required=False)
     end = serializers.DateField(required=False)
     group_by = serializers.ChoiceField(choices=['auto', 'day', 'week', 'month'], default='auto')
-    sort = serializers.ChoiceField(choices=['orders', 'sessions', 'rating', 'commission'], default='orders')
+    sort = serializers.ChoiceField(choices=['orders', 'sessions', 'rating', 'commission', 'favorites', 'complaints'], default='orders')
     page = serializers.IntegerField(min_value=1, default=1)
     page_size = serializers.IntegerField(min_value=1, max_value=100, default=20)
 
@@ -71,7 +72,8 @@ class Report:
         else:
             dates = [Booking.objects.aggregate(value=Min('created_at'))['value'],
                      WorkerEarning.objects.aggregate(value=Min('completed_at'))['value'],
-                     Review.objects.aggregate(value=Min('created_at'))['value']]
+                     Review.objects.aggregate(value=Min('created_at'))['value'],
+                     Complaint.objects.aggregate(value=Min('created_at'))['value']]
             start = min([timezone.localtime(d, ZONE).date() for d in dates if d] + [today])
             end = today + timedelta(days=1)
         self.start, self.end = start, end
@@ -96,7 +98,10 @@ class Report:
         return {'type': self.params['period'], 'start': self.start.isoformat(), 'end': self.end.isoformat(),
                 'end_exclusive': True, 'timezone': str(ZONE), 'group_by': self.group,
                 'orders_date_field': 'created_at', 'revenue_date_field': 'completed_at',
-                'reviews_date_field': 'created_at', 'revenue_basis': 'recorded_commission_before_refund_adjustments'}
+                'reviews_date_field': 'created_at', 'complaints_date_field': 'created_at',
+                'favorites_basis': 'current_saved_customers',
+                'complaints_basis': 'customer_reports_excluding_cancelled',
+                'revenue_basis': 'recorded_commission_before_refund_adjustments'}
 
     def summary(self):
         orders = self.orders.aggregate(total=Count('id'), amount=Sum('total_amount'),
@@ -156,20 +161,37 @@ class Report:
             completed_orders=Count('booking_id', distinct=True), completed_sessions=Count('id', distinct=True))}
         earnings = {r['worker_id']: r for r in self.earnings.order_by().values('worker_id').annotate(commission=Sum('commission_amount'), income=Sum('worker_amount'))}
         ratings = {r['assignment__worker_id']: r for r in self.reviews.order_by().values('assignment__worker_id').annotate(rating=Avg('rating'), count=Count('id'))}
+        favorites = dict(CustomerFavoriteWorker.objects.filter(customer__role='CUSTOMER').order_by().values('worker_id').annotate(
+            count=Count('customer_id', distinct=True)).values_list('worker_id', 'count'))
+        complaints = {r['worker_id']: r for r in self.between(
+            Complaint.objects.filter(reporter_role='CUSTOMER', worker__isnull=False).exclude(status='CANCELLED'),
+            'created_at').order_by().values('worker_id').annotate(
+                total=Count('id'),
+                pending=Count('id', filter=Q(status__in=['PENDING', 'IN_REVIEW'])),
+                resolved=Count('id', filter=Q(status='RESOLVED')),
+                rejected=Count('id', filter=Q(status='REJECTED')))}
         result = []
         for worker in User.objects.filter(role='WORKER').select_related('worker_profile').order_by('id'):
             job, earned, rating = jobs.get(worker.id, {}), earnings.get(worker.id, {}), ratings.get(worker.id, {})
             profile = getattr(worker, 'worker_profile', None)
+            complaint = complaints.get(worker.id, {})
             result.append({'worker_id': worker.id, 'name': worker.get_full_name() or worker.username, 'username': worker.username,
                 'active_current': worker.is_active and bool(profile and profile.status == 'ACTIVE'),
                 'profile_status': profile.status if profile else None,
                 'completed_orders': job.get('completed_orders', 0), 'completed_sessions': job.get('completed_sessions', 0),
                 'average_rating': round(rating['rating'], 2) if rating else None, 'review_count': rating.get('count', 0),
+                'favorite_count_current': favorites.get(worker.id, 0),
+                'complaint_count': complaint.get('total', 0),
+                'complaint_pending_count': complaint.get('pending', 0),
+                'complaint_resolved_count': complaint.get('resolved', 0),
+                'complaint_rejected_count': complaint.get('rejected', 0),
                 'cleanwise_revenue': money(earned.get('commission')), 'worker_income': money(earned.get('income'))})
         sort = self.params['sort']
         primary = {'orders': lambda r: r['completed_orders'], 'sessions': lambda r: r['completed_sessions'],
                    'rating': lambda r: r['average_rating'] if r['average_rating'] is not None else -1,
-                   'commission': lambda r: Decimal(r['cleanwise_revenue'])}[sort]
+                   'commission': lambda r: Decimal(r['cleanwise_revenue']),
+                   'favorites': lambda r: r['favorite_count_current'],
+                   'complaints': lambda r: r['complaint_count']}[sort]
         result.sort(key=lambda r: (-primary(r), -r['completed_sessions'], -r['review_count'], r['worker_id']))
         for rank, row in enumerate(result, 1):
             row['rank'] = rank

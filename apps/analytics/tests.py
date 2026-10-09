@@ -14,7 +14,8 @@ from apps.authentication.models import WorkerProfile
 from apps.reviews.models import Review
 from apps.services.models import Service
 from apps.wallets.models import WorkerEarning
-from apps.worker.models import BookingAssignment
+from apps.worker.models import BookingAssignment, CustomerFavoriteWorker
+from apps.complaints.models import Complaint, ComplaintIssueType
 from apps.bookings.models import Booking, BookingSchedule
 from .report_service import Report, ReportParams, ZONE
 
@@ -108,6 +109,43 @@ class AdminReportTests(APITestCase):
         self.assertEqual(sum(r['orders'] for r in rows), 4)
         self.assertEqual(sum(r['order_share_percent'] for r in rows), 100)
         self.assertEqual(sum(Decimal(r['cleanwise_revenue']) for r in rows), Decimal('100000'))
+
+    def test_worker_favorites_are_current_unique_customers_and_sort_before_pagination(self):
+        other = User.objects.create_user(username='favorite-report', email='favorite-report@test.com', role='CUSTOMER')
+        link = CustomerFavoriteWorker.objects.create(customer=self.customer, worker=self.workers[0])
+        CustomerFavoriteWorker.objects.filter(pk=link.pk).update(created_at=at('2026-09-01T10:00'))
+        CustomerFavoriteWorker.objects.create(customer=other, worker=self.workers[0])
+        CustomerFavoriteWorker.objects.create(customer=self.customer, worker=self.workers[1])
+        page = self.data('workers', {**self.params, 'sort': 'favorites', 'page_size': 1})
+        self.assertEqual(page['results'][0]['worker_id'], self.workers[0].pk)
+        self.assertEqual(page['results'][0]['favorite_count_current'], 2)
+        self.assertTrue(page['has_next'])
+        link.delete()
+        rows = self.data('workers', {**self.params, 'sort': 'favorites'})['results']
+        self.assertTrue(all(r['favorite_count_current'] == 1 for r in rows))
+
+    def test_customer_complaints_counts_statuses_and_period_without_join_fanout(self):
+        issue = ComplaintIssueType.objects.create(code='REPORT_ISSUE', name='Phản ánh')
+        def complaint(worker, status, role='CUSTOMER', date='2026-10-05T00:00'):
+            obj = Complaint.objects.create(booking=self.b1, worker=worker, reporter=self.customer if role == 'CUSTOMER' else worker,
+                reporter_role=role, issue_type=issue, stage='AFTER_SERVICE', status='PENDING')
+            Complaint.objects.filter(pk=obj.pk).update(created_at=at(date), status=status)
+        for status in ['PENDING', 'IN_REVIEW', 'RESOLVED', 'REJECTED', 'CANCELLED']:
+            complaint(self.workers[0], status)
+        complaint(self.workers[0], 'PENDING', date='2026-10-12T00:00')
+        complaint(self.workers[0], 'PENDING', date='2026-10-04T23:59')
+        complaint(self.workers[1], 'RESOLVED')
+        complaint(self.workers[1], 'PENDING', role='WORKER')
+        complaint(None, 'PENDING')
+        rows = self.data('workers', {**self.params, 'sort': 'complaints'})['results']
+        self.assertEqual(rows[0]['worker_id'], self.workers[0].pk)
+        self.assertEqual(rows[0]['complaint_count'], 4)
+        self.assertEqual(rows[0]['complaint_pending_count'], 2)
+        self.assertEqual(rows[0]['complaint_resolved_count'], 1)
+        self.assertEqual(rows[0]['complaint_rejected_count'], 1)
+        self.assertEqual(rows[0]['completed_sessions'], 2)
+        self.assertEqual(rows[1]['complaint_count'], 1)
+        self.assertEqual(rows[1]['favorite_count_current'], 0)
 
     def test_periods_week_month_quarter_leap_year(self):
         cases = [('week', '2026-10-01', '2026-09-28', '2026-10-05'),

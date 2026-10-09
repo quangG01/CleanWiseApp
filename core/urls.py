@@ -76,6 +76,7 @@ urlservicepatterns = [
 urlpatterns += urlservicepatterns
 
 urlpatterns += [path('api/chat/', include('apps.chat.urls'))]
+urlpatterns += [path('api/chatbot/', include('apps.chatbot.urls'))]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
