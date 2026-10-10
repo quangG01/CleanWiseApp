@@ -174,6 +174,12 @@ def update_schedule_by_admin(*, schedule_id, actor, validated_data):
     )
 
     if changing_time:
+        from apps.worker.invitation_service import finish_invitation
+        for invitation in schedule.assignments.filter(status='PENDING', assigned_by__isnull=False):
+            finish_invitation(invitation, 'CANCELLED', actor, 'Buổi làm đã đổi lịch. Admin cần gửi lời mời mới.')
+        if schedule.preferred_worker_id:
+            schedule.preferred_worker_expires_at = timezone.now()
+            schedule.save(update_fields=['preferred_worker_expires_at', 'updated_at'])
         message = (
             f'Buổi {schedule.sequence_no} của đơn {schedule.booking.booking_code} '
             f'đã được đổi lịch. Lý do: {validated_data.get("reason")}.'

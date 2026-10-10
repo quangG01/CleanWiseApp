@@ -24,9 +24,9 @@ def display_name(user) -> str:
 
 
 def create_notification(user, title, message, type=Notification.Type.SYSTEM,
-                        related_booking=None, related_schedule=None):
+                        related_booking=None, related_schedule=None, navigation_source='mine'):
     notif = Notification.objects.create(
-        user=user, title=title, message=message, type=type,
+        user=user, title=title, message=message, type=type, navigation_source=navigation_source,
         related_booking=related_booking, related_schedule=related_schedule,
     )
     push_unread_count(user.id)
@@ -36,7 +36,8 @@ def create_notification(user, title, message, type=Notification.Type.SYSTEM,
 def create_notification_with_push(user, title, message, type=Notification.Type.SYSTEM,
                                   related_booking=None, related_schedule=None,
                                   extra_data=None):
-    notif = create_notification(user, title, message, type, related_booking, related_schedule)
+    notif = create_notification(user, title, message, type, related_booking, related_schedule,
+                                navigation_source=(extra_data or {}).get('source', 'mine'))
     send_push_to_user(user, title, message, {
         'notification_id': notif.id,
         'type': type,

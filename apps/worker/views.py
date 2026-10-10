@@ -154,7 +154,7 @@ def _base_select_related(queryset):
 
 def _prefetch_assignments(queryset, *, with_images=False):
     queryset = _base_select_related(queryset).prefetch_related(
-        Prefetch('assignments', queryset=BookingAssignment.objects.filter(status=BookingAssignment.Status.ACCEPTED)),
+        Prefetch('assignments', queryset=BookingAssignment.objects.select_related('assigned_by', 'worker')),
     )
     if with_images:
         # Ảnh trước/sau chỉ cần ở my-schedules (WorkerMyScheduleSerializer),
@@ -504,9 +504,9 @@ class AdminAssignWorkerView(generics.GenericAPIView):
                 schedule_id=kwargs['schedule_id'],
                 worker_id=serializer.validated_data['worker_id'],
                 admin_user=request.user,
-                note=serializer.validated_data.get('note'),
+                response_minutes=serializer.validated_data['response_minutes'],
             )
-        return Response({'message': 'Gán nhân viên thành công.', 'data': {'assignment_id': assignment.id}}, status=201)
+        return Response({'message': 'Đã gửi lời mời nhận việc.', 'data': {'assignment_id': assignment.id}}, status=201)
 
 
 class WorkerCheckInView(generics.GenericAPIView):
@@ -575,3 +575,25 @@ class WorkerScheduleImageUploadView(generics.GenericAPIView):
             'message': 'Tải ảnh thành công.',
             'data': BookingScheduleImageSerializer(image).data,
         })
+
+
+class WorkerInvitationResponseView(generics.GenericAPIView):
+    permission_classes = [IsWorkerRole]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'worker_action'
+
+    @idempotent
+    def post(self, request, invitation_id):
+        from .invitation_service import respond_invitation
+        action = request.data.get('action')
+        if action not in ('accept', 'decline'):
+            raise ValidationError({'action': 'Chọn accept hoặc decline.'})
+        invitation = respond_invitation(invitation_id=invitation_id, worker=request.user, accept=action == 'accept')
+        if action == 'accept':
+            from apps.chat.service import ensure_chat_for_assignment
+            try:
+                ensure_chat_for_assignment(invitation)
+            except Exception:
+                pass
+        return Response({'message': 'Đã nhận việc.' if action == 'accept' else 'Đã từ chối lời mời.',
+                         'data': {'id': invitation.id, 'status': invitation.status}})

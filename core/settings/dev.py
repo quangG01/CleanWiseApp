@@ -7,7 +7,7 @@ DEBUG = True
 # DEBUG_PROPAGATE_EXCEPTIONS = True 
 ALLOWED_HOSTS = ['*']
 
-CORS_ALLOW_HEADERS = list(default_headers) + ["ngrok-skip-browser-warning"]
+CORS_ALLOW_HEADERS = list(default_headers) + ["idempotency-key", "ngrok-skip-browser-warning"]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 def build_database_config():

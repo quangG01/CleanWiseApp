@@ -186,6 +186,21 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
     available_sessions = serializers.SerializerMethodField()
     is_preferred_for_me = serializers.SerializerMethodField()
     preferred_until = serializers.SerializerMethodField()
+    invitation = serializers.SerializerMethodField()
+
+    def get_invitation(self, instance):
+        request = self.context.get('request')
+        worker_id = getattr(getattr(request, 'user', None), 'id', None)
+        invitations = [a for a in instance.assignments.all() if a.worker_id == worker_id and a.assigned_by_id and a.expired_at]
+        if not invitations:
+            return None
+        invitation = max(invitations, key=lambda a: a.id)
+        status = invitation.status
+        if status == 'PENDING' and (invitation.expired_at <= timezone.now() or instance.status != 'PENDING' or instance.booking.status not in ('PENDING', 'ASSIGNED', 'IN_PROGRESS')):
+            status = 'EXPIRED'
+        return {'id': invitation.id, 'source': 'ADMIN', 'status': status,
+                'expires_at': invitation.expired_at,
+                'sender_name': invitation.assigned_by.get_full_name() or invitation.assigned_by.username}
 
     def get_is_preferred_for_me(self, instance):
         request = self.context.get('request')
@@ -209,7 +224,7 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
             'sequence_no', 'total_sessions', 'scheduled_start', 'scheduled_end', 'status',
             'address_city', 'address_ward', 'address_latitude', 'address_longitude',
             'customer_avatar', 'customer_name', 'payment_status', 'price',
-            'service_data', 'assignment_id',"available_sessions",'delivery_city', 'delivery_ward','is_preferred_for_me', 'preferred_until'
+            'service_data', 'assignment_id',"available_sessions",'delivery_city', 'delivery_ward','is_preferred_for_me', 'preferred_until', 'invitation'
         ]
         read_only_fields = fields
 
@@ -330,6 +345,15 @@ class WorkerBookingScheduleSerializer(WorkerScheduleSerializer):
         if assignment is not None:
             return 'MINE' if assignment.worker_id == getattr(worker, 'id', None) else 'TAKEN'
 
+        from .invitation_service import active_invitation
+        invitation = active_invitation(instance)
+        if invitation and not active_invitation(instance, worker):
+            return 'TAKEN'
+        if (instance.preferred_worker_id and instance.preferred_worker_id != getattr(worker, 'id', None)
+                and instance.preferred_worker_expires_at and instance.preferred_worker_expires_at > timezone.now()):
+            return 'TAKEN'
+        if instance.status != 'PENDING' or instance.scheduled_start <= timezone.now() or instance.booking.status not in ('PENDING', 'ASSIGNED', 'IN_PROGRESS'):
+            return 'TAKEN'
         # Buổi còn trống nhưng trùng giờ với buổi khác worker đã nhận -> CONFLICT
         if worker is not None and assignment_service._has_time_conflict(worker, instance):
             return 'CONFLICT'
@@ -364,8 +388,8 @@ class ClaimBookingPackageSerializer(serializers.Serializer):
 
 
 class AdminAssignWorkerSerializer(serializers.Serializer):
+    response_minutes = serializers.ChoiceField(choices=[15, 30, 60], default=15)
     worker_id = serializers.IntegerField()
-    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
 class ScheduleImageUploadSerializer(serializers.Serializer):

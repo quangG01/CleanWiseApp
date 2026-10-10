@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    WorkerInvitationResponseView,
     WorkerActiveAreaListView,
     WorkerAvailableScheduleListView,
     WorkerCancelAssignmentView,
@@ -18,6 +19,7 @@ from .views import (
 
 
 urlpatterns = [
+    path('invitations/<int:invitation_id>/respond/', WorkerInvitationResponseView.as_view(), name='worker-invitation-respond'),
     path('schedules/available/', WorkerAvailableScheduleListView.as_view(), name='worker-schedule-available'),
     path('schedules/my-schedules/', WorkerMyScheduleListView.as_view(), name='worker-schedule-my'),
     path('bookings/<int:booking_id>/schedules/', WorkerBookingScheduleListView.as_view(), name='worker-booking-schedules'),
