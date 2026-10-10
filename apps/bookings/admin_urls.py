@@ -2,6 +2,7 @@ from django.urls import path
 from .admin_worker_schedule import AdminWorkerScheduleView
 
 from .admin_views import (
+    AdminInvitationWithdrawView,
     AdminAvailableWorkerListView,
     AdminBookingCancelView,
     AdminBookingDetailView,
@@ -18,6 +19,7 @@ from .admin_views import (
 )
 
 urlpatterns = [
+    path('schedules/<int:pk>/invitation/withdraw/', AdminInvitationWithdrawView.as_view(), name='admin-invitation-withdraw'),
     path('workers/search/', AdminWorkerSearchView.as_view(), name='admin-worker-search'),
     path('workers/<int:worker_id>/schedule/', AdminWorkerScheduleView.as_view(), name='admin-worker-schedule'),
     path('bookings/', AdminBookingListCreateView.as_view(), name='admin-booking-list-create'),

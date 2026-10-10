@@ -68,6 +68,8 @@ def custom_exception_handler(exc, context):
     if response is not None:
         error_code = get_error_code(response.status_code, exc)
         message = get_error_message(response.status_code, response.data)
+        if error_code == 'CHAT_CONTENT_BLOCKED':
+            message = str(response.data['message'])
         errors_detail = format_errors_detail(response.data)
 
         custom_data = {

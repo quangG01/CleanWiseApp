@@ -10,6 +10,7 @@ from rest_framework.exceptions import APIException, ValidationError
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .realtime import user_group
+from .moderation import ChatContentBlocked
 from .service import can_send, mark_messages_read, participant_conversation, send_text_message
 
 
@@ -116,6 +117,12 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 await self.send_json({'type': 'error', 'code': 'unknown_action'})
         except Http404:
             await self.send_json({'type': 'error', 'code': 'not_found'})
+        except ChatContentBlocked as exc:
+            await self.send_json({
+                'type': 'error', 'code': exc.default_code,
+                'conversation_id': content.get('conversation_id'),
+                'detail': exc.detail,
+            })
         except ValidationError as exc:
             await self.send_json({'type': 'error', 'code': 'validation_error', 'detail': exc.detail})
         except APIException as exc:

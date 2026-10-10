@@ -215,8 +215,8 @@ WORKER_CANCEL_ASSIGNMENT_SCHEMA = extend_schema_view(
 ADMIN_ASSIGN_WORKER_SCHEMA = extend_schema_view(
     post=extend_schema(
         operation_id='admin_assign_worker',
-        summary='Quản trị viên gán nhân viên vào lịch làm',
-        description='Cho phép Admin/Quản trị viên chủ động chỉ định và phân công một nhân viên cụ thể vào một buổi làm việc (schedule) trong hệ thống.',
+        summary='Quản trị viên gửi lời mời nhận việc',
+        description='Gửi lời mời có thời hạn cho một nhân viên phù hợp. Chỉ phân công sau khi nhân viên đồng ý.',
         tags=['Booking - Admin']  # Hoặc đưa vào tag Admin chung tùy ý bạn
     )
 )

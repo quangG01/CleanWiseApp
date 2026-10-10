@@ -82,6 +82,7 @@ class AdminScheduleSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source='get_status_display', read_only=True)
     current_assignment = serializers.SerializerMethodField()
     assignment_history = serializers.SerializerMethodField()
+    invitation = serializers.SerializerMethodField()
     images = AdminScheduleImageSerializer(many=True, read_only=True)
 
     class Meta:
@@ -90,7 +91,7 @@ class AdminScheduleSerializer(serializers.ModelSerializer):
             'id', 'sequence_no', 'scheduled_start', 'scheduled_end',
             'actual_start', 'actual_end', 'status', 'status_label', 'note',
             'completion_note', 'cancel_reason', 'current_assignment',
-            'assignment_history', 'images',
+            'assignment_history', 'images', 'invitation',
         ]
 
     def _assignments(self, obj):
@@ -109,6 +110,21 @@ class AdminScheduleSerializer(serializers.ModelSerializer):
             None,
         )
         return AdminAssignmentSerializer(assignment).data if assignment else None
+
+    def get_invitation(self, obj):
+        from django.utils import timezone
+        now = timezone.now()
+        if obj.status != 'PENDING' or obj.booking.status not in ('PENDING', 'ASSIGNED', 'IN_PROGRESS'):
+            return None
+        pending = [a for a in self._assignments(obj) if a.status == 'PENDING' and a.expired_at and a.expired_at > now]
+        if pending:
+            return {'source': 'ADMIN', 'worker': AdminWorkerSummarySerializer(pending[0].worker).data,
+                    'workers': AdminWorkerSummarySerializer([a.worker for a in pending], many=True).data,
+                    'pending_count': len(pending), 'expires_at': min(a.expired_at for a in pending), 'id': pending[0].id}
+        if obj.preferred_worker_id and obj.preferred_worker_expires_at and obj.preferred_worker_expires_at > now and not self.get_current_assignment(obj):
+            return {'source': 'CUSTOMER', 'worker': AdminWorkerSummarySerializer(obj.preferred_worker).data,
+                    'expires_at': obj.preferred_worker_expires_at, 'id': None}
+        return None
 
     def get_assignment_history(self, obj):
         return AdminAssignmentSerializer(self._assignments(obj), many=True).data
@@ -133,6 +149,7 @@ class AdminBookingListSerializer(serializers.ModelSerializer):
     payment_status_label = serializers.CharField(source='get_payment_status_display', read_only=True)
     total_schedules = serializers.IntegerField(read_only=True)
     assigned_schedules = serializers.IntegerField(read_only=True)
+    waiting_invitations = serializers.SerializerMethodField()
     completed_schedules = serializers.IntegerField(read_only=True)
     next_schedule_start = serializers.DateTimeField(read_only=True)
     workers = serializers.SerializerMethodField()
@@ -142,9 +159,18 @@ class AdminBookingListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'booking_code', 'customer', 'service', 'status', 'status_label',
             'payment_status', 'payment_status_label', 'total_amount',
-            'total_schedules', 'assigned_schedules', 'completed_schedules',
+            'total_schedules', 'assigned_schedules', 'completed_schedules', 'waiting_invitations',
             'next_schedule_start', 'workers', 'created_at', 'updated_at',
         ]
+
+    def get_waiting_invitations(self, obj):
+        from django.db.models import Exists, OuterRef, Q
+        from django.utils import timezone
+        pending = BookingAssignment.objects.filter(schedule_id=OuterRef('pk'), status='PENDING', expired_at__gt=timezone.now())
+        accepted = BookingAssignment.objects.filter(schedule_id=OuterRef('pk'), status='ACCEPTED')
+        return obj.schedules.filter(status='PENDING').filter(
+            Q(preferred_worker__isnull=False, preferred_worker_expires_at__gt=timezone.now()) | Exists(pending)
+        ).exclude(Exists(accepted)).count()
 
     def get_service(self, obj):
         return {'id': obj.service_id, 'code': obj.service.code, 'name': obj.service.name}
@@ -263,23 +289,29 @@ class AdminScheduleUpdateSerializer(serializers.Serializer):
 
 
 class AdminAssignWorkerSerializer(serializers.Serializer):
+    response_minutes = serializers.ChoiceField(choices=[15, 30, 60], default=15)
     worker_id = serializers.IntegerField()
-    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
 class AdminBulkAssignSerializer(serializers.Serializer):
+    response_minutes = serializers.ChoiceField(choices=[15, 30, 60], default=15)
     booking_id = serializers.IntegerField()
     schedule_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
-    worker_id = serializers.IntegerField()
-    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    worker_id = serializers.IntegerField(required=False)
+    worker_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), required=False, allow_empty=False, max_length=100)
 
     def validate_schedule_ids(self, value):
         if len(value) != len(set(value)):
             raise serializers.ValidationError('Danh sách buổi bị trùng lặp.')
         return value
 
+
+    def validate(self, attrs):
+        if ('worker_id' in attrs) == ('worker_ids' in attrs):
+            raise serializers.ValidationError({'worker_ids': 'Chọn worker_id hoặc worker_ids.'})
+        if 'worker_ids' in attrs and len(set(attrs['worker_ids'])) != len(attrs['worker_ids']):
+            raise serializers.ValidationError({'worker_ids': 'Danh sách nhân viên bị trùng lặp.'})
+        return attrs
 
 class AdminReasonSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=500, trim_whitespace=True)
@@ -310,6 +342,10 @@ class AdminCustomerSearchSerializer(AdminUserSummarySerializer):
 
 
 class AdminAvailableWorkerSerializer(AdminWorkerSummarySerializer):
+    is_customer_favorite = serializers.BooleanField(read_only=True, default=False)
+    is_customer_requested = serializers.BooleanField(read_only=True, default=False)
+    can_receive_invitation = serializers.BooleanField(read_only=True, default=True)
+    unavailable_reasons = serializers.ListField(child=serializers.CharField(), read_only=True)
     active_jobs_count = serializers.IntegerField(read_only=True)
     matched_area = serializers.BooleanField(read_only=True, default=True)
     has_time_conflict = serializers.BooleanField(read_only=True, default=False)
@@ -321,7 +357,7 @@ class AdminAvailableWorkerSerializer(AdminWorkerSummarySerializer):
     working_areas = serializers.SerializerMethodField()
 
     def get_registered_service(self, obj):
-        service = getattr(obj.worker_profile, 'registered_service', None)
+        service = getattr(getattr(obj, 'worker_profile', None), 'registered_service', None)
         if not service:
             return None
         return {'id': service.id, 'code': service.code, 'name': service.name}
@@ -335,6 +371,7 @@ class AdminAvailableWorkerSerializer(AdminWorkerSummarySerializer):
 
     class Meta(AdminWorkerSummarySerializer.Meta):
         fields = AdminWorkerSummarySerializer.Meta.fields + [
+            'is_customer_favorite', 'is_customer_requested', 'can_receive_invitation', 'unavailable_reasons',
             'active_jobs_count', 'matched_area', 'has_time_conflict',
             'cash_balance_eligible', 'bio', 'experience_years', 'gender',
             'registered_service', 'working_areas',

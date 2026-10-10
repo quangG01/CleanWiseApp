@@ -91,6 +91,10 @@ class BookingAssignment(models.Model):
         ]
         constraints = [
             models.UniqueConstraint(
+                fields=['schedule', 'worker'], condition=models.Q(status='PENDING'),
+                name='uniq_pending_invitation_per_worker',
+            ),
+            models.UniqueConstraint(
                 fields=['schedule'],
                 condition=models.Q(status='ACCEPTED'),
                 name='uniq_accepted_assignment_per_schedule',

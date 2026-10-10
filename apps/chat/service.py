@@ -8,6 +8,7 @@ from apps.bookings.models import Booking, BookingSchedule
 from apps.worker.models import BookingAssignment
 
 from .models import ChatConversation, ChatConversationAssignment, ChatMessage
+from .moderation import validate_chat_content
 from .realtime import publish_conversation, publish_message, publish_read
 from .queries import unread_message_filter
 from .serializers import MessageReadInputSerializer, MessageSendInputSerializer
@@ -69,6 +70,7 @@ def send_text_message(user, data):
     conversation = participant_conversation(values['conversation_id'], user)
     if not can_send(conversation):
         raise PermissionDenied('Hiện không có lịch phân công còn hiệu lực để gửi tin.')
+    validate_chat_content(values['message'])
     message = ChatMessage.objects.create(
         conversation=conversation, sender=user,
         message=values['message'], message_type=ChatMessage.MessageType.TEXT,

@@ -8,6 +8,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-production')
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+# Local chat moderation; cosine scores are similarities, not probabilities.
+CHAT_MODERATION_COSINE_THRESHOLD = float(os.environ.get('CHAT_MODERATION_COSINE_THRESHOLD', '0.4'))
+CHAT_MODERATION_COSINE_MARGIN = float(os.environ.get('CHAT_MODERATION_COSINE_MARGIN', '0.12'))
 PASSWORD_RESET_OTP_TTL_MINUTES = int(os.environ.get("PASSWORD_RESET_OTP_TTL_MINUTES", 10))
 PASSWORD_RESET_OTP_MAX_ATTEMPTS = int(os.environ.get("PASSWORD_RESET_OTP_MAX_ATTEMPTS", 5))
 FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")

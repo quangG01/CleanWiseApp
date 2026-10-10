@@ -181,6 +181,17 @@ class AdminBookingListCreateView(generics.GenericAPIView):
         elif params.get('unassigned', '').lower() in ('false', '0'):
             queryset = queryset.filter(assigned_schedules__gte=F('total_schedules'))
 
+        invitation_state = params.get('invitation_state')
+        if invitation_state == 'waiting':
+            pending_invite = BookingAssignment.objects.filter(schedule_id=OuterRef('pk'), status='PENDING', expired_at__gt=timezone.now())
+            accepted_invite = BookingAssignment.objects.filter(schedule_id=OuterRef('pk'), status='ACCEPTED')
+            waiting = BookingSchedule.objects.filter(booking_id=OuterRef('pk'), status='PENDING').filter(
+                Q(preferred_worker__isnull=False, preferred_worker_expires_at__gt=timezone.now()) | Exists(pending_invite)
+            ).exclude(Exists(accepted_invite))
+            queryset = queryset.filter(Exists(waiting))
+        elif invitation_state:
+            raise ValidationError({'invitation_state': 'Chỉ hỗ trợ waiting.'})
+
         date_filters = {
             'created_from': 'created_at__date__gte',
             'created_to': 'created_at__date__lte',
@@ -353,14 +364,18 @@ class AdminAvailableWorkerListView(generics.GenericAPIView):
         workers = assignment_service.list_available_workers_for_schedule(
             schedule_id=pk,
             search=request.query_params.get('search'),
+            group=request.query_params.get('group', 'suitable'),
         )
         ordering = request.query_params.get('ordering', 'rating')
         if ordering == 'rating':
-            workers.sort(key=lambda w: (w.worker_profile.average_rating, -w.active_jobs_count), reverse=True)
+            workers.sort(key=lambda w: (w.can_receive_invitation, w.is_customer_favorite, getattr(getattr(w, 'worker_profile', None), 'average_rating', 0), -w.active_jobs_count), reverse=True)
         elif ordering == 'workload':
-            workers.sort(key=lambda w: (w.active_jobs_count, -float(w.worker_profile.average_rating)))
+            workers.sort(key=lambda w: (not w.can_receive_invitation, w.active_jobs_count, -float(getattr(getattr(w, 'worker_profile', None), 'average_rating', 0))))
         else:
             raise ValidationError({'ordering': 'Chỉ hỗ trợ rating hoặc workload.'})
+        if request.query_params.get('group') == 'all':
+            return Response({'message': 'Lấy danh sách nhân viên thành công.',
+                             'data': {'results': AdminAvailableWorkerSerializer(workers, many=True).data}})
         paginator = self.pagination_class()
         paginator.request = request
         page = paginator.paginate_queryset(workers, request, view=self)
@@ -384,12 +399,12 @@ class AdminScheduleAssignView(generics.GenericAPIView):
                 schedule_id=pk,
                 worker_id=serializer.validated_data['worker_id'],
                 admin_user=request.user,
-                note=serializer.validated_data.get('note') or serializer.validated_data.get('reason'),
+                response_minutes=serializer.validated_data['response_minutes'],
             )
         assignment = _assignment_queryset().get(pk=assignment.pk)
         from .admin_serializers import AdminAssignmentSerializer
         return Response(
-            {'message': 'Gán nhân viên thành công.', 'data': AdminAssignmentSerializer(assignment).data},
+            {'message': 'Đã gửi lời mời nhận việc.', 'data': AdminAssignmentSerializer(assignment).data},
             status=status.HTTP_201_CREATED,
         )
 
@@ -454,18 +469,20 @@ class AdminBulkAssignView(generics.GenericAPIView):
         if found != set(schedule_ids):
             raise ValidationError({'schedule_ids': 'Có buổi không thuộc đơn đã chọn hoặc không tồn tại.'})
 
+        from apps.worker.invitation_service import send_invitations
+        worker_ids = payload.get('worker_ids') or [payload['worker_id']]
         assigned = []
         skipped = []
         for schedule_id in schedule_ids:
             try:
                 with distributed_lock(f'schedule:{schedule_id}'):
-                    assignment = assignment_service.admin_assign_worker(
+                    invitations = send_invitations(
                         schedule_id=schedule_id,
-                        worker_id=payload['worker_id'],
+                        worker_ids=worker_ids,
                         admin_user=request.user,
-                        note=payload.get('note') or payload.get('reason'),
+                        response_minutes=payload['response_minutes'],
                     )
-                assigned.append({'schedule_id': schedule_id, 'assignment_id': assignment.id})
+                assigned.extend({'schedule_id': schedule_id, 'assignment_id': invitation.id, 'worker_id': invitation.worker_id} for invitation in invitations)
             except ValidationError as exc:
                 skipped.append({
                     'schedule_id': schedule_id,
@@ -474,7 +491,7 @@ class AdminBulkAssignView(generics.GenericAPIView):
                 })
         return Response(
             {
-                'message': f'Đã gán {len(assigned)} buổi, bỏ qua {len(skipped)} buổi.',
+                'message': f'Đã gửi {len(assigned)} lời mời, bỏ qua {len(skipped)} buổi.',
                 'data': {'assigned': assigned, 'skipped': skipped},
             },
             status=status.HTTP_201_CREATED if assigned else status.HTTP_400_BAD_REQUEST,
@@ -536,3 +553,16 @@ class AdminCustomerSearchView(generics.GenericAPIView):
             data=AdminCustomerSearchSerializer(page, many=True).data,
             message='Tìm khách hàng thành công.',
         )
+
+
+class AdminInvitationWithdrawView(generics.GenericAPIView):
+    permission_classes = [IsAdminRole]
+    serializer_class = AdminReasonSerializer
+
+    @idempotent
+    def post(self, request, pk):
+        from apps.worker.invitation_service import withdraw_invitation
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        withdraw_invitation(schedule_id=pk, actor=request.user, reason=serializer.validated_data['reason'])
+        return Response({'message': 'Đã thu hồi lời mời.', 'data': None})
