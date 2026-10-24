@@ -43,6 +43,9 @@ def build_cards(customer_id, references, role='CUSTOMER'):
                 cards.append({'type': kind, 'article_id': obj.pk, 'title': obj.title,
                               'version': obj.version, 'effective_from': obj.effective_from.isoformat(),
                               'action': 'OPEN_HELP_ARTICLE', 'label': 'Xem nguồn hướng dẫn'})
+                section_id = reference.get('section_id')
+                if isinstance(section_id, str) and any(s.get('id') == section_id for s in obj.sections):
+                    cards[-1]['section_id'] = section_id
         else:
             obj = BookingSchedule.objects.filter(pk=object_id, booking__customer_id=customer_id).first()
             if obj:

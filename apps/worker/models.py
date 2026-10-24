@@ -135,3 +135,20 @@ class CustomerFavoriteWorker(models.Model):
 
     def __str__(self):
         return f'{self.customer} yêu thích {self.worker}'
+
+
+class WorkerFavoriteMonthlyEntry(models.Model):
+    """One customer's first favorite of a worker in a Vietnam calendar month."""
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
+    worker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='monthly_favorites')
+    month = models.DateField()
+    first_favorited_at = models.DateTimeField()
+    source = models.CharField(max_length=12, default='LIVE', choices=[('LIVE', 'Ứng dụng'), ('BACKFILL', 'Dữ liệu cũ'), ('DEMO', 'Dữ liệu mẫu')])
+
+    class Meta:
+        db_table = 'worker_favorite_monthly_entries'
+        constraints = [
+            models.UniqueConstraint(fields=['customer', 'worker', 'month'], name='worker_favorite_month_unique'),
+            models.CheckConstraint(condition=~models.Q(customer=models.F('worker')), name='favorite_month_distinct_users'),
+        ]
+        indexes = [models.Index(fields=['month', 'worker'], name='favorite_month_worker_idx')]

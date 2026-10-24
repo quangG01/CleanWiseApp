@@ -101,7 +101,9 @@ def search_help(query, limit=3, query_vector=None, role='CUSTOMER'):
                         'source_document': article.source_document,
                         'section': section['heading'], 'text': section['text']})
         ref = {'type': 'help', 'id': article.pk}
-        if ref not in refs:
+        if section.get('id'):
+            ref['section_id'] = section['id']
+        if not any(item['id'] == article.pk for item in refs):
             refs.append(ref)
 
     refs = refs[:2]

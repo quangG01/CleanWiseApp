@@ -1,9 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils import timezone
+from zoneinfo import ZoneInfo
 from rest_framework.exceptions import NotFound, PermissionDenied
 
 from apps.authentication.models import WorkerProfile
-from .models import BookingAssignment, CustomerFavoriteWorker
+from .models import BookingAssignment, CustomerFavoriteWorker, WorkerFavoriteMonthlyEntry
 from apps.addresses.models import CustomerAddress
 from apps.services.models import Service
 
@@ -93,6 +95,12 @@ def add_favorite_worker(*, customer, worker_id):
         customer=customer,
         worker=worker,
     )
+    if created:
+        month = timezone.localtime(favorite.created_at, ZoneInfo('Asia/Ho_Chi_Minh')).date().replace(day=1)
+        WorkerFavoriteMonthlyEntry.objects.get_or_create(
+            customer=customer, worker=worker, month=month,
+            defaults={'first_favorited_at': favorite.created_at},
+        )
     return favorite, created
 
 

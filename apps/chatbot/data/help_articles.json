@@ -52,62 +52,6 @@
     "effective_from": "2026-10-09"
   },
   {
-    "slug": "su-dung-app-khach-hang",
-    "version": 3,
-    "title": "Hướng dẫn sử dụng ứng dụng khách hàng CleanWise",
-    "summary": "Tài liệu giúp khách hàng tìm đúng màn hình để quản lý địa chỉ, xem đơn, nhắn tin, kiểm tra giao dịch và dùng trợ lý. Các bước đặt đơn và thanh toán chi tiết có trong hai tài liệu hướng dẫn riêng.",
-    "sections": [
-      {
-        "heading": "Các khu vực chính",
-        "text": "Trang chủ: xem danh mục Dịch vụ và mục Ưu đãi cho bạn; mở dịch vụ để chọn thông tin đặt.\n\nĐơn hàng: xem Đơn dịch vụ của tôi, tìm theo mã đơn hoặc tên dịch vụ và lọc theo trạng thái.\n\nTrợ lý: gửi câu hỏi về dịch vụ và tra cứu đơn, lịch, thanh toán của tài khoản đang đăng nhập.\n\nTin nhắn: xem các hội thoại và tin nhắn với nhân viên.\n\nCá nhân: truy cập thông tin cá nhân, địa chỉ, nhân viên yêu thích, ví, lịch sử thanh toán, khuyến mãi, đánh giá và khiếu nại, cài đặt."
-      },
-      {
-        "heading": "Đăng nhập và quản lý thông tin",
-        "text": "Đăng nhập bằng thông tin tài khoản của bạn. Khi cần cập nhật hồ sơ, mở Cá nhân rồi Thông tin cá nhân và lưu thay đổi bằng chức năng trên màn hình. Khi không còn sử dụng tài khoản trên thiết bị, dùng Đăng xuất trong Cá nhân."
-      },
-      {
-        "heading": "Cách dùng danh mục dịch vụ",
-        "text": "Mở Trang chủ rồi chọn dịch vụ. Các trường và lựa chọn thay đổi theo dịch vụ, vì vậy hãy đọc nhãn trường và thông báo thiếu thông tin. Nếu danh sách tải lỗi, dùng thao tác thử lại khi được hiển thị."
-      },
-      {
-        "heading": "Thêm và chọn địa chỉ",
-        "text": "1. Mở danh sách. Vào Cá nhân rồi Địa chỉ của tôi, hoặc nhấn trường địa chỉ khi đang chọn dịch vụ.\n\n2. Thêm địa chỉ. Chọn Thêm địa chỉ, sau đó chọn Chọn trên bản đồ hoặc Nhập thủ công.\n\n3. Điền thông tin. Kiểm tra tên người nhận, số điện thoại, địa chỉ cụ thể và thông tin khu vực hiển thị. Có thể dùng nhãn Nhà, Công ty, Khác hoặc tự đặt nhãn.\n\n4. Lưu và kiểm tra. Nhấn Thêm địa chỉ. Khi đang đặt dịch vụ, chọn địa chỉ trong danh sách và kiểm tra địa chỉ đã hiện ở trường tương ứng.\n\n5. Cập nhật khi cần. Mở địa chỉ đã lưu, chỉnh sửa rồi nhấn Lưu thay đổi. Với dịch vụ có hai địa chỉ, kiểm tra riêng địa chỉ chuyển đi và chuyển đến."
-      },
-      {
-        "heading": "Tìm và xem đơn",
-        "text": "Vào Đơn hàng. Nhập mã đơn hoặc tên dịch vụ vào ô Tìm theo mã đơn hoặc tên dịch vụ. Dùng các bộ lọc Tất cả, Chờ nhận, Đã nhận đơn, Đang làm, Hoàn thành, Đã hủy hoặc Hết hạn nhận đơn. Mở đơn để xem lịch, địa chỉ, chi tiết công việc và thanh toán."
-      },
-      {
-        "heading": "Xem gói nhiều buổi",
-        "text": "Trong chi tiết đơn, mở buổi cần xem. Đối chiếu số thứ tự buổi và ngày giờ để tránh nhầm. Kiểm tra nhân viên, thời gian thực tế và ảnh công việc khi các thông tin này có sẵn."
-      },
-      {
-        "heading": "Ví và lịch sử thanh toán",
-        "text": "Vào Cá nhân rồi Ví / Thẻ thanh toán để xem số dư và Lịch sử giao dịch. Có thể lọc Tất cả, Tiền vào hoặc Tiền ra. Vào Cá nhân rồi Lịch sử thanh toán để xem các giao dịch trong danh sách, lọc Qua ví hoặc Online và trạng thái phù hợp."
-      },
-      {
-        "heading": "Voucher và nhân viên yêu thích",
-        "text": "Mở Khuyến mãi trong Cá nhân hoặc mục ưu đãi trên Trang chủ để xem voucher. Khi xác nhận đặt dịch vụ, dùng Thêm voucher và kiểm tra số tiền sau khi áp dụng. Nhân viên yêu thích được quản lý ở Cá nhân; tại màn hình xác nhận, chỉ chọn trong danh sách nhân viên phù hợp được hiển thị."
-      },
-      {
-        "heading": "Sử dụng Trợ lý",
-        "text": "Mở Trợ lý, nhập câu hỏi rõ ràng, ví dụ “Đơn gần nhất của tôi đã thanh toán chưa?” hoặc “Đơn này còn mấy buổi?”. Nếu có nhiều đơn phù hợp, cung cấp mã đơn để xác định đúng đơn. Nhấn thẻ dịch vụ, đơn hoặc buổi trong câu trả lời để mở màn hình chi tiết.\n\nTrợ lý có thể tra cứu đơn, buổi, thanh toán và số dư ví; đặt lịch dịch vụ (kèm voucher và nhân viên yêu thích); hủy đơn hoặc hủy từng buổi; thêm địa chỉ mới (mở màn chọn vị trí trên bản đồ hoặc nhập chữ); lấy thông tin chuyển khoản cho đơn chuyển khoản đang chờ; đặt lại đơn cũ. Với thao tác đặt và hủy, Trợ lý luôn tóm tắt và hỏi xác nhận trước khi thực hiện.\n\nTrợ lý không sửa hoặc xóa địa chỉ, không nhận voucher mới, không thêm hoặc bớt nhân viên yêu thích, không nạp hoặc rút tiền ví, không gửi đánh giá và khiếu nại. Các thao tác này làm trực tiếp trong ứng dụng. Khi cần trạng thái mới nhất, xem lại chi tiết đơn hoặc gửi câu hỏi tra cứu mới."
-      },
-      {
-        "heading": "Đánh giá và khiếu nại",
-        "text": "Sau khi buổi làm hoàn thành và nút đánh giá khả dụng, chọn số sao, nhập nội dung, thêm ảnh nếu cần rồi nhấn Gửi đánh giá. Vào Cá nhân rồi Đánh giá và khiếu nại để xem hai mục Đánh giá và Khiếu nại."
-      },
-      {
-        "heading": "Không tìm thấy đơn trong danh sách",
-        "text": "Chọn Tất cả, bỏ từ khóa hoặc kiểm tra lại mã đơn. Xác nhận bạn đang đăng nhập đúng tài khoản đã đặt dịch vụ."
-      }
-    ],
-    "keywords": "sử dụng app địa chỉ tin nhắn voucher đánh giá khiếu nại trợ lý chatbot",
-    "source_document": "02_Huong_dan_su_dung_app_khach_hang.docx",
-    "role": "CUSTOMER",
-    "effective_from": "2026-10-13"
-  },
-  {
     "slug": "dat-don-dich-vu",
     "version": 1,
     "title": "Hướng dẫn đặt đơn dịch vụ CleanWise",

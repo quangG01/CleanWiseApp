@@ -11,6 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .realtime import user_group
 from .moderation import ChatContentBlocked
+from .policy import ChatPolicyError, policy_status
 from .service import can_send, mark_messages_read, participant_conversation, send_text_message
 
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 @database_sync_to_async
 def typing_recipient(user, conversation_id):
     conversation = participant_conversation(conversation_id, user)
-    if not can_send(conversation):
+    if not can_send(conversation) or policy_status(user)['is_locked']:
         return None
     return conversation.worker_id if conversation.customer_id == user.id else conversation.customer_id
 
@@ -94,7 +95,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         try:
             if action == 'message.send':
                 message = await database_sync_to_async(send_text_message)(self.user, content)
-                await self.send_json({'type': 'message.accepted', 'message_id': message.id})
+                await self.send_json({'type': 'message.accepted', 'message_id': message.id, 'moderation': message.moderation})
             elif action == 'messages.read':
                 count = await database_sync_to_async(mark_messages_read)(self.user, content)
                 await self.send_json({'type': 'messages.read.ack', 'marked_read': count})
@@ -117,7 +118,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 await self.send_json({'type': 'error', 'code': 'unknown_action'})
         except Http404:
             await self.send_json({'type': 'error', 'code': 'not_found'})
-        except ChatContentBlocked as exc:
+        except (ChatContentBlocked, ChatPolicyError) as exc:
             await self.send_json({
                 'type': 'error', 'code': exc.default_code,
                 'conversation_id': content.get('conversation_id'),
@@ -133,6 +134,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     async def chat_message(self, event):
         await self.send_json({'type': 'message.created', 'message': event['payload']})
+
+    async def chat_moderation(self, event):
+        await self.send_json({'type': 'moderation.updated'})
 
     async def chat_read(self, event):
         await self.send_json({'type': 'messages.read', **event['payload']})

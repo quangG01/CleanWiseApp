@@ -15,6 +15,7 @@ from .serializers import (
     MessageReadInputSerializer, MessageSendInputSerializer,
 )
 from .service import can_send, display_name, mark_messages_read, send_text_message
+from .policy import policy_status
 from apps.common.throttling import WriteScopedThrottleMixin
 
 
@@ -59,6 +60,7 @@ def assignment_summary(assignment):
 
 
 def conversation_summary(conversation, user):
+    moderation = policy_status(user)
     other = conversation.worker if user.id == conversation.customer_id else conversation.customer
     avatar = other.avatar
     if other.id == conversation.worker_id:
@@ -84,7 +86,8 @@ def conversation_summary(conversation, user):
         'last_message_at': last.created_at if last else None,
         'latest_assignment': assignment_summary(latest_link.assignment) if latest_link else None,
         'unread_count': received_unread_messages(conversation, user).count(),
-        'can_send': can_send(conversation),
+        'can_send': can_send(conversation) and not moderation['is_locked'],
+        'moderation': moderation,
     }
 
 
@@ -188,7 +191,7 @@ class MessageSendView(WriteScopedThrottleMixin, generics.GenericAPIView):
         message = send_text_message(request.user, request.data)
         return Response({
             'message': 'Gửi tin nhắn thành công.',
-            'data': ChatMessageSerializer(message).data,
+            'data': {**ChatMessageSerializer(message).data, 'moderation': message.moderation},
         }, status=status.HTTP_201_CREATED)
 
 

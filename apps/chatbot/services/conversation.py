@@ -154,7 +154,7 @@ def _fail(run, error_code, duration_ms):
             current.user_message.save(update_fields=['status'])
 
 
-def send_message(customer, conversation_id, text, client_message_id):
+def send_message(customer, conversation_id, text, client_message_id, language='vi'):
     try:
         run, replayed = _claim_run(customer, conversation_id, text, client_message_id)
     except IntegrityError as exc:
@@ -166,7 +166,7 @@ def send_message(customer, conversation_id, text, client_message_id):
         answer = run_agent(customer_id=customer.id, role=customer.role,
                            conversation_id=run.conversation_id, run_id=str(run.id),
                            history=committed_history(run.conversation),
-                           text=text, thread_id=run.checkpoint_thread_id)
+                           text=text, thread_id=run.checkpoint_thread_id, language=language)
         refs = answer.card_references
         if customer.role == 'WORKER':   # thẻ đơn/buổi của khách chưa dùng cho worker, chỉ giữ thẻ nguồn help
             refs = [r for r in refs if r.get('type') == 'help']

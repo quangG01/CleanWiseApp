@@ -10,6 +10,17 @@ from drf_spectacular.utils import extend_schema, OpenApiTypes
 from apps.common.permissions import IsAdminRole
 from apps.common.xlsx import workbook_bytes
 from .report_service import Report, ReportParams, ZONE
+from .favorite_report import FavoriteReportParams, monthly_favorite_report
+
+
+class MonthlyFavoriteReportView(APIView):
+    permission_classes = [IsAdminRole]
+
+    @extend_schema(parameters=[FavoriteReportParams], responses=OpenApiTypes.OBJECT, tags=['Admin reports'])
+    def get(self, request):
+        params = FavoriteReportParams(data=request.query_params)
+        params.is_valid(raise_exception=True)
+        return Response({'data': monthly_favorite_report(params.validated_data)})
 
 
 class ReportView(APIView):

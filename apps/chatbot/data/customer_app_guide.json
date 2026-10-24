@@ -1,0 +1,780 @@
+[
+  {
+    "slug": "su-dung-app-khach-hang",
+    "version": 3,
+    "title": "Hướng dẫn sử dụng ứng dụng khách hàng CleanWise",
+    "summary": "Chọn một trong 11 đề mục để xem các bước thao tác và hình minh họa thao tác. Các quy trình đặt đơn và thanh toán chi tiết nằm trong các chương hướng dẫn riêng.",
+    "sections": [
+      {
+        "id": "khu-vuc",
+        "heading": "Các khu vực chính",
+        "heading_en": "Main areas",
+        "steps": [
+          {
+            "title": "Bắt đầu từ Trang chủ",
+            "text": "Trang chủ hiển thị danh mục dịch vụ và ô tìm kiếm. Thanh dưới cùng gồm Trang chủ, Đơn hàng, Trợ lý, Tin nhắn và Cá nhân.",
+            "result": "Chạm biểu tượng ở thanh dưới để chuyển khu vực.",
+            "title_en": "Start on Home",
+            "text_en": "Home contains service categories and search. The bottom bar includes Home, Bookings, Assistant, Messages and Account.",
+            "result_en": "Tap a bottom-bar icon to switch areas.",
+            "image": {
+              "file": "guide-v3-home.png",
+              "width": 780,
+              "height": 1144,
+              "alt": "Bắt đầu từ Trang chủ — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Start on Home — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 0.513,
+                  "y": 86.364,
+                  "width": 98.974,
+                  "height": 13.287
+                }
+              ]
+            }
+          },
+          {
+            "title": "Mở các mục quản lý tài khoản",
+            "text": "Chạm Cá nhân ở góc dưới bên phải. Màn Tài khoản có thông tin cá nhân, địa chỉ, Ví, khuyến mãi và các mục hỗ trợ.",
+            "result": "Bạn đang ở màn Tài khoản; chọn mục cần sử dụng.",
+            "title_en": "Open account tools",
+            "text_en": "Tap Account at the bottom right. The Account screen contains your profile, addresses, wallet, offers and support tools.",
+            "result_en": "Choose the tool you need on the Account screen.",
+            "image": {
+              "file": "guide-v3-account.png",
+              "width": 780,
+              "height": 1784,
+              "alt": "Mở các mục quản lý tài khoản — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open account tools — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 80.769,
+                  "y": 93.161,
+                  "width": 16.41,
+                  "height": 5.269
+                }
+              ]
+            }
+          },
+          {
+            "title": "Tìm lại hướng dẫn",
+            "text": "Trong nhóm Hỗ trợ, chạm Hướng dẫn sử dụng. Chọn tên chương, sau đó chọn đề mục muốn xem.",
+            "result": "Bạn mở đúng kho hướng dẫn và có thể chọn một chương khác.",
+            "title_en": "Find help again",
+            "text_en": "Under Support, tap User guide. Choose a chapter, then the topic you want to read.",
+            "result_en": "The help library lets you select this chapter or another guide.",
+            "image": {
+              "file": "guide-v3-account.png",
+              "width": 780,
+              "height": 1784,
+              "alt": "Tìm lại hướng dẫn — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Find help again — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 69.395,
+                  "width": 29.571,
+                  "height": 12.78
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Bắt đầu từ Trang chủ. Trang chủ hiển thị danh mục dịch vụ và ô tìm kiếm. Thanh dưới cùng gồm Trang chủ, Đơn hàng, Trợ lý, Tin nhắn và Cá nhân. Chạm biểu tượng ở thanh dưới để chuyển khu vực.\n\n2. Mở các mục quản lý tài khoản. Chạm Cá nhân ở góc dưới bên phải. Màn Tài khoản có thông tin cá nhân, địa chỉ, Ví, khuyến mãi và các mục hỗ trợ. Bạn đang ở màn Tài khoản; chọn mục cần sử dụng.\n\n3. Tìm lại hướng dẫn. Trong nhóm Hỗ trợ, chạm Hướng dẫn sử dụng. Chọn tên chương, sau đó chọn đề mục muốn xem. Bạn mở đúng kho hướng dẫn và có thể chọn một chương khác.",
+        "text_en": "1. Start on Home. Home contains service categories and search. The bottom bar includes Home, Bookings, Assistant, Messages and Account. Tap a bottom-bar icon to switch areas.\n\n2. Open account tools. Tap Account at the bottom right. The Account screen contains your profile, addresses, wallet, offers and support tools. Choose the tool you need on the Account screen.\n\n3. Find help again. Under Support, tap User guide. Choose a chapter, then the topic you want to read. The help library lets you select this chapter or another guide."
+      },
+      {
+        "id": "tai-khoan",
+        "heading": "Đăng nhập và quản lý thông tin",
+        "heading_en": "Sign in and manage your profile",
+        "steps": [
+          {
+            "title": "Đăng nhập khi ứng dụng yêu cầu",
+            "text": "Nhập số điện thoại và mật khẩu đã đăng ký, rồi chạm Đăng nhập. Nếu dùng tài khoản Google, chọn Đăng nhập với Google và làm theo màn hình xác thực. Không chia sẻ mật khẩu hoặc mã xác thực cho người khác.",
+            "result": "Đăng nhập thành công sẽ đưa bạn về ứng dụng; kiểm tra đúng tên tài khoản.",
+            "title_en": "Sign in when prompted",
+            "text_en": "Enter your registered phone number and password, then tap Sign in. For a Google account, choose Sign in with Google and follow the authentication screen. Never share passwords or verification codes.",
+            "result_en": "After sign-in, check that the displayed account name is correct.",
+            "image": {
+              "file": "guide-v3-login.png",
+              "width": 780,
+              "height": 1390,
+              "alt": "Đăng nhập khi ứng dụng yêu cầu — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Sign in when prompted — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 38.093,
+                  "width": 91.795,
+                  "height": 37.288
+                }
+              ]
+            }
+          },
+          {
+            "title": "Mở Thông tin cá nhân",
+            "text": "Chạm Cá nhân ở thanh dưới, sau đó chọn Thông tin cá nhân.",
+            "result": "Biểu mẫu chỉnh sửa thông tin được mở.",
+            "title_en": "Open Personal information",
+            "text_en": "Tap Account in the bottom bar, then Personal information.",
+            "result_en": "The profile editing form opens.",
+            "image": {
+              "file": "guide-v3-account.png",
+              "width": 780,
+              "height": 1784,
+              "alt": "Mở Thông tin cá nhân — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open Personal information — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 7.949,
+                  "y": 33.296,
+                  "width": 84.103,
+                  "height": 6.839
+                }
+              ]
+            }
+          },
+          {
+            "title": "Sửa và lưu thông tin",
+            "text": "Chạm trường được phép sửa, nhập thông tin mới và nhấn Lưu thay đổi. Nút lưu chỉ sử dụng được khi dữ liệu hợp lệ và có thay đổi. Không thay đổi thông tin nếu đang chỉ xem lại tài khoản.",
+            "result": "Chờ báo lưu thành công, rồi quay lại kiểm tra thông tin hiển thị.",
+            "title_en": "Edit and save",
+            "text_en": "Edit an available field and tap Save changes. Saving is available when the data is valid and has changed. Leave fields unchanged if you only want to review your profile.",
+            "result_en": "Wait for confirmation, then return and check the updated details.",
+            "image": {
+              "file": "guide-v3-personal.png",
+              "width": 780,
+              "height": 1158,
+              "alt": "Sửa và lưu thông tin — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Edit and save — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 88.428,
+                  "width": 91.795,
+                  "height": 8.808
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Đăng nhập khi ứng dụng yêu cầu. Nhập số điện thoại và mật khẩu đã đăng ký, rồi chạm Đăng nhập. Nếu dùng tài khoản Google, chọn Đăng nhập với Google và làm theo màn hình xác thực. Không chia sẻ mật khẩu hoặc mã xác thực cho người khác. Đăng nhập thành công sẽ đưa bạn về ứng dụng; kiểm tra đúng tên tài khoản.\n\n2. Mở Thông tin cá nhân. Chạm Cá nhân ở thanh dưới, sau đó chọn Thông tin cá nhân. Biểu mẫu chỉnh sửa thông tin được mở.\n\n3. Sửa và lưu thông tin. Chạm trường được phép sửa, nhập thông tin mới và nhấn Lưu thay đổi. Nút lưu chỉ sử dụng được khi dữ liệu hợp lệ và có thay đổi. Không thay đổi thông tin nếu đang chỉ xem lại tài khoản. Chờ báo lưu thành công, rồi quay lại kiểm tra thông tin hiển thị.",
+        "text_en": "1. Sign in when prompted. Enter your registered phone number and password, then tap Sign in. For a Google account, choose Sign in with Google and follow the authentication screen. Never share passwords or verification codes. After sign-in, check that the displayed account name is correct.\n\n2. Open Personal information. Tap Account in the bottom bar, then Personal information. The profile editing form opens.\n\n3. Edit and save. Edit an available field and tap Save changes. Saving is available when the data is valid and has changed. Leave fields unchanged if you only want to review your profile. Wait for confirmation, then return and check the updated details."
+      },
+      {
+        "id": "dich-vu",
+        "heading": "Cách dùng danh mục dịch vụ",
+        "heading_en": "Browse services",
+        "steps": [
+          {
+            "title": "Tìm dịch vụ trên Trang chủ",
+            "text": "Mở Trang chủ. Nhập tên vào ô tìm kiếm hoặc chọn biểu tượng trong mục Dịch vụ. Tên gói và loại dịch vụ có thể khác nhau; đọc tên trước khi chọn.",
+            "result": "Chọn đúng dịch vụ bạn cần, ví dụ dọn nhà ca lẻ hoặc gói tháng.",
+            "title_en": "Find a service on Home",
+            "text_en": "Open Home. Enter a name in search or select a service icon. Read its name carefully because packages and service types differ.",
+            "result_en": "Choose the service you need, such as a single visit or a monthly package.",
+            "image": {
+              "file": "guide-v3-home.png",
+              "width": 780,
+              "height": 1144,
+              "alt": "Tìm dịch vụ trên Trang chủ — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Find a service on Home — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 32.08,
+                  "width": 91.795,
+                  "height": 34.965
+                }
+              ]
+            }
+          },
+          {
+            "title": "Đọc chi tiết trước khi đặt",
+            "text": "Ở màn chi tiết dịch vụ, xem mô tả và các lựa chọn công việc. Cuộn xuống để kiểm tra các trường bắt buộc, ngày giờ và địa chỉ. Chưa nhấn nút đặt nếu thông tin chưa đầy đủ.",
+            "result": "Muốn tiếp tục đặt đơn, mở chương Hướng dẫn đặt đơn dịch vụ CleanWise để xem quy trình chi tiết.",
+            "title_en": "Read service details",
+            "text_en": "Review the description and work options. Scroll to inspect required fields, schedule and address. Do not submit before the information is complete.",
+            "result_en": "For the full booking process, read the separate CleanWise service booking guide.",
+            "image": {
+              "file": "guide-v3-service.png",
+              "width": 780,
+              "height": 1516,
+              "alt": "Đọc chi tiết trước khi đặt — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Read service details — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 35.422,
+                  "width": 91.795,
+                  "height": 49.34
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Tìm dịch vụ trên Trang chủ. Mở Trang chủ. Nhập tên vào ô tìm kiếm hoặc chọn biểu tượng trong mục Dịch vụ. Tên gói và loại dịch vụ có thể khác nhau; đọc tên trước khi chọn. Chọn đúng dịch vụ bạn cần, ví dụ dọn nhà ca lẻ hoặc gói tháng.\n\n2. Đọc chi tiết trước khi đặt. Ở màn chi tiết dịch vụ, xem mô tả và các lựa chọn công việc. Cuộn xuống để kiểm tra các trường bắt buộc, ngày giờ và địa chỉ. Chưa nhấn nút đặt nếu thông tin chưa đầy đủ. Muốn tiếp tục đặt đơn, mở chương Hướng dẫn đặt đơn dịch vụ CleanWise để xem quy trình chi tiết.",
+        "text_en": "1. Find a service on Home. Open Home. Enter a name in search or select a service icon. Read its name carefully because packages and service types differ. Choose the service you need, such as a single visit or a monthly package.\n\n2. Read service details. Review the description and work options. Scroll to inspect required fields, schedule and address. Do not submit before the information is complete. For the full booking process, read the separate CleanWise service booking guide."
+      },
+      {
+        "id": "dia-chi",
+        "heading": "Thêm và chọn địa chỉ",
+        "heading_en": "Add and choose an address",
+        "steps": [
+          {
+            "title": "Mở Địa chỉ của tôi",
+            "text": "Vào Cá nhân → Địa chỉ của tôi. Kiểm tra địa chỉ đã lưu trước khi thêm để tránh tạo trùng.",
+            "result": "Danh sách hiển thị các địa chỉ của tài khoản và nhãn Mặc định nếu có.",
+            "title_en": "Open My addresses",
+            "text_en": "Go to Account → My addresses. Check existing entries before adding another to avoid duplicates.",
+            "result_en": "The list shows saved addresses and the Default label where applicable.",
+            "image": {
+              "file": "guide-v3-addresses.png",
+              "width": 780,
+              "height": 724,
+              "alt": "Mở Địa chỉ của tôi — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open My addresses — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 22.13,
+                  "width": 91.795,
+                  "height": 56.57
+                }
+              ]
+            }
+          },
+          {
+            "title": "Chọn cách thêm địa chỉ",
+            "text": "Chạm Thêm địa chỉ mới. Chọn cách nhập địa chỉ đang hiển thị: nhập thông tin hoặc chọn trên bản đồ. Với bản đồ, kiểm tra vị trí trước khi tiếp tục nhập chi tiết.",
+            "result": "Bạn chuyển tới biểu mẫu hoặc màn chọn vị trí tương ứng.",
+            "title_en": "Choose how to add an address",
+            "text_en": "Tap Add new address. Choose manual entry or map selection as offered. For a map location, verify the position before entering address details.",
+            "result_en": "The selected form or location picker opens.",
+            "image": {
+              "file": "guide-v3-address-method.png",
+              "width": 780,
+              "height": 566,
+              "alt": "Chọn cách thêm địa chỉ — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Choose how to add an address — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 28.269,
+                  "width": 91.795,
+                  "height": 66.078
+                }
+              ]
+            }
+          },
+          {
+            "title": "Nhập thông tin và lưu",
+            "text": "Chọn tỉnh/thành, phường/xã, nhập địa chỉ cụ thể và các trường bắt buộc trên biểu mẫu. Nếu người nhận khác bạn, bật Người khác sẽ nhận nhân viên và điền thông tin liên hệ. Kiểm tra tỉnh/thành, phường/xã và ghi chú nếu có, rồi chạm nút lưu. Khi đặt dịch vụ, mở phần địa chỉ và chọn địa chỉ đã lưu này.",
+            "result": "Quay về danh sách, kiểm tra địa chỉ vừa lưu trước khi sử dụng cho đơn.",
+            "title_en": "Enter details and save",
+            "text_en": "Fill in the recipient, phone, address and required fields. Check the city, ward and any notes, then save. When booking, open the address selection and choose this saved entry.",
+            "result_en": "Return to the list and verify the address before using it for a booking.",
+            "image": {
+              "file": "guide-v3-address-form.png",
+              "width": 780,
+              "height": 1510,
+              "alt": "Nhập thông tin và lưu — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Enter details and save — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 10.596,
+                  "width": 91.795,
+                  "height": 79.205
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Mở Địa chỉ của tôi. Vào Cá nhân → Địa chỉ của tôi. Kiểm tra địa chỉ đã lưu trước khi thêm để tránh tạo trùng. Danh sách hiển thị các địa chỉ của tài khoản và nhãn Mặc định nếu có.\n\n2. Chọn cách thêm địa chỉ. Chạm Thêm địa chỉ mới. Chọn cách nhập địa chỉ đang hiển thị: nhập thông tin hoặc chọn trên bản đồ. Với bản đồ, kiểm tra vị trí trước khi tiếp tục nhập chi tiết. Bạn chuyển tới biểu mẫu hoặc màn chọn vị trí tương ứng.\n\n3. Nhập thông tin và lưu. Chọn tỉnh/thành, phường/xã, nhập địa chỉ cụ thể và các trường bắt buộc trên biểu mẫu. Nếu người nhận khác bạn, bật Người khác sẽ nhận nhân viên và điền thông tin liên hệ. Kiểm tra tỉnh/thành, phường/xã và ghi chú nếu có, rồi chạm nút lưu. Khi đặt dịch vụ, mở phần địa chỉ và chọn địa chỉ đã lưu này. Quay về danh sách, kiểm tra địa chỉ vừa lưu trước khi sử dụng cho đơn.",
+        "text_en": "1. Open My addresses. Go to Account → My addresses. Check existing entries before adding another to avoid duplicates. The list shows saved addresses and the Default label where applicable.\n\n2. Choose how to add an address. Tap Add new address. Choose manual entry or map selection as offered. For a map location, verify the position before entering address details. The selected form or location picker opens.\n\n3. Enter details and save. Fill in the recipient, phone, address and required fields. Check the city, ward and any notes, then save. When booking, open the address selection and choose this saved entry. Return to the list and verify the address before using it for a booking."
+      },
+      {
+        "id": "don-hang",
+        "heading": "Tìm và xem đơn",
+        "heading_en": "Find and view bookings",
+        "steps": [
+          {
+            "title": "Mở Đơn hàng",
+            "text": "Chạm Đơn hàng ở thanh điều hướng dưới cùng. Chọn nhóm trạng thái phù hợp với đơn cần tìm. Một nhóm trống không có nghĩa tài khoản không có đơn ở các nhóm khác.",
+            "result": "Danh sách đổi theo nhóm trạng thái bạn chọn.",
+            "title_en": "Open Bookings",
+            "text_en": "Tap Bookings in the bottom bar. Choose the status group that matches the booking. An empty group does not mean all other groups are empty.",
+            "result_en": "The list updates to the selected status group.",
+            "image": {
+              "file": "guide-v3-orders.png",
+              "width": 780,
+              "height": 1436,
+              "alt": "Mở Đơn hàng — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open Bookings — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 19.708,
+                  "width": 91.795,
+                  "height": 5.362
+                }
+              ]
+            }
+          },
+          {
+            "title": "Mở đúng đơn",
+            "text": "Đối chiếu tên dịch vụ, ngày thực hiện và mã đơn trên thẻ rồi chạm để mở. Trong chi tiết, kiểm tra địa chỉ, thông tin công việc, lịch và trạng thái thanh toán.",
+            "result": "Bạn xem được thông tin của đúng đơn. Trạng thái đơn và thanh toán là hai thông tin khác nhau.",
+            "title_en": "Open the correct booking",
+            "text_en": "Compare the service, scheduled date and booking code before opening the card. Review address, work details, schedule and payment status.",
+            "result_en": "You are viewing the correct booking. Booking status and payment status are separate.",
+            "image": {
+              "file": "guide-v3-order-detail.png",
+              "width": 780,
+              "height": 1398,
+              "alt": "Mở đúng đơn — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open the correct booking — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 13.601,
+                  "width": 91.795,
+                  "height": 11.525
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Mở Đơn hàng. Chạm Đơn hàng ở thanh điều hướng dưới cùng. Chọn nhóm trạng thái phù hợp với đơn cần tìm. Một nhóm trống không có nghĩa tài khoản không có đơn ở các nhóm khác. Danh sách đổi theo nhóm trạng thái bạn chọn.\n\n2. Mở đúng đơn. Đối chiếu tên dịch vụ, ngày thực hiện và mã đơn trên thẻ rồi chạm để mở. Trong chi tiết, kiểm tra địa chỉ, thông tin công việc, lịch và trạng thái thanh toán. Bạn xem được thông tin của đúng đơn. Trạng thái đơn và thanh toán là hai thông tin khác nhau.",
+        "text_en": "1. Open Bookings. Tap Bookings in the bottom bar. Choose the status group that matches the booking. An empty group does not mean all other groups are empty. The list updates to the selected status group.\n\n2. Open the correct booking. Compare the service, scheduled date and booking code before opening the card. Review address, work details, schedule and payment status. You are viewing the correct booking. Booking status and payment status are separate."
+      },
+      {
+        "id": "goi",
+        "heading": "Xem gói nhiều buổi",
+        "heading_en": "View a multi-session package",
+        "steps": [
+          {
+            "title": "Mở đơn gói trong Đơn hàng",
+            "text": "Chọn đơn thuộc dịch vụ gói tháng hoặc dịch vụ có nhiều buổi. Đọc thông tin gói và phần danh sách lịch/buổi trong chi tiết đơn.",
+            "result": "Mỗi buổi có ngày giờ và trạng thái riêng; không chỉ nhìn trạng thái chung của đơn.",
+            "title_en": "Open a package booking",
+            "text_en": "Choose a monthly or multi-session service in Bookings. Review the package details and session list.",
+            "result_en": "Each session has its own schedule and status, separate from the overall booking.",
+            "image": {
+              "file": "guide-v3-package.png",
+              "width": 780,
+              "height": 1700,
+              "alt": "Mở đơn gói trong Đơn hàng — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open a package booking — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 38.199,
+                  "width": 91.795,
+                  "height": 59.918
+                }
+              ]
+            }
+          },
+          {
+            "title": "Xem thông tin từng buổi",
+            "text": "Chạm một buổi trong danh sách để xem thông tin được ứng dụng cung cấp: ngày giờ, tiến độ và nhân viên nếu đã được phân công. Quay lại danh sách để xem buổi khác.",
+            "result": "Kiểm tra đúng ngày/buổi trước khi liên hệ, phản hồi hoặc thực hiện thao tác liên quan.",
+            "title_en": "Review an individual session",
+            "text_en": "Tap a session to view the available schedule, progress and assigned worker. Return to the list to inspect another session.",
+            "result_en": "Check the exact session date before contacting someone or taking action.",
+            "image": {
+              "file": "guide-v3-session.png",
+              "width": 780,
+              "height": 1582,
+              "alt": "Xem thông tin từng buổi — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Review an individual session — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 8.462,
+                  "y": 26.511,
+                  "width": 83.077,
+                  "height": 24.286
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Mở đơn gói trong Đơn hàng. Chọn đơn thuộc dịch vụ gói tháng hoặc dịch vụ có nhiều buổi. Đọc thông tin gói và phần danh sách lịch/buổi trong chi tiết đơn. Mỗi buổi có ngày giờ và trạng thái riêng; không chỉ nhìn trạng thái chung của đơn.\n\n2. Xem thông tin từng buổi. Chạm một buổi trong danh sách để xem thông tin được ứng dụng cung cấp: ngày giờ, tiến độ và nhân viên nếu đã được phân công. Quay lại danh sách để xem buổi khác. Kiểm tra đúng ngày/buổi trước khi liên hệ, phản hồi hoặc thực hiện thao tác liên quan.",
+        "text_en": "1. Open a package booking. Choose a monthly or multi-session service in Bookings. Review the package details and session list. Each session has its own schedule and status, separate from the overall booking.\n\n2. Review an individual session. Tap a session to view the available schedule, progress and assigned worker. Return to the list to inspect another session. Check the exact session date before contacting someone or taking action."
+      },
+      {
+        "id": "vi",
+        "heading": "Ví và lịch sử thanh toán",
+        "heading_en": "Wallet and payment history",
+        "steps": [
+          {
+            "title": "Mở Ví / Thẻ thanh toán",
+            "text": "Vào Cá nhân và chọn ô Ví / Thẻ thanh toán. Màn này dùng để xem số dư ví và các chức năng thanh toán đang được hỗ trợ.",
+            "result": "Đọc số dư và thông tin hiển thị trước khi quyết định giao dịch.",
+            "title_en": "Open Wallet / Payment cards",
+            "text_en": "Go to Account and choose Wallet / Payment cards. This screen shows your balance and available payment tools.",
+            "result_en": "Review the displayed balance and details before deciding on a transaction.",
+            "image": {
+              "file": "guide-v3-wallet.png",
+              "width": 780,
+              "height": 1266,
+              "alt": "Mở Ví / Thẻ thanh toán — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open Wallet / Payment cards — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 12.638,
+                  "width": 91.795,
+                  "height": 20.221
+                }
+              ]
+            }
+          },
+          {
+            "title": "Mở mục Lịch sử thanh toán riêng",
+            "text": "Quay lại Tài khoản rồi chạm Lịch sử thanh toán. Mục này nằm trong danh sách tài khoản, không nằm bên trong ô Ví / Thẻ thanh toán.",
+            "result": "Danh sách lịch sử thanh toán được mở.",
+            "title_en": "Open the separate Payment history item",
+            "text_en": "Return to Account and tap Payment history. This is a separate account menu item, not an item inside Wallet / Payment cards.",
+            "result_en": "The payment history list opens.",
+            "image": {
+              "file": "guide-v3-account.png",
+              "width": 780,
+              "height": 1784,
+              "alt": "Mở mục Lịch sử thanh toán riêng — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open the separate Payment history item — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 7.949,
+                  "y": 52.018,
+                  "width": 84.103,
+                  "height": 6.951
+                }
+              ]
+            }
+          },
+          {
+            "title": "Đối chiếu giao dịch",
+            "text": "Trong lịch sử, kiểm tra mã đơn/giao dịch, số tiền, thời gian và trạng thái. Nếu cần thanh toán hoặc nạp tiền, xem chương Hướng dẫn thanh toán và sử dụng Ví CleanWise trước khi thực hiện.",
+            "result": "Dùng thông tin giao dịch để đối chiếu; không chuyển thêm tiền chỉ vì chưa thấy trạng thái cập nhật.",
+            "title_en": "Check transaction details",
+            "text_en": "Review the booking or transaction reference, amount, date and status. For payments and top-ups, consult the separate payment and wallet guide before proceeding.",
+            "result_en": "Use the reference to reconcile a transaction; do not send another payment merely because a status has not updated.",
+            "image": {
+              "file": "guide-v3-payments.png",
+              "width": 780,
+              "height": 1282,
+              "alt": "Đối chiếu giao dịch — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Check transaction details — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 46.448,
+                  "width": 91.795,
+                  "height": 51.054
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Mở Ví / Thẻ thanh toán. Vào Cá nhân và chọn ô Ví / Thẻ thanh toán. Màn này dùng để xem số dư ví và các chức năng thanh toán đang được hỗ trợ. Đọc số dư và thông tin hiển thị trước khi quyết định giao dịch.\n\n2. Mở mục Lịch sử thanh toán riêng. Quay lại Tài khoản rồi chạm Lịch sử thanh toán. Mục này nằm trong danh sách tài khoản, không nằm bên trong ô Ví / Thẻ thanh toán. Danh sách lịch sử thanh toán được mở.\n\n3. Đối chiếu giao dịch. Trong lịch sử, kiểm tra mã đơn/giao dịch, số tiền, thời gian và trạng thái. Nếu cần thanh toán hoặc nạp tiền, xem chương Hướng dẫn thanh toán và sử dụng Ví CleanWise trước khi thực hiện. Dùng thông tin giao dịch để đối chiếu; không chuyển thêm tiền chỉ vì chưa thấy trạng thái cập nhật.",
+        "text_en": "1. Open Wallet / Payment cards. Go to Account and choose Wallet / Payment cards. This screen shows your balance and available payment tools. Review the displayed balance and details before deciding on a transaction.\n\n2. Open the separate Payment history item. Return to Account and tap Payment history. This is a separate account menu item, not an item inside Wallet / Payment cards. The payment history list opens.\n\n3. Check transaction details. Review the booking or transaction reference, amount, date and status. For payments and top-ups, consult the separate payment and wallet guide before proceeding. Use the reference to reconcile a transaction; do not send another payment merely because a status has not updated."
+      },
+      {
+        "id": "yeu-thich",
+        "heading": "Voucher và nhân viên yêu thích",
+        "heading_en": "Offers and favorite workers",
+        "steps": [
+          {
+            "title": "Xem khuyến mãi",
+            "text": "Vào Cá nhân → Khuyến mãi. Mở ưu đãi để đọc thời hạn, dịch vụ áp dụng, mức giảm và điều kiện. Chỉ dùng mã còn hợp lệ với đơn đang đặt.",
+            "result": "Khi xác nhận đặt dịch vụ, chọn mã phù hợp và kiểm tra tổng tiền sau khi áp dụng.",
+            "title_en": "View offers",
+            "text_en": "Go to Account → Offers. Open an offer and check its validity, eligible services, discount and conditions. Only use an offer that applies to the current booking.",
+            "result_en": "During booking confirmation, choose an eligible offer and check the resulting total.",
+            "image": {
+              "file": "guide-v3-vouchers.png",
+              "width": 780,
+              "height": 1098,
+              "alt": "Xem khuyến mãi — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "View offers — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 14.572,
+                  "width": 91.795,
+                  "height": 9.107
+                }
+              ]
+            }
+          },
+          {
+            "title": "Xem nhân viên yêu thích",
+            "text": "Vào Cá nhân → Nhân viên yêu thích. Xem nhân viên đã lưu. Khi đặt dịch vụ, chỉ các nhân viên phù hợp được ứng dụng hiển thị mới có thể chọn.",
+            "result": "Chọn yêu thích không phải cam kết chắc chắn người đó sẽ nhận lịch; kiểm tra kết quả phân công trong đơn.",
+            "title_en": "View favorite workers",
+            "text_en": "Go to Account → Favorite staff to review saved workers. When booking, choose only from workers the app offers for that service.",
+            "result_en": "A preferred worker is not guaranteed to accept the schedule; check the final assignment in the booking.",
+            "image": {
+              "file": "guide-v3-favorites.png",
+              "width": 780,
+              "height": 816,
+              "alt": "Xem nhân viên yêu thích — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "View favorite workers — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 41.84,
+                  "width": 91.795,
+                  "height": 54.233
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Xem khuyến mãi. Vào Cá nhân → Khuyến mãi. Mở ưu đãi để đọc thời hạn, dịch vụ áp dụng, mức giảm và điều kiện. Chỉ dùng mã còn hợp lệ với đơn đang đặt. Khi xác nhận đặt dịch vụ, chọn mã phù hợp và kiểm tra tổng tiền sau khi áp dụng.\n\n2. Xem nhân viên yêu thích. Vào Cá nhân → Nhân viên yêu thích. Xem nhân viên đã lưu. Khi đặt dịch vụ, chỉ các nhân viên phù hợp được ứng dụng hiển thị mới có thể chọn. Chọn yêu thích không phải cam kết chắc chắn người đó sẽ nhận lịch; kiểm tra kết quả phân công trong đơn.",
+        "text_en": "1. View offers. Go to Account → Offers. Open an offer and check its validity, eligible services, discount and conditions. Only use an offer that applies to the current booking. During booking confirmation, choose an eligible offer and check the resulting total.\n\n2. View favorite workers. Go to Account → Favorite staff to review saved workers. When booking, choose only from workers the app offers for that service. A preferred worker is not guaranteed to accept the schedule; check the final assignment in the booking."
+      },
+      {
+        "id": "tro-ly",
+        "heading": "Sử dụng Trợ lý",
+        "heading_en": "Use the Assistant",
+        "steps": [
+          {
+            "title": "Chọn gợi ý hoặc nhập câu hỏi",
+            "text": "Chạm Trợ lý ở thanh dưới. Chọn một gợi ý hoặc nhập câu hỏi vào ô soạn rồi bấm nút gửi. Ví dụ: Đơn gần nhất của tôi đã thanh toán chưa? Khi có nhiều đơn, nêu thêm mã đơn hoặc ngày dịch vụ.",
+            "result": "Chờ trợ lý phản hồi trước khi gửi lại cùng một yêu cầu.",
+            "title_en": "Choose a suggestion or type a question",
+            "text_en": "Tap Assistant in the bottom bar. Select a suggestion or type a question and send it. For example: Has my latest booking been paid? Include a booking code or date when you have several bookings.",
+            "result_en": "Wait for the response before resending the same request.",
+            "image": {
+              "file": "guide-v3-chatbot.png",
+              "width": 780,
+              "height": 1338,
+              "alt": "Chọn gợi ý hoặc nhập câu hỏi — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Choose a suggestion or type a question — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 37.209,
+                  "width": 91.795,
+                  "height": 33.828
+                }
+              ]
+            }
+          },
+          {
+            "title": "Mở hướng dẫn và kiểm tra kết quả",
+            "text": "Biểu tượng cuốn sách cạnh icon robot mở kho hướng dẫn. Với câu trả lời có thẻ đơn hoặc nguồn hướng dẫn, chạm thẻ để mở màn tương ứng. Đặt lịch và hủy đơn cần đọc bước xác nhận trước khi đồng ý.",
+            "result": "Kiểm tra mã đơn, lịch và trạng thái trong màn chi tiết trước khi thực hiện thao tác tiếp theo.",
+            "title_en": "Open help and verify results",
+            "text_en": "The book icon beside the robot opens the help library. Tap booking or source cards in a response to open the related screen. Read the confirmation before agreeing to a booking or cancellation.",
+            "result_en": "Verify the booking code, schedule and status in the detail screen before taking further action.",
+            "image": {
+              "file": "guide-v3-chatbot.png",
+              "width": 780,
+              "height": 1338,
+              "alt": "Mở hướng dẫn và kiểm tra kết quả — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open help and verify results — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 16.923,
+                  "y": 11.974,
+                  "width": 11.282,
+                  "height": 6.586
+                }
+              ]
+            }
+          },
+          {
+            "title": "Xem lịch sử hoặc bắt đầu cuộc trò chuyện khác",
+            "text": "Chạm biểu tượng đồng hồ ở góc trên để xem lịch sử và mở lại cuộc trò chuyện cũ. Biểu tượng bên cạnh tạo cuộc trò chuyện mới. Nếu đang trao đổi dở, dùng lại cuộc trò chuyện hiện tại để giữ thông tin đã hỏi.",
+            "result": "Chọn đúng cuộc trò chuyện cần tiếp tục; chỉ xóa khi bạn thực sự không còn cần nội dung đó.",
+            "title_en": "Review history or start another chat",
+            "text_en": "Tap the clock at the top to view history and reopen a conversation. The adjacent icon starts a new conversation. Continue the current conversation when you still need its context.",
+            "result_en": "Choose the correct conversation to continue; delete only content you no longer need.",
+            "image": {
+              "file": "guide-v3-chat-history.png",
+              "width": 780,
+              "height": 1142,
+              "alt": "Xem lịch sử hoặc bắt đầu cuộc trò chuyện khác — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Review history or start another chat — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 41.594,
+                  "width": 91.795,
+                  "height": 55.604
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Chọn gợi ý hoặc nhập câu hỏi. Chạm Trợ lý ở thanh dưới. Chọn một gợi ý hoặc nhập câu hỏi vào ô soạn rồi bấm nút gửi. Ví dụ: Đơn gần nhất của tôi đã thanh toán chưa? Khi có nhiều đơn, nêu thêm mã đơn hoặc ngày dịch vụ. Chờ trợ lý phản hồi trước khi gửi lại cùng một yêu cầu.\n\n2. Mở hướng dẫn và kiểm tra kết quả. Biểu tượng cuốn sách cạnh icon robot mở kho hướng dẫn. Với câu trả lời có thẻ đơn hoặc nguồn hướng dẫn, chạm thẻ để mở màn tương ứng. Đặt lịch và hủy đơn cần đọc bước xác nhận trước khi đồng ý. Kiểm tra mã đơn, lịch và trạng thái trong màn chi tiết trước khi thực hiện thao tác tiếp theo.\n\n3. Xem lịch sử hoặc bắt đầu cuộc trò chuyện khác. Chạm biểu tượng đồng hồ ở góc trên để xem lịch sử và mở lại cuộc trò chuyện cũ. Biểu tượng bên cạnh tạo cuộc trò chuyện mới. Nếu đang trao đổi dở, dùng lại cuộc trò chuyện hiện tại để giữ thông tin đã hỏi. Chọn đúng cuộc trò chuyện cần tiếp tục; chỉ xóa khi bạn thực sự không còn cần nội dung đó.",
+        "text_en": "1. Choose a suggestion or type a question. Tap Assistant in the bottom bar. Select a suggestion or type a question and send it. For example: Has my latest booking been paid? Include a booking code or date when you have several bookings. Wait for the response before resending the same request.\n\n2. Open help and verify results. The book icon beside the robot opens the help library. Tap booking or source cards in a response to open the related screen. Read the confirmation before agreeing to a booking or cancellation. Verify the booking code, schedule and status in the detail screen before taking further action.\n\n3. Review history or start another chat. Tap the clock at the top to view history and reopen a conversation. The adjacent icon starts a new conversation. Continue the current conversation when you still need its context. Choose the correct conversation to continue; delete only content you no longer need."
+      },
+      {
+        "id": "phan-hoi",
+        "heading": "Đánh giá và khiếu nại",
+        "heading_en": "Reviews and complaints",
+        "steps": [
+          {
+            "title": "Mở mục Đánh giá và khiếu nại",
+            "text": "Vào Cá nhân → Đánh giá và khiếu nại để xem các phản hồi của tài khoản. Chuyển giữa phần Đánh giá và Khiếu nại bằng lựa chọn đang hiển thị.",
+            "result": "Bạn thấy đúng danh sách đánh giá hoặc khiếu nại của mình.",
+            "title_en": "Open Reviews and complaints",
+            "text_en": "Go to Account → Reviews and complaints. Use the displayed controls to switch between your reviews and complaints.",
+            "result_en": "The selected list contains your own feedback.",
+            "image": {
+              "file": "guide-v3-reviews.png",
+              "width": 780,
+              "height": 870,
+              "alt": "Mở mục Đánh giá và khiếu nại — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Open Reviews and complaints — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 18.412,
+                  "width": 91.795,
+                  "height": 11.507
+                }
+              ]
+            }
+          },
+          {
+            "title": "Đánh giá một buổi đủ điều kiện",
+            "text": "Mở đơn hoặc buổi đã hoàn thành. Khi ứng dụng cho phép đánh giá, chạm Đánh giá, chọn số sao và nhập nhận xét. Chỉ gửi sau khi kiểm tra đúng đơn và nhân viên; quyền sửa/xóa phụ thuộc các nút đang được cung cấp.",
+            "result": "Sau khi gửi, quay lại mục Đánh giá để kiểm tra phản hồi đã được lưu.",
+            "title_en": "Review an eligible session",
+            "text_en": "Open a completed booking or session. When Review is available, select stars and enter feedback. Verify the booking and worker before submitting; edit or delete only where the app provides those actions.",
+            "result_en": "After submission, check the Reviews list to confirm your feedback was saved.",
+            "image": {
+              "file": "guide-v3-reviews.png",
+              "width": 780,
+              "height": 870,
+              "alt": "Đánh giá một buổi đủ điều kiện — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Review an eligible session — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 57.537,
+                  "width": 91.795,
+                  "height": 38.78
+                }
+              ]
+            }
+          },
+          {
+            "title": "Gửi và theo dõi khiếu nại",
+            "text": "Từ đơn/buổi có vấn đề, mở chức năng phản hồi hoặc khiếu nại nếu có. Chọn nội dung phù hợp, mô tả sự việc và thêm ảnh khi cần. Kiểm tra trước khi gửi; sau đó theo dõi tại mục Khiếu nại.",
+            "result": "Giữ mã đơn, buổi dịch vụ và nội dung đã gửi để đối chiếu khi được liên hệ xử lý.",
+            "title_en": "Submit and track a complaint",
+            "text_en": "From the relevant booking or session, open feedback or complaints where available. Choose a category, explain the issue and attach images if needed. Review before submitting, then track the Complaints list.",
+            "result_en": "Keep the booking reference, session and submitted details for follow-up.",
+            "image": {
+              "file": "guide-v3-complaints.png",
+              "width": 780,
+              "height": 746,
+              "alt": "Gửi và theo dõi khiếu nại — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Submit and track a complaint — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 37.534,
+                  "width": 91.795,
+                  "height": 10.322
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Mở mục Đánh giá và khiếu nại. Vào Cá nhân → Đánh giá và khiếu nại để xem các phản hồi của tài khoản. Chuyển giữa phần Đánh giá và Khiếu nại bằng lựa chọn đang hiển thị. Bạn thấy đúng danh sách đánh giá hoặc khiếu nại của mình.\n\n2. Đánh giá một buổi đủ điều kiện. Mở đơn hoặc buổi đã hoàn thành. Khi ứng dụng cho phép đánh giá, chạm Đánh giá, chọn số sao và nhập nhận xét. Chỉ gửi sau khi kiểm tra đúng đơn và nhân viên; quyền sửa/xóa phụ thuộc các nút đang được cung cấp. Sau khi gửi, quay lại mục Đánh giá để kiểm tra phản hồi đã được lưu.\n\n3. Gửi và theo dõi khiếu nại. Từ đơn/buổi có vấn đề, mở chức năng phản hồi hoặc khiếu nại nếu có. Chọn nội dung phù hợp, mô tả sự việc và thêm ảnh khi cần. Kiểm tra trước khi gửi; sau đó theo dõi tại mục Khiếu nại. Giữ mã đơn, buổi dịch vụ và nội dung đã gửi để đối chiếu khi được liên hệ xử lý.",
+        "text_en": "1. Open Reviews and complaints. Go to Account → Reviews and complaints. Use the displayed controls to switch between your reviews and complaints. The selected list contains your own feedback.\n\n2. Review an eligible session. Open a completed booking or session. When Review is available, select stars and enter feedback. Verify the booking and worker before submitting; edit or delete only where the app provides those actions. After submission, check the Reviews list to confirm your feedback was saved.\n\n3. Submit and track a complaint. From the relevant booking or session, open feedback or complaints where available. Choose a category, explain the issue and attach images if needed. Review before submitting, then track the Complaints list. Keep the booking reference, session and submitted details for follow-up."
+      },
+      {
+        "id": "tim-don",
+        "heading": "Không tìm thấy đơn trong danh sách",
+        "heading_en": "When a booking is missing",
+        "steps": [
+          {
+            "title": "Kiểm tra tài khoản đang dùng",
+            "text": "Mở Cá nhân và kiểm tra tên/số điện thoại. Nếu trước đó đặt bằng một tài khoản khác, cần đăng nhập đúng tài khoản đó mới xem được đơn của tài khoản ấy.",
+            "result": "Đảm bảo bạn đang dùng đúng tài khoản đã đặt dịch vụ.",
+            "title_en": "Check the current account",
+            "text_en": "Open Account and check the name and phone. If a booking was made with another account, sign in to that account to view it.",
+            "result_en": "Confirm you are using the account that created the booking.",
+            "image": {
+              "file": "guide-v3-account.png",
+              "width": 780,
+              "height": 1784,
+              "alt": "Kiểm tra tài khoản đang dùng — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Check the current account — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 8.969,
+                  "width": 91.795,
+                  "height": 7.399
+                }
+              ]
+            }
+          },
+          {
+            "title": "Kiểm tra nhóm trạng thái và tải lại",
+            "text": "Mở Đơn hàng và lần lượt kiểm tra các nhóm trạng thái phù hợp. Kéo xuống làm mới danh sách nếu cần. Khi mất mạng hoặc app báo lỗi tải, kết nối lại rồi thử tải lại; đừng kết luận đơn đã bị xóa.",
+            "result": "Đối chiếu mã đơn hoặc tên dịch vụ sau khi danh sách tải xong.",
+            "title_en": "Check status groups and refresh",
+            "text_en": "Open Bookings and inspect the relevant status groups. Pull down to refresh if needed. Reconnect and retry if the app reports a network error; do not assume the booking was deleted.",
+            "result_en": "Compare the booking code or service name after the list loads.",
+            "image": {
+              "file": "guide-v3-orders.png",
+              "width": 780,
+              "height": 1436,
+              "alt": "Kiểm tra nhóm trạng thái và tải lại — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Check status groups and refresh — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 19.708,
+                  "width": 91.795,
+                  "height": 5.362
+                }
+              ]
+            }
+          },
+          {
+            "title": "Giữ thông tin nếu vẫn cần hỗ trợ",
+            "text": "Nếu vẫn không thấy đơn, lưu mã đơn hoặc ảnh màn xác nhận đặt, thời gian thao tác và thông báo lỗi. Không cung cấp mật khẩu hoặc mã xác thực. Không tạo thêm một đơn giống hệt chỉ để kiểm tra đơn cũ.",
+            "result": "Các thông tin này giúp đối chiếu đúng đơn khi bạn liên hệ hỗ trợ.",
+            "title_en": "Keep details for support",
+            "text_en": "Keep the booking code or confirmation screenshot, the action time and any error message. Never share passwords or verification codes. Do not create a duplicate booking merely to check an existing one.",
+            "result_en": "These details help identify the correct booking when you contact support.",
+            "image": {
+              "file": "guide-v3-order-detail.png",
+              "width": 780,
+              "height": 1398,
+              "alt": "Giữ thông tin nếu vẫn cần hỗ trợ — hình minh họa vẽ lại theo giao diện app; dữ liệu mẫu.",
+              "alt_en": "Keep details for support — redrawn app interface illustration; example data.",
+              "markers": [
+                {
+                  "x": 4.103,
+                  "y": 13.601,
+                  "width": 91.795,
+                  "height": 11.525
+                }
+              ]
+            }
+          }
+        ],
+        "text": "1. Kiểm tra tài khoản đang dùng. Mở Cá nhân và kiểm tra tên/số điện thoại. Nếu trước đó đặt bằng một tài khoản khác, cần đăng nhập đúng tài khoản đó mới xem được đơn của tài khoản ấy. Đảm bảo bạn đang dùng đúng tài khoản đã đặt dịch vụ.\n\n2. Kiểm tra nhóm trạng thái và tải lại. Mở Đơn hàng và lần lượt kiểm tra các nhóm trạng thái phù hợp. Kéo xuống làm mới danh sách nếu cần. Khi mất mạng hoặc app báo lỗi tải, kết nối lại rồi thử tải lại; đừng kết luận đơn đã bị xóa. Đối chiếu mã đơn hoặc tên dịch vụ sau khi danh sách tải xong.\n\n3. Giữ thông tin nếu vẫn cần hỗ trợ. Nếu vẫn không thấy đơn, lưu mã đơn hoặc ảnh màn xác nhận đặt, thời gian thao tác và thông báo lỗi. Không cung cấp mật khẩu hoặc mã xác thực. Không tạo thêm một đơn giống hệt chỉ để kiểm tra đơn cũ. Các thông tin này giúp đối chiếu đúng đơn khi bạn liên hệ hỗ trợ.",
+        "text_en": "1. Check the current account. Open Account and check the name and phone. If a booking was made with another account, sign in to that account to view it. Confirm you are using the account that created the booking.\n\n2. Check status groups and refresh. Open Bookings and inspect the relevant status groups. Pull down to refresh if needed. Reconnect and retry if the app reports a network error; do not assume the booking was deleted. Compare the booking code or service name after the list loads.\n\n3. Keep details for support. Keep the booking code or confirmation screenshot, the action time and any error message. Never share passwords or verification codes. Do not create a duplicate booking merely to check an existing one. These details help identify the correct booking when you contact support."
+      }
+    ],
+    "keywords": "ứng dụng khách hàng địa chỉ danh mục dịch vụ đơn gói nhiều buổi ví lịch sử thanh toán voucher nhân viên yêu thích trợ lý đánh giá khiếu nại",
+    "role": "CUSTOMER",
+    "source_document": "CleanWise — Hướng dẫn sử dụng ứng dụng khách hàng, bản minh họa Android v3",
+    "effective_from": "2026-10-25"
+  }
+]
