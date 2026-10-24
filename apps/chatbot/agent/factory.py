@@ -153,7 +153,10 @@ def address_management_answer(text, history=()):
     })
 
 
-def _build_agent(model, checkpointer, *, tools, prompt, name):
+def _build_agent(model, checkpointer, *, tools, prompt, name, language='vi'):
+    if language == 'en':
+        prompt = prompt.replace('Trả lời tiếng Việt', 'Reply in English').replace('Chào bạn!', 'Hello!')
+        prompt += '\nThe app language is English. Reply in clear, concise English, including explanations of tool results. Keep names, addresses and booking codes unchanged.'
     return create_agent(
         model=model,
         tools=tools,
@@ -182,16 +185,17 @@ def _build_agent(model, checkpointer, *, tools, prompt, name):
         name=name,
     )
 
-def create_customer_agent(model, checkpointer):
+def create_customer_agent(model, checkpointer, language='vi'):
     return _build_agent(
         model,
         checkpointer,
         tools=CUSTOMER_TOOLS,
         prompt=SYSTEM_PROMPT,
         name='cleanwise_customer_assistant',
+        language=language,
     )
 
-def create_worker_agent(model, checkpointer):
+def create_worker_agent(model, checkpointer, language='vi'):
     prompt = WORKER_PROMPT + (
         WORKER_COMPLAINT_PROMPT if WORKER_COMPLAINT_ENABLED else ''
     )
@@ -201,6 +205,7 @@ def create_worker_agent(model, checkpointer):
         tools=WORKER_TOOLS,
         prompt=prompt,
         name='cleanwise_worker_assistant',
+        language=language,
     )
 
 def extract_answer(result):
@@ -392,14 +397,14 @@ def extract_answer(result):
     )
 
 def run_agent(*, history, text, thread_id, user_id=None, role='CUSTOMER',
-              customer_id=None, conversation_id=0, run_id=''):
+              customer_id=None, conversation_id=0, run_id='', language='vi'):
     if not settings.CHATBOT_ENABLED or not settings.CHATBOT_GOOGLE_API_KEY:
         raise AgentUnavailable(
             'Gemini key is not configured or chatbot is disabled.'
         )
 
     user_id = user_id if user_id is not None else customer_id
-    if role == 'CUSTOMER':
+    if role == 'CUSTOMER' and language == 'vi':
         service_choices = generic_booking_service_choices(text, history)
         if service_choices is not None:
             return service_choices
@@ -441,7 +446,7 @@ def run_agent(*, history, text, thread_id, user_id=None, role='CUSTOMER',
     with open_checkpointer() as saver:
         agent = (
             create_worker_agent if is_worker else create_customer_agent
-        )(model, saver)
+        )(model, saver, language=language)
 
         result = agent.invoke(
             {'messages': messages},

@@ -15,6 +15,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             'id', 'conversation_id', 'sender_id', 'recipient_id',
             'related_assignment_id', 'message', 'message_type',
             'attachment', 'is_read', 'created_at',
+            'client_message_id',
         )
 
 
@@ -27,6 +28,7 @@ class MessageListInputSerializer(serializers.Serializer):
 class MessageSendInputSerializer(serializers.Serializer):
     conversation_id = serializers.IntegerField(min_value=1)
     message = serializers.CharField(max_length=2000, trim_whitespace=True, allow_blank=False)
+    client_message_id = serializers.RegexField(r'^[A-Za-z0-9_-]{1,100}$', required=False)
 
 
 class MessageReadInputSerializer(serializers.Serializer):

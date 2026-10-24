@@ -46,6 +46,8 @@ class HelpArticle(models.Model):
                     or not isinstance(section.get('text'), str) or not section['text'].strip()
                     or len(section['text']) > 12000):
                 raise ValidationError({'sections': 'Mỗi mục cần heading và text; text không rỗng, tối đa 12000 ký tự.'})
+        from .help_content import validate_guide_sections
+        validate_guide_sections(self.sections)
         if self.effective_until and self.effective_until < self.effective_from:
             raise ValidationError({'effective_until': 'Ngày kết thúc phải từ ngày hiệu lực trở đi.'})
         previous = type(self).objects.filter(pk=self.pk).first() if self.pk else None

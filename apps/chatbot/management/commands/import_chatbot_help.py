@@ -4,18 +4,23 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from apps.chatbot.models import HelpArticle
 
+DATA_ROOT = Path(__file__).resolve().parents[2] / 'data'
+DEFAULT_PATH = DATA_ROOT / 'help_articles.json'
+
 
 class Command(BaseCommand):
-    help = 'Nhập bốn hướng dẫn CleanWise. Mặc định bản nháp; --publish để xuất bản nội dung đã duyệt.'
+    help = 'Nhập hướng dẫn CleanWise. Mặc định bản nháp; --publish để xuất bản nội dung đã duyệt.'
 
     def add_arguments(self, parser):
         parser.add_argument('--publish', action='store_true')
-        parser.add_argument('--path', type=Path, default=Path(__file__).resolve().parents[2] / 'data' / 'help_articles.json')
+        parser.add_argument('--path', type=Path, default=DEFAULT_PATH)
 
     @transaction.atomic
     def handle(self, *args, **options):
         try:
             items = json.loads(options['path'].read_text(encoding='utf-8'))
+            if options['path'] == DEFAULT_PATH:
+                items += json.loads((DATA_ROOT / 'customer_app_guide.json').read_text(encoding='utf-8'))
             for item in items:
                 slug, version = item['slug'], item['version']
                 article = HelpArticle.objects.filter(slug=slug, version=version).first()

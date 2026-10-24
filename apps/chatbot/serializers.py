@@ -23,6 +23,7 @@ class ConversationSerializer(serializers.ModelSerializer):
 class MessageInputSerializer(serializers.Serializer):
     text = serializers.CharField(max_length=2000, trim_whitespace=True)
     client_message_id = serializers.UUIDField()
+    language = serializers.ChoiceField(choices=['vi', 'en'], default='vi')
 
 
 class MessageSerializer(serializers.ModelSerializer):

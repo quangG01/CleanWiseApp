@@ -13,6 +13,16 @@ from .serializers import ChatMessageSerializer
 logger = logging.getLogger(__name__)
 
 
+def publish_moderation(user_id):
+    """Private invalidation for all of the sender's connected devices."""
+    try:
+        async_to_sync(get_channel_layer().group_send)(user_group(user_id), {
+            'type': 'chat.moderation', 'payload': {},
+        })
+    except Exception:
+        logger.exception('Could not publish chat moderation update for user %s', user_id)
+
+
 def user_group(user_id):
     return f'chat_user_{user_id}'
 

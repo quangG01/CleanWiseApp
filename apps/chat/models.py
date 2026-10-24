@@ -50,6 +50,7 @@ class ChatMessage(models.Model):
     attachment = models.CharField(max_length=255, blank=True, null=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    client_message_id = models.CharField(max_length=100, blank=True, default='')
 
     class Meta:
         db_table = 'chat_messages'
@@ -75,3 +76,42 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f'{self.sender}: {self.message[:40]}'
+
+
+class ChatRestriction(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class ChatViolation(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    conversation = models.ForeignKey(ChatConversation, on_delete=models.PROTECT)
+    categories = models.JSONField(default=list)
+    action = models.CharField(max_length=20)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['user', 'created_at'], name='chat_violation_user_time')]
+
+
+class ChatSendAttempt(models.Model):
+    """Idempotent outcomes, including rejected sends; never store raw content."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    conversation = models.ForeignKey(ChatConversation, on_delete=models.PROTECT)
+    client_message_id = models.CharField(max_length=100)
+    fingerprint = models.CharField(max_length=64)
+    message = models.ForeignKey(ChatMessage, on_delete=models.PROTECT, null=True)
+    outcome = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'client_message_id'], name='chat_send_attempt_unique')]
+
+
+class ChatRestrictionAudit(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    administrator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='+')
+    previous_locked_until = models.DateTimeField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
