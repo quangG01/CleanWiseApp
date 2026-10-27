@@ -1,0 +1,1130 @@
+[
+  {
+    "slug": "dat-don-dich-vu",
+    "version": 3,
+    "title": "Hướng dẫn đặt đơn dịch vụ CleanWise",
+    "summary": "Chọn một trong 15 đề mục để xem từng bước đặt dịch vụ ca lẻ, gói định kỳ, chọn địa chỉ, voucher, thanh toán và kiểm tra đơn bằng ảnh chụp app cùng sơ đồ minh họa.",
+    "sections": [
+      {
+        "id": "chuan-bi",
+        "heading": "Chuẩn bị trước khi đặt",
+        "heading_en": "Before booking",
+        "steps": [
+          {
+            "title": "Bắt đầu bằng tài khoản khách hàng",
+            "text": "Mở CleanWise và đăng nhập tài khoản khách hàng. Vào Trang chủ để xem các dịch vụ đang cung cấp. Ảnh trong chương dùng dữ liệu mẫu; giá, ngày và lựa chọn thực tế có thể khác.",
+            "result": "Bạn đang ở Trang chủ của tài khoản khách hàng.",
+            "title_en": "Start with a customer account",
+            "text_en": "Open CleanWise and sign in as a customer. Open Home to see available services. Images use example data; actual prices, dates and choices can differ.",
+            "result_en": "You are on the customer Home screen.",
+            "image": {
+              "file": "booking-v2-home-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 25.417,
+                  "width": 19.259,
+                  "height": 3.75
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chuẩn bị địa chỉ, liên hệ và lịch",
+            "text": "Chuẩn bị địa chỉ thực hiện, số điện thoại người nhận và thời gian mong muốn. Quy trình gồm chọn dịch vụ, điền nhu cầu, xác nhận, Đăng việc và kiểm tra đơn.",
+            "result": "Bạn có thông tin cần thiết trước khi điền biểu mẫu.",
+            "title_en": "Prepare the address, contact and schedule",
+            "text_en": "Have the service address, recipient phone number and preferred schedule ready. Choose a service, fill in the request, review it, post the job and check the booking.",
+            "result_en": "You have the information needed for the form.",
+            "image": {
+              "file": "booking-v2-process.png",
+              "width": 780,
+              "height": 950,
+              "markers": [],
+              "alt": "Sơ đồ minh họa · Dữ liệu mẫu; không phải ảnh chụp giao dịch.",
+              "alt_en": "Illustrated diagram · Example data; not a transaction screenshot."
+            }
+          }
+        ],
+        "text": "1. Bắt đầu bằng tài khoản khách hàng. Mở CleanWise và đăng nhập tài khoản khách hàng. Vào Trang chủ để xem các dịch vụ đang cung cấp. Ảnh trong chương dùng dữ liệu mẫu; giá, ngày và lựa chọn thực tế có thể khác. Bạn đang ở Trang chủ của tài khoản khách hàng.\n\n2. Chuẩn bị địa chỉ, liên hệ và lịch. Chuẩn bị địa chỉ thực hiện, số điện thoại người nhận và thời gian mong muốn. Quy trình gồm chọn dịch vụ, điền nhu cầu, xác nhận, Đăng việc và kiểm tra đơn. Bạn có thông tin cần thiết trước khi điền biểu mẫu.",
+        "text_en": "1. Start with a customer account. Open CleanWise and sign in as a customer. Open Home to see available services. Images use example data; actual prices, dates and choices can differ. You are on the customer Home screen.\n\n2. Prepare the address, contact and schedule. Have the service address, recipient phone number and preferred schedule ready. Choose a service, fill in the request, review it, post the job and check the booking. You have the information needed for the form."
+      },
+      {
+        "id": "chon-dich-vu",
+        "heading": "Tìm và chọn dịch vụ",
+        "heading_en": "Find and choose a service",
+        "steps": [
+          {
+            "title": "Tìm dịch vụ từ Trang chủ",
+            "text": "Nhập tên vào ô tìm kiếm hoặc chọn trong mục Dịch vụ. Đọc kỹ tên để phân biệt Dọn dẹp nhà - Ca lẻ, Gói tháng và các dịch vụ khác.",
+            "result": "Bạn mở đúng loại dịch vụ cần đặt.",
+            "title_en": "Find a service on Home",
+            "text_en": "Use search or choose an item under Services. Read the name to distinguish single visits, monthly packages and other services.",
+            "result_en": "The intended service opens.",
+            "image": {
+              "file": "booking-v2-home-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 14.537,
+                  "y": 14.792,
+                  "width": 78.056,
+                  "height": 5.583
+                },
+                {
+                  "x": 4.352,
+                  "y": 36.542,
+                  "width": 22.593,
+                  "height": 4.417
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Đọc mô tả và các trường bắt buộc",
+            "text": "Xem mô tả dịch vụ rồi cuộn để đọc biểu mẫu. Các trường có dấu * cần được điền. Tên và số lượng trường thay đổi theo dịch vụ.",
+            "result": "Bạn biết phạm vi công việc và thông tin cần cung cấp.",
+            "title_en": "Read the description and required fields",
+            "text_en": "Read the description, then scroll through the form. Fields marked * are required. The fields vary by service.",
+            "result_en": "You know the work scope and required information.",
+            "image": {
+              "file": "booking-v2-service-top.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 31.708,
+                  "width": 44.259,
+                  "height": 3.042
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Tìm dịch vụ từ Trang chủ. Nhập tên vào ô tìm kiếm hoặc chọn trong mục Dịch vụ. Đọc kỹ tên để phân biệt Dọn dẹp nhà - Ca lẻ, Gói tháng và các dịch vụ khác. Bạn mở đúng loại dịch vụ cần đặt.\n\n2. Đọc mô tả và các trường bắt buộc. Xem mô tả dịch vụ rồi cuộn để đọc biểu mẫu. Các trường có dấu * cần được điền. Tên và số lượng trường thay đổi theo dịch vụ. Bạn biết phạm vi công việc và thông tin cần cung cấp.",
+        "text_en": "1. Find a service on Home. Use search or choose an item under Services. Read the name to distinguish single visits, monthly packages and other services. The intended service opens.\n\n2. Read the description and required fields. Read the description, then scroll through the form. Fields marked * are required. The fields vary by service. You know the work scope and required information."
+      },
+      {
+        "id": "nhu-cau-cong-viec",
+        "heading": "Điền nhu cầu công việc",
+        "heading_en": "Describe the work",
+        "steps": [
+          {
+            "title": "Chọn thời lượng hoặc quy mô",
+            "text": "Điền các lựa chọn bắt buộc của dịch vụ. Ví dụ với ca lẻ, chọn Thời gian làm việc theo số giờ, diện tích hoặc số phòng mô tả trên từng lựa chọn.",
+            "result": "Lựa chọn công việc đúng với nhu cầu của bạn.",
+            "title_en": "Choose duration or size",
+            "text_en": "Complete the service’s required options. For a single cleaning visit, choose the duration using the hours, area or room limits shown.",
+            "result_en": "The work option matches your needs.",
+            "image": {
+              "file": "booking-v2-service-once.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 30.042,
+                  "width": 33.426,
+                  "height": 3.042
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chọn dịch vụ thêm khi cần",
+            "text": "Nếu có mục Dịch vụ thêm, chọn những việc bổ sung bạn cần, như Nấu ăn hoặc Ủi đồ. Kiểm tra giá cộng thêm trên lựa chọn và Tạm tính.",
+            "result": "Tạm tính phản ánh các dịch vụ thêm đã chọn.",
+            "title_en": "Choose optional extras",
+            "text_en": "If Extra services is offered, select any additional tasks you need, such as cooking or ironing. Check each extra’s price and the estimate.",
+            "result_en": "The estimate reflects your selected extras.",
+            "image": {
+              "file": "booking-v2-service-once.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 63.75,
+                  "width": 24.352,
+                  "height": 3.042
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Thêm hạng mục và chọn số lượng",
+            "text": "Với Sofa - Nệm - Rèm - Thảm, chọn loại hạng mục, mở đúng loại/kích thước rồi dùng bộ đếm Số lượng. Lặp lại cho các hạng mục khác cần làm.",
+            "result": "Loại, kích thước và số lượng từng hạng mục đã đúng.",
+            "title_en": "Select items and quantities",
+            "text_en": "For Sofa, Mattress, Curtain and Carpet cleaning, choose a category, open the required type or size and use its quantity control. Repeat for other items.",
+            "result_en": "Each item has the correct type, size and quantity.",
+            "image": {
+              "file": "booking-v2-item-quantity-visible.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 10,
+                  "y": 47,
+                  "width": 36,
+                  "height": 9
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Kiểm tra các hạng mục đã chọn",
+            "text": "Chạm Thiết bị đã chọn để xem danh sách, số lượng và thành tiền. Dùng biểu tượng xóa nếu chọn nhầm. Nếu biểu mẫu có Ghi chú, cuộn tới trường đó và bổ sung yêu cầu cần thiết.",
+            "result": "Danh sách đủ hạng mục và không có lựa chọn thừa.",
+            "title_en": "Review selected items",
+            "text_en": "Tap Selected items to inspect the list, quantities and prices. Remove an item if selected by mistake. If Notes is provided, scroll to it and add any relevant requests.",
+            "result_en": "The list contains all intended items and no unwanted choices.",
+            "image": {
+              "file": "booking-v2-items-summary.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 14.537,
+                  "y": 68.375,
+                  "width": 67.13,
+                  "height": 3.292
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Chọn thời lượng hoặc quy mô. Điền các lựa chọn bắt buộc của dịch vụ. Ví dụ với ca lẻ, chọn Thời gian làm việc theo số giờ, diện tích hoặc số phòng mô tả trên từng lựa chọn. Lựa chọn công việc đúng với nhu cầu của bạn.\n\n2. Chọn dịch vụ thêm khi cần. Nếu có mục Dịch vụ thêm, chọn những việc bổ sung bạn cần, như Nấu ăn hoặc Ủi đồ. Kiểm tra giá cộng thêm trên lựa chọn và Tạm tính. Tạm tính phản ánh các dịch vụ thêm đã chọn.\n\n3. Thêm hạng mục và chọn số lượng. Với Sofa - Nệm - Rèm - Thảm, chọn loại hạng mục, mở đúng loại/kích thước rồi dùng bộ đếm Số lượng. Lặp lại cho các hạng mục khác cần làm. Loại, kích thước và số lượng từng hạng mục đã đúng.\n\n4. Kiểm tra các hạng mục đã chọn. Chạm Thiết bị đã chọn để xem danh sách, số lượng và thành tiền. Dùng biểu tượng xóa nếu chọn nhầm. Nếu biểu mẫu có Ghi chú, cuộn tới trường đó và bổ sung yêu cầu cần thiết. Danh sách đủ hạng mục và không có lựa chọn thừa.",
+        "text_en": "1. Choose duration or size. Complete the service’s required options. For a single cleaning visit, choose the duration using the hours, area or room limits shown. The work option matches your needs.\n\n2. Choose optional extras. If Extra services is offered, select any additional tasks you need, such as cooking or ironing. Check each extra’s price and the estimate. The estimate reflects your selected extras.\n\n3. Select items and quantities. For Sofa, Mattress, Curtain and Carpet cleaning, choose a category, open the required type or size and use its quantity control. Repeat for other items. Each item has the correct type, size and quantity.\n\n4. Review selected items. Tap Selected items to inspect the list, quantities and prices. Remove an item if selected by mistake. If Notes is provided, scroll to it and add any relevant requests. The list contains all intended items and no unwanted choices."
+      },
+      {
+        "id": "dia-chi",
+        "heading": "Chọn hoặc thêm địa chỉ",
+        "heading_en": "Choose or add an address",
+        "steps": [
+          {
+            "title": "Chọn địa chỉ đã lưu",
+            "text": "Chạm ô địa chỉ hoặc Đổi trong biểu mẫu, rồi chọn đúng địa chỉ đã lưu. Địa chỉ mặc định có thể được điền sẵn; vẫn kiểm tra tên người nhận và số điện thoại.",
+            "result": "Địa chỉ đã chọn hiển thị lại trên biểu mẫu dịch vụ.",
+            "title_en": "Choose a saved address",
+            "text_en": "Tap the address or Change in the form, then choose a saved address. A default address may be filled automatically; still verify the recipient and phone.",
+            "result_en": "The selected address appears in the service form.",
+            "image": {
+              "file": "booking-v2-addresses.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 19.722,
+                  "y": 29.458,
+                  "width": 17.13,
+                  "height": 3.292
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Thêm địa chỉ mới nếu chưa có",
+            "text": "Chọn Thêm địa chỉ mới, sau đó Nhập thủ công hoặc Chọn trên bản đồ. Với biểu mẫu thủ công, chọn tỉnh/thành, phường/xã và nhập địa chỉ cụ thể. Bật Người khác sẽ nhận nhân viên nếu cần, điền thông tin yêu cầu rồi lưu bằng Thêm địa chỉ.",
+            "result": "Địa chỉ được lưu; chọn lại địa chỉ này cho đơn và kiểm tra thông tin.",
+            "title_en": "Add an address if needed",
+            "text_en": "Tap Add new address, then choose manual entry or the map. For manual entry, choose the city and ward and enter the detailed address. Enable Another person will receive the worker if needed, complete the requested contact details and save.",
+            "result_en": "Select the saved address for your booking and verify its details.",
+            "image": {
+              "file": "booking-v2-address-form.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 4.167,
+                  "y": 16.667,
+                  "width": 91.759,
+                  "height": 2.875
+                },
+                {
+                  "x": 4.167,
+                  "y": 73.917,
+                  "width": 22.222,
+                  "height": 2.875
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chuyển nhà: kiểm tra cả nơi đi và nơi đến",
+            "text": "Điền riêng Địa chỉ chuyển đi và Địa chỉ chuyển đến. Chọn đúng địa chỉ cho mỗi ô; không dùng một ô thay cho cả hai địa điểm.",
+            "result": "Cả hai địa chỉ đã được cung cấp đúng vai trò.",
+            "title_en": "Moving: check both addresses",
+            "text_en": "Fill Pickup address and Delivery address separately. Choose the correct location for each field; one address field does not replace both.",
+            "result_en": "Both locations have the correct role.",
+            "image": {
+              "file": "booking-v2-moving-addresses.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 31.708,
+                  "width": 31.481,
+                  "height": 3.042
+                },
+                {
+                  "x": 3.519,
+                  "y": 47.042,
+                  "width": 34.722,
+                  "height": 3.042
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Chọn địa chỉ đã lưu. Chạm ô địa chỉ hoặc Đổi trong biểu mẫu, rồi chọn đúng địa chỉ đã lưu. Địa chỉ mặc định có thể được điền sẵn; vẫn kiểm tra tên người nhận và số điện thoại. Địa chỉ đã chọn hiển thị lại trên biểu mẫu dịch vụ.\n\n2. Thêm địa chỉ mới nếu chưa có. Chọn Thêm địa chỉ mới, sau đó Nhập thủ công hoặc Chọn trên bản đồ. Với biểu mẫu thủ công, chọn tỉnh/thành, phường/xã và nhập địa chỉ cụ thể. Bật Người khác sẽ nhận nhân viên nếu cần, điền thông tin yêu cầu rồi lưu bằng Thêm địa chỉ. Địa chỉ được lưu; chọn lại địa chỉ này cho đơn và kiểm tra thông tin.\n\n3. Chuyển nhà: kiểm tra cả nơi đi và nơi đến. Điền riêng Địa chỉ chuyển đi và Địa chỉ chuyển đến. Chọn đúng địa chỉ cho mỗi ô; không dùng một ô thay cho cả hai địa điểm. Cả hai địa chỉ đã được cung cấp đúng vai trò.",
+        "text_en": "1. Choose a saved address. Tap the address or Change in the form, then choose a saved address. A default address may be filled automatically; still verify the recipient and phone. The selected address appears in the service form.\n\n2. Add an address if needed. Tap Add new address, then choose manual entry or the map. For manual entry, choose the city and ward and enter the detailed address. Enable Another person will receive the worker if needed, complete the requested contact details and save. Select the saved address for your booking and verify its details.\n\n3. Moving: check both addresses. Fill Pickup address and Delivery address separately. Choose the correct location for each field; one address field does not replace both. Both locations have the correct role."
+      },
+      {
+        "id": "lich-mot-lan",
+        "heading": "Chọn lịch cho dịch vụ một lần",
+        "heading_en": "Schedule a single visit",
+        "steps": [
+          {
+            "title": "Chọn ngày thực hiện",
+            "text": "Trong Chọn ngày, chạm ngày phù hợp trong danh sách. Cuộn ngang nếu cần để xem các ngày tiếp theo. Chọn trong những ngày được app cho phép.",
+            "result": "Ngày mong muốn được chọn trên biểu mẫu.",
+            "title_en": "Choose the service date",
+            "text_en": "Under Choose date, tap an available date. Scroll horizontally if needed to see later dates. Use a date allowed by the app.",
+            "result_en": "The intended date is selected.",
+            "image": {
+              "file": "booking-v2-service-top.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 4,
+                  "y": 47,
+                  "width": 84,
+                  "height": 13
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chọn và xác nhận giờ bắt đầu",
+            "text": "Chạm Giờ bắt đầu hoặc Đổi. Chọn giờ và phút trong khung giờ hiển thị, rồi chạm dấu ✓ ở góc trên bên phải của bảng chọn để lưu. Kiểm tra cả ngày và giờ phải ở tương lai; giờ đang hiển thị cần được xác nhận nếu app vẫn báo thiếu.",
+            "result": "Giờ đã được lưu và xuất hiện trên biểu mẫu.",
+            "title_en": "Choose and confirm the start time",
+            "text_en": "Tap Start time or Change. Choose hours and minutes within the displayed range, then tap the check mark at the top right to save. Check that the combined date and time is in the future; confirm the displayed time if the app still reports it missing.",
+            "result_en": "The start time is saved in the form.",
+            "image": {
+              "file": "booking-v2-time-picker.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 7,
+                  "y": 62,
+                  "width": 86,
+                  "height": 31
+                },
+                {
+                  "x": 87,
+                  "y": 51,
+                  "width": 9,
+                  "height": 6
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Chọn ngày thực hiện. Trong Chọn ngày, chạm ngày phù hợp trong danh sách. Cuộn ngang nếu cần để xem các ngày tiếp theo. Chọn trong những ngày được app cho phép. Ngày mong muốn được chọn trên biểu mẫu.\n\n2. Chọn và xác nhận giờ bắt đầu. Chạm Giờ bắt đầu hoặc Đổi. Chọn giờ và phút trong khung giờ hiển thị, rồi chạm dấu ✓ ở góc trên bên phải của bảng chọn để lưu. Kiểm tra cả ngày và giờ phải ở tương lai; giờ đang hiển thị cần được xác nhận nếu app vẫn báo thiếu. Giờ đã được lưu và xuất hiện trên biểu mẫu.",
+        "text_en": "1. Choose the service date. Under Choose date, tap an available date. Scroll horizontally if needed to see later dates. Use a date allowed by the app. The intended date is selected.\n\n2. Choose and confirm the start time. Tap Start time or Change. Choose hours and minutes within the displayed range, then tap the check mark at the top right to save. Check that the combined date and time is in the future; confirm the displayed time if the app still reports it missing. The start time is saved in the form."
+      },
+      {
+        "id": "lich-dinh-ky",
+        "heading": "Chọn lịch định kỳ hoặc nhiều buổi",
+        "heading_en": "Schedule a recurring package",
+        "steps": [
+          {
+            "title": "Chọn ngày thực hiện hàng tuần",
+            "text": "Với gói tháng, chọn một hoặc nhiều ngày trong Ngày thực hiện hàng tuần. Kiểm tra những ngày đang được đánh dấu.",
+            "result": "Các ngày trong tuần đúng với lịch bạn muốn.",
+            "title_en": "Choose recurring weekdays",
+            "text_en": "For a monthly package, select one or more weekdays. Review the days marked as selected.",
+            "result_en": "The selected weekdays match your intended schedule.",
+            "image": {
+              "file": "booking-v2-recurring-top-selected.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 4,
+                  "y": 47,
+                  "width": 92,
+                  "height": 8
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chọn giờ và thời gian mỗi buổi",
+            "text": "Mở Giờ bắt đầu, chọn giờ/phút và chạm dấu ✓ để lưu. Chọn Thời gian mỗi buổi theo nhu cầu; thời lượng này áp dụng cho từng buổi trong gói.",
+            "result": "Giờ bắt đầu và thời lượng mỗi buổi đã được chọn.",
+            "title_en": "Choose the time and visit duration",
+            "text_en": "Open Start time, choose hours and minutes and tap the check mark to save. Choose the duration for each visit in the package.",
+            "result_en": "Both the start time and visit duration are selected.",
+            "image": {
+              "file": "booking-v2-recurring-top-selected.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 56.708,
+                  "width": 21.667,
+                  "height": 3.042
+                },
+                {
+                  "x": 3.519,
+                  "y": 70.417,
+                  "width": 33.981,
+                  "height": 3.042
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chọn thời hạn và kiểm tra số buổi",
+            "text": "Chọn Thời hạn gói rồi nhấn Đặt dịch vụ khi thông tin hợp lệ. Ở màn xác nhận, kiểm tra lịch, thời hạn, Giá dịch vụ theo số buổi và Tổng thanh toán. Ví dụ trong ảnh là gói 1 tháng, 4 buổi; số buổi thực tế phụ thuộc lịch của bạn.",
+            "result": "Bạn đã kiểm tra chi phí của cả gói, thay vì chỉ giá một buổi.",
+            "title_en": "Choose the term and check the visit count",
+            "text_en": "Choose the package term, then tap Book service when all information is complete. On confirmation, check the schedule, term, service price for the displayed visit count and total. The image shows an example one-month, four-visit package; your count depends on the schedule.",
+            "result_en": "You have reviewed the whole package price, not just one visit.",
+            "image": {
+              "file": "booking-v2-recurring-confirm-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 8.704,
+                  "y": 52.75,
+                  "width": 30.648,
+                  "height": 2.792
+                },
+                {
+                  "x": 8.704,
+                  "y": 61.0,
+                  "width": 26.389,
+                  "height": 2.792
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Chọn ngày thực hiện hàng tuần. Với gói tháng, chọn một hoặc nhiều ngày trong Ngày thực hiện hàng tuần. Kiểm tra những ngày đang được đánh dấu. Các ngày trong tuần đúng với lịch bạn muốn.\n\n2. Chọn giờ và thời gian mỗi buổi. Mở Giờ bắt đầu, chọn giờ/phút và chạm dấu ✓ để lưu. Chọn Thời gian mỗi buổi theo nhu cầu; thời lượng này áp dụng cho từng buổi trong gói. Giờ bắt đầu và thời lượng mỗi buổi đã được chọn.\n\n3. Chọn thời hạn và kiểm tra số buổi. Chọn Thời hạn gói rồi nhấn Đặt dịch vụ khi thông tin hợp lệ. Ở màn xác nhận, kiểm tra lịch, thời hạn, Giá dịch vụ theo số buổi và Tổng thanh toán. Ví dụ trong ảnh là gói 1 tháng, 4 buổi; số buổi thực tế phụ thuộc lịch của bạn. Bạn đã kiểm tra chi phí của cả gói, thay vì chỉ giá một buổi.",
+        "text_en": "1. Choose recurring weekdays. For a monthly package, select one or more weekdays. Review the days marked as selected. The selected weekdays match your intended schedule.\n\n2. Choose the time and visit duration. Open Start time, choose hours and minutes and tap the check mark to save. Choose the duration for each visit in the package. Both the start time and visit duration are selected.\n\n3. Choose the term and check the visit count. Choose the package term, then tap Book service when all information is complete. On confirmation, check the schedule, term, service price for the displayed visit count and total. The image shows an example one-month, four-visit package; your count depends on the schedule. You have reviewed the whole package price, not just one visit."
+      },
+      {
+        "id": "tam-tinh-xac-nhan",
+        "heading": "Xem tạm tính và mở xác nhận",
+        "heading_en": "Review the estimate and confirmation",
+        "steps": [
+          {
+            "title": "Kiểm tra giá tạm tính",
+            "text": "Xem Tạm tính hoặc Tổng tiền ở cuối màn. Nếu hiện Chưa đủ thông tin, bổ sung các trường bắt buộc. Nếu hiện Chờ báo giá hoặc chưa có số tiền, đọc thông báo; không hiểu đó là giá 0đ.",
+            "result": "Bạn hiểu mức giá hoặc trạng thái giá đang hiển thị.",
+            "title_en": "Check the estimate",
+            "text_en": "Review Estimated price or Total at the bottom. Complete required fields if information is missing. If Awaiting quote or no amount is shown, read the message; do not interpret it as a zero price.",
+            "result_en": "You understand the displayed estimate or pricing state.",
+            "image": {
+              "file": "booking-v2-service-once.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 4.352,
+                  "y": 85.917,
+                  "width": 14.63,
+                  "height": 2.875
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Mở Xác nhận và thanh toán",
+            "text": "Nhấn Đặt dịch vụ ở biểu mẫu thông thường; với dịch vụ nhiều hạng mục, nút có thể là Tiếp theo. Thao tác này mở màn xác nhận, chưa phải gửi đơn. Nếu có lỗi thiếu thông tin, quay lại bổ sung.",
+            "result": "Màn Xác nhận và thanh toán được mở sau khi thông tin hợp lệ.",
+            "title_en": "Open Confirmation and payment",
+            "text_en": "Tap Book service on a standard form; an item-based service may use Next. This opens confirmation and does not submit the booking. Complete missing fields if prompted.",
+            "result_en": "Confirmation and payment opens once the information is valid.",
+            "image": {
+              "file": "booking-v2-items-summary.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 90.083,
+                  "width": 92.963,
+                  "height": 6.375
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Đối chiếu lịch và công việc",
+            "text": "Kiểm tra Thời gian làm việc và Chi tiết công việc. Cuộn xuống đối chiếu địa chỉ, người nhận và các lựa chọn. Nếu cần sửa, quay lại biểu mẫu rồi mở xác nhận lần nữa.",
+            "result": "Lịch, địa chỉ và công việc đúng trước khi chọn thanh toán.",
+            "title_en": "Review the schedule and work",
+            "text_en": "Check Working time and Work details. Scroll to verify the address, recipient and options. To change them, return to the form and reopen confirmation.",
+            "result_en": "The schedule, address and work are correct before choosing payment.",
+            "image": {
+              "file": "booking-v2-confirm-top.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 8.611,
+                  "y": 15.792,
+                  "width": 82.778,
+                  "height": 3.292
+                },
+                {
+                  "x": 8.611,
+                  "y": 31.542,
+                  "width": 82.778,
+                  "height": 3.292
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Kiểm tra giá tạm tính. Xem Tạm tính hoặc Tổng tiền ở cuối màn. Nếu hiện Chưa đủ thông tin, bổ sung các trường bắt buộc. Nếu hiện Chờ báo giá hoặc chưa có số tiền, đọc thông báo; không hiểu đó là giá 0đ. Bạn hiểu mức giá hoặc trạng thái giá đang hiển thị.\n\n2. Mở Xác nhận và thanh toán. Nhấn Đặt dịch vụ ở biểu mẫu thông thường; với dịch vụ nhiều hạng mục, nút có thể là Tiếp theo. Thao tác này mở màn xác nhận, chưa phải gửi đơn. Nếu có lỗi thiếu thông tin, quay lại bổ sung. Màn Xác nhận và thanh toán được mở sau khi thông tin hợp lệ.\n\n3. Đối chiếu lịch và công việc. Kiểm tra Thời gian làm việc và Chi tiết công việc. Cuộn xuống đối chiếu địa chỉ, người nhận và các lựa chọn. Nếu cần sửa, quay lại biểu mẫu rồi mở xác nhận lần nữa. Lịch, địa chỉ và công việc đúng trước khi chọn thanh toán.",
+        "text_en": "1. Check the estimate. Review Estimated price or Total at the bottom. Complete required fields if information is missing. If Awaiting quote or no amount is shown, read the message; do not interpret it as a zero price. You understand the displayed estimate or pricing state.\n\n2. Open Confirmation and payment. Tap Book service on a standard form; an item-based service may use Next. This opens confirmation and does not submit the booking. Complete missing fields if prompted. Confirmation and payment opens once the information is valid.\n\n3. Review the schedule and work. Check Working time and Work details. Scroll to verify the address, recipient and options. To change them, return to the form and reopen confirmation. The schedule, address and work are correct before choosing payment."
+      },
+      {
+        "id": "voucher",
+        "heading": "Thêm, đổi hoặc bỏ voucher",
+        "heading_en": "Add, change or remove a voucher",
+        "steps": [
+          {
+            "title": "Mở Thêm voucher",
+            "text": "Ở Xác nhận và thanh toán, chạm Thêm voucher để xem voucher của bạn khi tùy chọn này khả dụng.",
+            "result": "Bảng Chọn voucher được mở cho đơn hiện tại.",
+            "title_en": "Open Add voucher",
+            "text_en": "On Confirmation and payment, tap Add voucher when offered to see your vouchers.",
+            "result_en": "The voucher picker opens for this booking.",
+            "image": {
+              "file": "booking-v2-confirm-top.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 23.426,
+                  "y": 66.625,
+                  "width": 58.611,
+                  "height": 2.792
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chọn voucher hoặc tiếp tục không dùng",
+            "text": "Chọn voucher đủ điều kiện và xem kết quả áp dụng. Nếu bảng báo Bạn chưa có voucher như ảnh mẫu, chọn Tiếp tục không dùng voucher, hoặc nhận voucher trong Khuyến mãi trước khi quay lại.",
+            "result": "Bạn biết đơn đang dùng voucher nào hoặc tiếp tục không có voucher.",
+            "title_en": "Choose a voucher or continue without one",
+            "text_en": "Choose an eligible voucher and review the result. If the picker says you have no vouchers, as in the sample image, continue without a voucher or claim one in Offers before returning.",
+            "result_en": "You know which voucher is applied, or that none is being used.",
+            "image": {
+              "file": "booking-v2-vouchers.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 31.852,
+                  "y": 77.042,
+                  "width": 36.389,
+                  "height": 2.917
+                },
+                {
+                  "x": 4.167,
+                  "y": 88.792,
+                  "width": 91.759,
+                  "height": 6.333
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Đổi hoặc bỏ rồi kiểm tra tổng tiền",
+            "text": "Nếu đã áp dụng voucher, dùng Đổi voucher hoặc Bỏ voucher khi cần. Mỗi lần thay đổi, đối chiếu lại Giảm giá và Tổng thanh toán. Các số tiền trong sơ đồ chỉ minh họa cách kiểm tra.",
+            "result": "Bạn xác nhận đúng số tiền sau giảm trước khi gửi đơn.",
+            "title_en": "Change or remove it and recheck the total",
+            "text_en": "If a voucher is applied, use Change voucher or Remove voucher as needed. Recheck Discount and Total payment after each change. The diagram uses example amounts only.",
+            "result_en": "The final amount after discounts is correct before submitting.",
+            "image": {
+              "file": "booking-v2-voucher-check.png",
+              "width": 780,
+              "height": 660,
+              "markers": [],
+              "alt": "Sơ đồ minh họa · Dữ liệu mẫu; không phải ảnh chụp giao dịch.",
+              "alt_en": "Illustrated diagram · Example data; not a transaction screenshot."
+            }
+          }
+        ],
+        "text": "1. Mở Thêm voucher. Ở Xác nhận và thanh toán, chạm Thêm voucher để xem voucher của bạn khi tùy chọn này khả dụng. Bảng Chọn voucher được mở cho đơn hiện tại.\n\n2. Chọn voucher hoặc tiếp tục không dùng. Chọn voucher đủ điều kiện và xem kết quả áp dụng. Nếu bảng báo Bạn chưa có voucher như ảnh mẫu, chọn Tiếp tục không dùng voucher, hoặc nhận voucher trong Khuyến mãi trước khi quay lại. Bạn biết đơn đang dùng voucher nào hoặc tiếp tục không có voucher.\n\n3. Đổi hoặc bỏ rồi kiểm tra tổng tiền. Nếu đã áp dụng voucher, dùng Đổi voucher hoặc Bỏ voucher khi cần. Mỗi lần thay đổi, đối chiếu lại Giảm giá và Tổng thanh toán. Các số tiền trong sơ đồ chỉ minh họa cách kiểm tra. Bạn xác nhận đúng số tiền sau giảm trước khi gửi đơn.",
+        "text_en": "1. Open Add voucher. On Confirmation and payment, tap Add voucher when offered to see your vouchers. The voucher picker opens for this booking.\n\n2. Choose a voucher or continue without one. Choose an eligible voucher and review the result. If the picker says you have no vouchers, as in the sample image, continue without a voucher or claim one in Offers before returning. You know which voucher is applied, or that none is being used.\n\n3. Change or remove it and recheck the total. If a voucher is applied, use Change voucher or Remove voucher as needed. Recheck Discount and Total payment after each change. The diagram uses example amounts only. The final amount after discounts is correct before submitting."
+      },
+      {
+        "id": "nhan-vien-yeu-thich",
+        "heading": "Chọn nhân viên yêu thích",
+        "heading_en": "Choose a favorite worker",
+        "steps": [
+          {
+            "title": "Mở Chọn nhân viên",
+            "text": "Cuộn xuống Nhân viên yêu thích trong màn xác nhận, rồi chạm Chọn nhân viên. Danh sách phụ thuộc dịch vụ, địa chỉ và nhân viên phù hợp.",
+            "result": "Bảng nhân viên yêu thích phù hợp được mở.",
+            "title_en": "Open Choose worker",
+            "text_en": "Scroll to Favorite workers on confirmation and tap Choose worker. Availability depends on the service, address and eligible workers.",
+            "result_en": "The eligible favorite worker picker opens.",
+            "image": {
+              "file": "booking-v2-confirm-bottom.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 18.889,
+                  "y": 64.833,
+                  "width": 59.444,
+                  "height": 2.917
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chọn một người hoặc bỏ qua",
+            "text": "Chọn một nhân viên trong danh sách để gửi yêu cầu riêng, hoặc đóng bảng để tiếp tục không chọn. Gửi yêu cầu chưa đồng nghĩa nhân viên đã nhận việc; kiểm tra kết quả trong đơn.",
+            "result": "Lựa chọn đã được ghi nhận; bạn vẫn cần theo dõi nhận việc.",
+            "title_en": "Choose a worker or skip",
+            "text_en": "Select one listed worker to send a private request, or close the picker to continue without one. Sending a request does not establish acceptance; check the booking.",
+            "result_en": "Your choice is recorded; worker acceptance still needs checking.",
+            "image": {
+              "file": "booking-v2-favorite-workers.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 26.389,
+                  "y": 39.833,
+                  "width": 56.759,
+                  "height": 2.917
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Mở Chọn nhân viên. Cuộn xuống Nhân viên yêu thích trong màn xác nhận, rồi chạm Chọn nhân viên. Danh sách phụ thuộc dịch vụ, địa chỉ và nhân viên phù hợp. Bảng nhân viên yêu thích phù hợp được mở.\n\n2. Chọn một người hoặc bỏ qua. Chọn một nhân viên trong danh sách để gửi yêu cầu riêng, hoặc đóng bảng để tiếp tục không chọn. Gửi yêu cầu chưa đồng nghĩa nhân viên đã nhận việc; kiểm tra kết quả trong đơn. Lựa chọn đã được ghi nhận; bạn vẫn cần theo dõi nhận việc.",
+        "text_en": "1. Open Choose worker. Scroll to Favorite workers on confirmation and tap Choose worker. Availability depends on the service, address and eligible workers. The eligible favorite worker picker opens.\n\n2. Choose a worker or skip. Select one listed worker to send a private request, or close the picker to continue without one. Sending a request does not establish acceptance; check the booking. Your choice is recorded; worker acceptance still needs checking."
+      },
+      {
+        "id": "phuong-thuc-thanh-toan",
+        "heading": "Chọn phương thức thanh toán",
+        "heading_en": "Choose a payment method",
+        "steps": [
+          {
+            "title": "Mở phương thức thanh toán",
+            "text": "Ở màn xác nhận, chạm Phương thức thanh toán hoặc Đổi. Kiểm tra danh sách đang khả dụng cho đơn.",
+            "result": "Bạn thấy các phương thức có thể chọn.",
+            "title_en": "Open payment options",
+            "text_en": "On confirmation, tap Payment method or Change. Review the options available for this booking.",
+            "result_en": "The available payment methods are shown.",
+            "image": {
+              "file": "booking-v2-confirm-bottom.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 4.167,
+                  "y": 71.833,
+                  "width": 91.759,
+                  "height": 3.292
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Chọn tiền mặt, chuyển khoản hoặc ví",
+            "text": "Chọn phương thức khả dụng. Ví CleanWise chỉ chọn được khi đủ số dư; nhãn Không đủ nghĩa là cần nạp thêm hoặc dùng phương thức khác. Kiểm tra lựa chọn hiển thị lại trên màn xác nhận.",
+            "result": "Đơn sử dụng đúng phương thức bạn mong muốn.",
+            "title_en": "Choose cash, bank transfer or wallet",
+            "text_en": "Choose an available method. CleanWise Wallet requires sufficient balance; Insufficient means you need to top up or choose another method. Verify the selected method on confirmation.",
+            "result_en": "The booking uses your intended payment method.",
+            "image": {
+              "file": "booking-v2-payment-methods.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 19.074,
+                  "y": 69.375,
+                  "width": 68.981,
+                  "height": 2.917
+                },
+                {
+                  "x": 19.074,
+                  "y": 78.0,
+                  "width": 73.889,
+                  "height": 2.917
+                },
+                {
+                  "x": 19.074,
+                  "y": 88.125,
+                  "width": 73.889,
+                  "height": 2.417
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Gói định kỳ cần thanh toán trước",
+            "text": "Với gói định kỳ hoặc nhiều buổi, Tiền mặt không xuất hiện trong danh sách. Chọn Chuyển khoản hoặc Ví CleanWise nếu đủ số dư. Quy trình chuyển khoản và nạp ví chi tiết nằm trong chương Hướng dẫn thanh toán và sử dụng Ví CleanWise.",
+            "result": "Bạn chọn một phương thức thanh toán trước phù hợp với gói.",
+            "title_en": "Recurring packages require prepayment",
+            "text_en": "Cash is not offered for recurring or multi-visit packages. Choose Bank transfer or CleanWise Wallet with enough balance. For detailed transfer and top-up steps, read the separate payment and wallet guide.",
+            "result_en": "An appropriate prepaid method is selected for the package.",
+            "image": {
+              "file": "booking-v2-recurring-payment-methods.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 19.074,
+                  "y": 78.0,
+                  "width": 68.981,
+                  "height": 2.917
+                },
+                {
+                  "x": 19.074,
+                  "y": 85.667,
+                  "width": 73.889,
+                  "height": 2.917
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Mở phương thức thanh toán. Ở màn xác nhận, chạm Phương thức thanh toán hoặc Đổi. Kiểm tra danh sách đang khả dụng cho đơn. Bạn thấy các phương thức có thể chọn.\n\n2. Chọn tiền mặt, chuyển khoản hoặc ví. Chọn phương thức khả dụng. Ví CleanWise chỉ chọn được khi đủ số dư; nhãn Không đủ nghĩa là cần nạp thêm hoặc dùng phương thức khác. Kiểm tra lựa chọn hiển thị lại trên màn xác nhận. Đơn sử dụng đúng phương thức bạn mong muốn.\n\n3. Gói định kỳ cần thanh toán trước. Với gói định kỳ hoặc nhiều buổi, Tiền mặt không xuất hiện trong danh sách. Chọn Chuyển khoản hoặc Ví CleanWise nếu đủ số dư. Quy trình chuyển khoản và nạp ví chi tiết nằm trong chương Hướng dẫn thanh toán và sử dụng Ví CleanWise. Bạn chọn một phương thức thanh toán trước phù hợp với gói.",
+        "text_en": "1. Open payment options. On confirmation, tap Payment method or Change. Review the options available for this booking. The available payment methods are shown.\n\n2. Choose cash, bank transfer or wallet. Choose an available method. CleanWise Wallet requires sufficient balance; Insufficient means you need to top up or choose another method. Verify the selected method on confirmation. The booking uses your intended payment method.\n\n3. Recurring packages require prepayment. Cash is not offered for recurring or multi-visit packages. Choose Bank transfer or CleanWise Wallet with enough balance. For detailed transfer and top-up steps, read the separate payment and wallet guide. An appropriate prepaid method is selected for the package."
+      },
+      {
+        "id": "gui-don",
+        "heading": "Kiểm tra tổng tiền và gửi đơn",
+        "heading_en": "Review the total and submit",
+        "steps": [
+          {
+            "title": "Đối chiếu thông tin và giá cuối cùng",
+            "text": "Kiểm tra lịch, công việc, địa chỉ, voucher, nhân viên nếu có và phương thức thanh toán. Đối chiếu Giá dịch vụ, Giảm giá, Tổng thanh toán và Tổng tiền ở cuối màn.",
+            "result": "Thông tin và số tiền đã đúng trước khi gửi.",
+            "title_en": "Review the final details and price",
+            "text_en": "Check the schedule, work, address, voucher, optional worker and payment method. Compare Service price, Discount, Total payment and the bottom total.",
+            "result_en": "The details and amount are correct before submitting.",
+            "image": {
+              "file": "booking-v2-confirm-top.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 8.704,
+                  "y": 52.75,
+                  "width": 18.056,
+                  "height": 2.792
+                },
+                {
+                  "x": 8.704,
+                  "y": 61.0,
+                  "width": 26.389,
+                  "height": 2.792
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Nhấn Đăng việc và chờ kết quả",
+            "text": "Nhấn Đăng việc một lần khi đã kiểm tra xong. Chờ app trả kết quả; không nhấn liên tục hoặc vội tạo lại đơn nếu đang tải hay mất mạng.",
+            "result": "Tiếp tục kiểm tra mã đơn hoặc màn thanh toán mà app mở sau đó.",
+            "title_en": "Tap Post job and wait",
+            "text_en": "Tap Post job once after reviewing the request. Wait for the result; do not repeatedly tap or immediately create another booking while loading or disconnected.",
+            "result_en": "Next, check the booking code or payment screen opened by the app.",
+            "image": {
+              "file": "booking-v2-confirm-bottom.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 91.667,
+                  "width": 92.963,
+                  "height": 6.042
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Đối chiếu thông tin và giá cuối cùng. Kiểm tra lịch, công việc, địa chỉ, voucher, nhân viên nếu có và phương thức thanh toán. Đối chiếu Giá dịch vụ, Giảm giá, Tổng thanh toán và Tổng tiền ở cuối màn. Thông tin và số tiền đã đúng trước khi gửi.\n\n2. Nhấn Đăng việc và chờ kết quả. Nhấn Đăng việc một lần khi đã kiểm tra xong. Chờ app trả kết quả; không nhấn liên tục hoặc vội tạo lại đơn nếu đang tải hay mất mạng. Tiếp tục kiểm tra mã đơn hoặc màn thanh toán mà app mở sau đó.",
+        "text_en": "1. Review the final details and price. Check the schedule, work, address, voucher, optional worker and payment method. Compare Service price, Discount, Total payment and the bottom total. The details and amount are correct before submitting.\n\n2. Tap Post job and wait. Tap Post job once after reviewing the request. Wait for the result; do not repeatedly tap or immediately create another booking while loading or disconnected. Next, check the booking code or payment screen opened by the app."
+      },
+      {
+        "id": "kiem-tra-don",
+        "heading": "Hoàn tất và kiểm tra đơn",
+        "heading_en": "Finish and verify the booking",
+        "steps": [
+          {
+            "title": "Tìm đơn theo mã hoặc tên dịch vụ",
+            "text": "Sau khi gửi, ghi nhận mã đơn nếu app cung cấp. Mở Đơn hàng rồi tìm theo mã đơn hoặc tên dịch vụ; chọn đúng đơn theo lịch và thông tin đặt.",
+            "result": "Bạn đã tìm được đơn cần đối chiếu, không nhầm đơn mẫu hoặc đơn cũ.",
+            "title_en": "Find the booking by code or service name",
+            "text_en": "After submitting, keep the booking code if supplied. Open Bookings and search by code or service name; match the schedule and booking details.",
+            "result_en": "You have located the correct booking rather than an old or sample one.",
+            "image": {
+              "file": "booking-v2-orders-list.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 13.796,
+                  "y": 12.083,
+                  "width": 78.981,
+                  "height": 4.958
+                },
+                {
+                  "x": 20.0,
+                  "y": 26.542,
+                  "width": 56.944,
+                  "height": 2.917
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Kiểm tra mã đơn và trạng thái nhận việc",
+            "text": "Mở chi tiết đơn, đối chiếu Mã đơn hàng và Tiến độ đơn hàng. Chờ nhận việc chưa phải đã có nhân viên; xem thông tin buổi và nhân viên khi được cập nhật.",
+            "result": "Bạn biết đơn đang chờ nhận, đã nhận hay đang thực hiện.",
+            "title_en": "Check the code and acceptance status",
+            "text_en": "Open booking details and compare the booking code and progress. Awaiting acceptance does not mean a worker has accepted; check the session and assigned worker as they update.",
+            "result_en": "You know the booking’s current acceptance and work status.",
+            "image": {
+              "file": "booking-v2-order-detail.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 19.722,
+                  "y": 16.792,
+                  "width": 60.37,
+                  "height": 2.292
+                },
+                {
+                  "x": 7.778,
+                  "y": 28.667,
+                  "width": 30.833,
+                  "height": 2.917
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Hoàn tất thanh toán theo phương thức đã chọn",
+            "text": "Chuyển khoản: app mở Thanh toán đơn hàng; đối chiếu mã đơn, số tiền và hoàn tất theo thông tin hiện hành rồi kiểm tra kết quả. Ví: đối chiếu trạng thái thanh toán và giao dịch trừ ví. Tiền mặt: đơn được tạo chưa có nghĩa tiền đã được thu. Xem chương thanh toán để biết các bước chi tiết.",
+            "result": "Bạn kiểm tra trạng thái thanh toán thực tế, không suy từ trạng thái tạo đơn.",
+            "title_en": "Complete the selected payment flow",
+            "text_en": "For bank transfer, compare the booking code and amount on the opened payment screen, follow its current details and check the result. For wallet, reconcile the payment status and debit. For cash, booking creation does not confirm collection. Read the payment guide for detailed steps.",
+            "result_en": "Payment is verified from its recorded status, separately from booking creation.",
+            "image": {
+              "file": "booking-v2-order-payment.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 19.722,
+                  "y": 54.792,
+                  "width": 44.63,
+                  "height": 2.917
+                },
+                {
+                  "x": 68.704,
+                  "y": 56.083,
+                  "width": 21.389,
+                  "height": 2.292
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Giữ mã đơn để tra cứu",
+            "text": "Giữ mã đơn và biên nhận nếu có để đối chiếu khi cần. Kiểm tra riêng ba kết quả: đơn đã tạo, thanh toán đã ghi nhận và nhân viên đã nhận việc.",
+            "result": "Bạn có thông tin tra cứu và hiểu rõ kết quả từng phần.",
+            "title_en": "Keep the reference for follow-up",
+            "text_en": "Keep the booking code and any receipt for reconciliation. Separately verify booking creation, recorded payment and worker acceptance.",
+            "result_en": "You have the references and understand each result separately.",
+            "image": {
+              "file": "booking-v2-order-detail.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 19.722,
+                  "y": 18.583,
+                  "width": 60.37,
+                  "height": 5.875
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Tìm đơn theo mã hoặc tên dịch vụ. Sau khi gửi, ghi nhận mã đơn nếu app cung cấp. Mở Đơn hàng rồi tìm theo mã đơn hoặc tên dịch vụ; chọn đúng đơn theo lịch và thông tin đặt. Bạn đã tìm được đơn cần đối chiếu, không nhầm đơn mẫu hoặc đơn cũ.\n\n2. Kiểm tra mã đơn và trạng thái nhận việc. Mở chi tiết đơn, đối chiếu Mã đơn hàng và Tiến độ đơn hàng. Chờ nhận việc chưa phải đã có nhân viên; xem thông tin buổi và nhân viên khi được cập nhật. Bạn biết đơn đang chờ nhận, đã nhận hay đang thực hiện.\n\n3. Hoàn tất thanh toán theo phương thức đã chọn. Chuyển khoản: app mở Thanh toán đơn hàng; đối chiếu mã đơn, số tiền và hoàn tất theo thông tin hiện hành rồi kiểm tra kết quả. Ví: đối chiếu trạng thái thanh toán và giao dịch trừ ví. Tiền mặt: đơn được tạo chưa có nghĩa tiền đã được thu. Xem chương thanh toán để biết các bước chi tiết. Bạn kiểm tra trạng thái thanh toán thực tế, không suy từ trạng thái tạo đơn.\n\n4. Giữ mã đơn để tra cứu. Giữ mã đơn và biên nhận nếu có để đối chiếu khi cần. Kiểm tra riêng ba kết quả: đơn đã tạo, thanh toán đã ghi nhận và nhân viên đã nhận việc. Bạn có thông tin tra cứu và hiểu rõ kết quả từng phần.",
+        "text_en": "1. Find the booking by code or service name. After submitting, keep the booking code if supplied. Open Bookings and search by code or service name; match the schedule and booking details. You have located the correct booking rather than an old or sample one.\n\n2. Check the code and acceptance status. Open booking details and compare the booking code and progress. Awaiting acceptance does not mean a worker has accepted; check the session and assigned worker as they update. You know the booking’s current acceptance and work status.\n\n3. Complete the selected payment flow. For bank transfer, compare the booking code and amount on the opened payment screen, follow its current details and check the result. For wallet, reconcile the payment status and debit. For cash, booking creation does not confirm collection. Read the payment guide for detailed steps. Payment is verified from its recorded status, separately from booking creation.\n\n4. Keep the reference for follow-up. Keep the booking code and any receipt for reconciliation. Separately verify booking creation, recorded payment and worker acceptance. You have the references and understand each result separately."
+      },
+      {
+        "id": "loi-thong-tin-lich",
+        "heading": "Thiếu địa chỉ hoặc lỗi ngày giờ",
+        "heading_en": "Missing information or schedule errors",
+        "steps": [
+          {
+            "title": "Đọc đúng trường được báo thiếu",
+            "text": "Nếu app báo Thiếu thông tin, đọc trường được nêu rồi quay lại biểu mẫu. Ảnh minh họa lỗi thiếu Giờ bắt đầu: mở bộ chọn giờ và chạm dấu ✓ để xác nhận giá trị.",
+            "result": "Bạn biết trường cần bổ sung thay vì gửi lại biểu mẫu chưa đủ.",
+            "title_en": "Read the missing field message",
+            "text_en": "If the app reports Missing information, read the specified field and return to the form. The screenshot shows a missing start time: open its picker and tap the check mark to confirm.",
+            "result_en": "You know which field must be completed before continuing.",
+            "image": {
+              "file": "booking-v2-recurring-confirm.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 4,
+                  "y": 6,
+                  "width": 92,
+                  "height": 9
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Bổ sung địa chỉ và chọn thời gian hợp lệ",
+            "text": "Kiểm tra ô địa chỉ, ngày và giờ bắt đầu; dịch vụ chuyển nhà cần đủ cả nơi đi và đến. Với dịch vụ một lần, chọn ngày giờ ở tương lai. Mở xác nhận lại và kiểm tra trước khi Đăng việc.",
+            "result": "Địa chỉ và lịch đã đủ, hợp lệ và đúng nhu cầu.",
+            "title_en": "Complete addresses and a valid time",
+            "text_en": "Check the address, date and start time. Moving requires both pickup and delivery addresses. A single visit must start in the future. Reopen confirmation and review before posting.",
+            "result_en": "The address and schedule are complete, valid and correct.",
+            "image": {
+              "file": "booking-v2-service-top.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 3.519,
+                  "y": 31.708,
+                  "width": 44.259,
+                  "height": 3.042
+                },
+                {
+                  "x": 3.519,
+                  "y": 47.042,
+                  "width": 20.0,
+                  "height": 3.042
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Đọc đúng trường được báo thiếu. Nếu app báo Thiếu thông tin, đọc trường được nêu rồi quay lại biểu mẫu. Ảnh minh họa lỗi thiếu Giờ bắt đầu: mở bộ chọn giờ và chạm dấu ✓ để xác nhận giá trị. Bạn biết trường cần bổ sung thay vì gửi lại biểu mẫu chưa đủ.\n\n2. Bổ sung địa chỉ và chọn thời gian hợp lệ. Kiểm tra ô địa chỉ, ngày và giờ bắt đầu; dịch vụ chuyển nhà cần đủ cả nơi đi và đến. Với dịch vụ một lần, chọn ngày giờ ở tương lai. Mở xác nhận lại và kiểm tra trước khi Đăng việc. Địa chỉ và lịch đã đủ, hợp lệ và đúng nhu cầu.",
+        "text_en": "1. Read the missing field message. If the app reports Missing information, read the specified field and return to the form. The screenshot shows a missing start time: open its picker and tap the check mark to confirm. You know which field must be completed before continuing.\n\n2. Complete addresses and a valid time. Check the address, date and start time. Moving requires both pickup and delivery addresses. A single visit must start in the future. Reopen confirmation and review before posting. The address and schedule are complete, valid and correct."
+      },
+      {
+        "id": "loi-voucher-so-du",
+        "heading": "Voucher không hợp lệ hoặc ví không đủ",
+        "heading_en": "Voucher or wallet balance problems",
+        "steps": [
+          {
+            "title": "Đổi hoặc bỏ voucher không còn hợp lệ",
+            "text": "Nếu app báo Voucher không còn hợp lệ, đọc lý do, chọn voucher khác hoặc bỏ voucher. Đối chiếu lại Tổng thanh toán trước khi gửi; không tự trừ tiền theo mã chưa áp dụng thành công.",
+            "result": "Tổng tiền dựa trên voucher được app xác nhận.",
+            "title_en": "Replace or remove an invalid voucher",
+            "text_en": "If the app reports an invalid voucher, read the reason and choose another or remove it. Recheck the total before submitting; do not deduct an unaccepted discount yourself.",
+            "result_en": "The total uses only a discount accepted by the app.",
+            "image": {
+              "file": "booking-v2-voucher-check.png",
+              "width": 780,
+              "height": 660,
+              "markers": [],
+              "alt": "Sơ đồ minh họa · Dữ liệu mẫu; không phải ảnh chụp giao dịch.",
+              "alt_en": "Illustrated diagram · Example data; not a transaction screenshot."
+            }
+          },
+          {
+            "title": "Nạp ví hoặc đổi phương thức khả dụng",
+            "text": "Nếu ví hiện Không đủ hoặc app báo Ví không đủ tiền, nạp thêm theo chương hướng dẫn Ví hoặc chọn phương thức khác. Với gói định kỳ, không thể đổi sang Tiền mặt. Sau khi nạp, mở lại phương thức và kiểm tra số dư cập nhật.",
+            "result": "Phương thức bạn chọn đủ điều kiện để thanh toán đơn.",
+            "title_en": "Top up or choose an available alternative",
+            "text_en": "If the wallet is marked Insufficient or the app reports insufficient funds, follow the wallet guide to top up or choose another method. Recurring packages cannot switch to cash. After topping up, reopen payment options and check the updated balance.",
+            "result_en": "Your chosen payment method is eligible for the booking.",
+            "image": {
+              "file": "booking-v2-payment-methods.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 19.074,
+                  "y": 88.125,
+                  "width": 73.889,
+                  "height": 2.417
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          }
+        ],
+        "text": "1. Đổi hoặc bỏ voucher không còn hợp lệ. Nếu app báo Voucher không còn hợp lệ, đọc lý do, chọn voucher khác hoặc bỏ voucher. Đối chiếu lại Tổng thanh toán trước khi gửi; không tự trừ tiền theo mã chưa áp dụng thành công. Tổng tiền dựa trên voucher được app xác nhận.\n\n2. Nạp ví hoặc đổi phương thức khả dụng. Nếu ví hiện Không đủ hoặc app báo Ví không đủ tiền, nạp thêm theo chương hướng dẫn Ví hoặc chọn phương thức khác. Với gói định kỳ, không thể đổi sang Tiền mặt. Sau khi nạp, mở lại phương thức và kiểm tra số dư cập nhật. Phương thức bạn chọn đủ điều kiện để thanh toán đơn.",
+        "text_en": "1. Replace or remove an invalid voucher. If the app reports an invalid voucher, read the reason and choose another or remove it. Recheck the total before submitting; do not deduct an unaccepted discount yourself. The total uses only a discount accepted by the app.\n\n2. Top up or choose an available alternative. If the wallet is marked Insufficient or the app reports insufficient funds, follow the wallet guide to top up or choose another method. Recurring packages cannot switch to cash. After topping up, reopen payment options and check the updated balance. Your chosen payment method is eligible for the booking."
+      },
+      {
+        "id": "mat-mang-het-han",
+        "heading": "Mất mạng, đơn hết hạn hoặc đã hủy",
+        "heading_en": "Connection loss, expiry or cancellation",
+        "steps": [
+          {
+            "title": "Chưa rõ kết quả sau Đăng việc",
+            "text": "Nếu mất mạng hoặc lỗi sau khi nhấn Đăng việc, chưa thể kết luận đơn chưa tạo. Khi có mạng, mở Đơn hàng để tìm và kiểm tra yêu cầu trước khi tạo đơn mới cùng nhu cầu.",
+            "result": "Bạn xác định kết quả của yêu cầu trước để tránh tạo trùng.",
+            "title_en": "An uncertain result after posting",
+            "text_en": "A network error after Post job does not prove the booking was not created. Once connected, inspect Bookings for the request before creating another for the same work.",
+            "result_en": "You check the earlier request’s result to avoid duplicates.",
+            "image": {
+              "file": "booking-v2-network-check.png",
+              "width": 780,
+              "height": 920,
+              "markers": [],
+              "alt": "Sơ đồ minh họa · Dữ liệu mẫu; không phải ảnh chụp giao dịch.",
+              "alt_en": "Illustrated diagram · Example data; not a transaction screenshot."
+            }
+          },
+          {
+            "title": "Nếu đã thấy đơn, mở đúng chi tiết",
+            "text": "Đối chiếu mã đơn, dịch vụ, lịch và Tổng thanh toán. Tiếp tục từ trạng thái hiện tại của đơn. Nếu chưa xác định được kết quả, giữ thông tin lỗi để tra cứu thay vì tạo liên tiếp.",
+            "result": "Bạn tiếp tục đúng đơn đang có hoặc giữ đủ thông tin để kiểm tra.",
+            "title_en": "If the booking exists, inspect its details",
+            "text_en": "Match its code, service, schedule and total. Continue from the booking’s current state. If the outcome remains uncertain, retain the error details for investigation rather than creating repeated requests.",
+            "result_en": "You continue with the existing booking or keep enough information to investigate.",
+            "image": {
+              "file": "booking-v2-orders-list.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 13.796,
+                  "y": 12.083,
+                  "width": 78.981,
+                  "height": 4.958
+                }
+              ],
+              "alt": "Ảnh chụp app khách CleanWise · Dữ liệu mẫu; vùng đánh số là vị trí cần chú ý.",
+              "alt_en": "CleanWise customer app screenshot · Example data; numbered regions mark the relevant controls."
+            }
+          },
+          {
+            "title": "Đơn hết hạn hoặc đã hủy: kiểm tra tiền trước",
+            "text": "Kiểm tra trạng thái đơn và thanh toán trước khi dùng Đặt lại. Nếu đã chuyển tiền, giữ biên nhận có mã giao dịch, thời gian, số tiền và nội dung chuyển khoản để đối chiếu trước khi trả lần nữa. Chỉ coi đã hoàn tiền khi có kết quả và giao dịch hoàn được ghi nhận.",
+            "result": "Bạn xác định giao dịch trước khi đặt hoặc thanh toán lại.",
+            "title_en": "Expired or cancelled: reconcile money first",
+            "text_en": "Check the booking and payment before using Rebook. If you transferred money, keep the receipt with its reference, time, amount and transfer description and reconcile before paying again. A refund is established only by the actual result and recorded credit.",
+            "result_en": "You reconcile the original transaction before rebooking or paying again.",
+            "image": {
+              "file": "booking-v2-network-check.png",
+              "width": 780,
+              "height": 920,
+              "markers": [],
+              "alt": "Sơ đồ minh họa · Dữ liệu mẫu; không phải ảnh chụp giao dịch.",
+              "alt_en": "Illustrated diagram · Example data; not a transaction screenshot."
+            }
+          }
+        ],
+        "text": "1. Chưa rõ kết quả sau Đăng việc. Nếu mất mạng hoặc lỗi sau khi nhấn Đăng việc, chưa thể kết luận đơn chưa tạo. Khi có mạng, mở Đơn hàng để tìm và kiểm tra yêu cầu trước khi tạo đơn mới cùng nhu cầu. Bạn xác định kết quả của yêu cầu trước để tránh tạo trùng.\n\n2. Nếu đã thấy đơn, mở đúng chi tiết. Đối chiếu mã đơn, dịch vụ, lịch và Tổng thanh toán. Tiếp tục từ trạng thái hiện tại của đơn. Nếu chưa xác định được kết quả, giữ thông tin lỗi để tra cứu thay vì tạo liên tiếp. Bạn tiếp tục đúng đơn đang có hoặc giữ đủ thông tin để kiểm tra.\n\n3. Đơn hết hạn hoặc đã hủy: kiểm tra tiền trước. Kiểm tra trạng thái đơn và thanh toán trước khi dùng Đặt lại. Nếu đã chuyển tiền, giữ biên nhận có mã giao dịch, thời gian, số tiền và nội dung chuyển khoản để đối chiếu trước khi trả lần nữa. Chỉ coi đã hoàn tiền khi có kết quả và giao dịch hoàn được ghi nhận. Bạn xác định giao dịch trước khi đặt hoặc thanh toán lại.",
+        "text_en": "1. An uncertain result after posting. A network error after Post job does not prove the booking was not created. Once connected, inspect Bookings for the request before creating another for the same work. You check the earlier request’s result to avoid duplicates.\n\n2. If the booking exists, inspect its details. Match its code, service, schedule and total. Continue from the booking’s current state. If the outcome remains uncertain, retain the error details for investigation rather than creating repeated requests. You continue with the existing booking or keep enough information to investigate.\n\n3. Expired or cancelled: reconcile money first. Check the booking and payment before using Rebook. If you transferred money, keep the receipt with its reference, time, amount and transfer description and reconcile before paying again. A refund is established only by the actual result and recorded credit. You reconcile the original transaction before rebooking or paying again."
+      }
+    ],
+    "keywords": "đặt đơn đặt dịch vụ ca lẻ gói tháng định kỳ chuyển nhà địa chỉ lịch voucher nhân viên yêu thích thanh toán thiếu thông tin mất mạng",
+    "source_document": "CleanWise — Hướng dẫn đặt đơn v3; ảnh chụp Android và sơ đồ theo bản phác thảo đã duyệt",
+    "role": "CUSTOMER",
+    "effective_from": "2026-10-25"
+  }
+]

@@ -1,0 +1,767 @@
+[
+  {
+    "slug": "thanh-toan-va-vi",
+    "version": 3,
+    "title": "Hướng dẫn thanh toán và sử dụng Ví CleanWise",
+    "summary": "Chọn một trong 12 đề mục để xem từng bước thanh toán, nạp/rút tiền, quản lý ngân hàng và đối chiếu giao dịch bằng hình minh họa.",
+    "sections": [
+      {
+        "id": "phuong-thuc",
+        "heading": "Chọn phương thức thanh toán",
+        "heading_en": "Choose a payment method",
+        "steps": [
+          {
+            "title": "Mở lựa chọn thanh toán",
+            "text": "Ở Xác nhận và thanh toán, mở Phương thức thanh toán hoặc chạm Đổi.",
+            "result": "Xem các phương thức được hỗ trợ cho đơn này.",
+            "title_en": "Open payment options",
+            "text_en": "On Confirmation and payment, open Payment method or tap Change.",
+            "result_en": "Review the methods available for this booking.",
+            "image": {
+              "file": "payment-v2-1.png",
+              "width": 728,
+              "height": 764,
+              "markers": [],
+              "alt": "Mở lựa chọn thanh toán — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Open payment options — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Chọn phương thức khả dụng",
+            "text": "Kiểm tra Tiền mặt, Chuyển khoản và Ví CleanWise. Gói định kỳ/nhiều buổi yêu cầu thanh toán trước nên không có Tiền mặt. Nếu số dư không đủ, lựa chọn ví bị vô hiệu hóa và có nhãn Không đủ.",
+            "result": "Phương thức chọn được hiển thị trên màn xác nhận.",
+            "title_en": "Choose an available method",
+            "text_en": "Check Cash, Bank transfer and CleanWise Wallet. Availability depends on the service type and wallet balance. Recurring packages require prepayment; an insufficient wallet option is disabled.",
+            "result_en": "The selected method appears on the confirmation screen.",
+            "image": {
+              "file": "payment-v2-2.png",
+              "width": 728,
+              "height": 650,
+              "markers": [],
+              "alt": "Chọn phương thức khả dụng — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Choose an available method — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Đối chiếu tổng tiền",
+            "text": "Kiểm tra dịch vụ, lịch, địa chỉ và Tổng thanh toán trước khi nhấn Đăng việc. Thao tác này xác nhận tạo đơn; chỉ tiếp tục khi thông tin đúng.",
+            "result": "Thông tin thanh toán khớp đúng đơn.",
+            "title_en": "Check the total",
+            "text_en": "Check the service, schedule, address and Total payment before tapping Post job. A new booking is created only after this confirmation.",
+            "result_en": "The payment details match the intended booking.",
+            "image": {
+              "file": "payment-v3-confirm-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 7,
+                  "y": 49,
+                  "width": 85,
+                  "height": 18
+                }
+              ],
+              "alt": "Đối chiếu tổng tiền — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Check the total — customer app screenshot; example data."
+            }
+          }
+        ],
+        "text": "1. Mở lựa chọn thanh toán. Ở Xác nhận và thanh toán, mở Phương thức thanh toán hoặc chạm Đổi. Xem các phương thức được hỗ trợ cho đơn này.\n\n2. Chọn phương thức khả dụng. Kiểm tra Tiền mặt, Chuyển khoản và Ví CleanWise. Gói định kỳ/nhiều buổi yêu cầu thanh toán trước nên không có Tiền mặt. Nếu số dư không đủ, lựa chọn ví bị vô hiệu hóa và có nhãn Không đủ. Phương thức chọn được hiển thị trên màn xác nhận.\n\n3. Đối chiếu tổng tiền. Kiểm tra dịch vụ, lịch, địa chỉ và Tổng thanh toán trước khi nhấn Đăng việc. Thao tác này xác nhận tạo đơn; chỉ tiếp tục khi thông tin đúng. Thông tin thanh toán khớp đúng đơn.",
+        "text_en": "1. Open payment options. On Confirmation and payment, open Payment method or tap Change. Review the methods available for this booking.\n\n2. Choose an available method. Check Cash, Bank transfer and CleanWise Wallet. Availability depends on the service type and wallet balance. Recurring packages require prepayment; an insufficient wallet option is disabled. The selected method appears on the confirmation screen.\n\n3. Check the total. Check the service, schedule, address and Total payment before tapping Post job. A new booking is created only after this confirmation. The payment details match the intended booking."
+      },
+      {
+        "id": "chuyen-khoan",
+        "heading": "Chuyển khoản / VietQR",
+        "heading_en": "Bank transfer / VietQR",
+        "steps": [
+          {
+            "title": "Chọn Chuyển khoản",
+            "text": "Ở Xác nhận và thanh toán, chọn Chuyển khoản. Kiểm tra Tổng thanh toán rồi nhấn Đăng việc để tạo đơn và mở Thanh toán đơn hàng.",
+            "result": "Sau khi tạo đơn, mở màn Thanh toán đơn hàng.",
+            "title_en": "Choose Bank transfer",
+            "text_en": "Choose Bank transfer on the booking confirmation screen. Review the total, then tap Post job to create the booking.",
+            "result_en": "The app opens Payment for your booking.",
+            "image": {
+              "file": "payment-v2-4.png",
+              "width": 728,
+              "height": 764,
+              "markers": [],
+              "alt": "Chọn Chuyển khoản — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Choose Bank transfer — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Kiểm tra đúng đơn",
+            "text": "Đối chiếu mã đơn, số tiền cần thanh toán và thời gian còn lại.",
+            "result": "Đơn và số tiền đúng với yêu cầu của bạn.",
+            "title_en": "Check the correct booking",
+            "text_en": "Compare the booking code, Amount to pay and remaining link validity with the booking you created.",
+            "result_en": "The reference and amount match your booking.",
+            "image": {
+              "file": "payment-v2-5.png",
+              "width": 728,
+              "height": 724,
+              "markers": [],
+              "alt": "Kiểm tra đúng đơn — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Check the correct booking — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Mở công cụ thanh toán",
+            "text": "Chọn Mở trang thanh toán, nút app ngân hàng được hỗ trợ nếu có, hoặc Hoặc quét mã QR. Chỉ dùng liên kết/QR đang có hiệu lực của đúng đơn. Nếu không mở được app ngân hàng, dùng trang thanh toán còn hiệu lực.",
+            "result": "Chỉ dùng liên kết hoặc QR đang có hiệu lực của đơn này.",
+            "title_en": "Open the payment tool",
+            "text_en": "Tap Open payment page, a supported bank app button where offered, or Or scan QR code. Use only the current link or QR for this booking. If the bank app cannot open, use the valid payment page.",
+            "result_en": "The payment tool opens with this transaction’s details.",
+            "image": {
+              "file": "payment-v2-6.png",
+              "width": 728,
+              "height": 724,
+              "markers": [],
+              "alt": "Mở công cụ thanh toán — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Open the payment tool — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Kiểm tra trước khi chuyển",
+            "text": "Trong trang thanh toán hoặc app ngân hàng, kiểm tra tài khoản nhận, số tiền và nội dung chuyển khoản. Giữ nguyên nội dung được cung cấp; không dùng QR hoặc liên kết của đơn khác.",
+            "result": "Giữ đúng thông tin được cung cấp cho giao dịch.",
+            "title_en": "Check before transferring",
+            "text_en": "In the payment page or bank app, verify the recipient account, amount and transfer reference. Keep the supplied reference unchanged; do not reuse another booking’s QR.",
+            "result_en": "The transfer details match the current payment request.",
+            "image": {
+              "file": "payment-v2-7.png",
+              "width": 728,
+              "height": 650,
+              "markers": [],
+              "alt": "Kiểm tra trước khi chuyển — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Check before transferring — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Quay lại kiểm tra kết quả",
+            "text": "Sau khi xác nhận chuyển khoản ở ngân hàng, quay lại CleanWise. App kiểm tra trạng thái và mở màn thành công khi nhận xác nhận thanh toán. Mở lại chi tiết đơn để đối chiếu trạng thái thanh toán.",
+            "result": "Kiểm tra trạng thái đã thanh toán thay vì chỉ dựa vào màn đặt thành công.",
+            "title_en": "Return and check the result",
+            "text_en": "After confirming in your bank app, return to CleanWise. The app checks the booking payment status and opens the success screen when payment is confirmed. Reopen booking details to verify.",
+            "result_en": "Use the recorded payment status, rather than a booking-success screen alone, as the result.",
+            "image": {
+              "file": "payment-v2-8.png",
+              "width": 728,
+              "height": 484,
+              "markers": [],
+              "alt": "Quay lại kiểm tra kết quả — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Return and check the result — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Chọn Chuyển khoản. Ở Xác nhận và thanh toán, chọn Chuyển khoản. Kiểm tra Tổng thanh toán rồi nhấn Đăng việc để tạo đơn và mở Thanh toán đơn hàng. Sau khi tạo đơn, mở màn Thanh toán đơn hàng.\n\n2. Kiểm tra đúng đơn. Đối chiếu mã đơn, số tiền cần thanh toán và thời gian còn lại. Đơn và số tiền đúng với yêu cầu của bạn.\n\n3. Mở công cụ thanh toán. Chọn Mở trang thanh toán, nút app ngân hàng được hỗ trợ nếu có, hoặc Hoặc quét mã QR. Chỉ dùng liên kết/QR đang có hiệu lực của đúng đơn. Nếu không mở được app ngân hàng, dùng trang thanh toán còn hiệu lực. Chỉ dùng liên kết hoặc QR đang có hiệu lực của đơn này.\n\n4. Kiểm tra trước khi chuyển. Trong trang thanh toán hoặc app ngân hàng, kiểm tra tài khoản nhận, số tiền và nội dung chuyển khoản. Giữ nguyên nội dung được cung cấp; không dùng QR hoặc liên kết của đơn khác. Giữ đúng thông tin được cung cấp cho giao dịch.\n\n5. Quay lại kiểm tra kết quả. Sau khi xác nhận chuyển khoản ở ngân hàng, quay lại CleanWise. App kiểm tra trạng thái và mở màn thành công khi nhận xác nhận thanh toán. Mở lại chi tiết đơn để đối chiếu trạng thái thanh toán. Kiểm tra trạng thái đã thanh toán thay vì chỉ dựa vào màn đặt thành công.",
+        "text_en": "1. Choose Bank transfer. Choose Bank transfer on the booking confirmation screen. Review the total, then tap Post job to create the booking. The app opens Payment for your booking.\n\n2. Check the correct booking. Compare the booking code, Amount to pay and remaining link validity with the booking you created. The reference and amount match your booking.\n\n3. Open the payment tool. Tap Open payment page, a supported bank app button where offered, or Or scan QR code. Use only the current link or QR for this booking. If the bank app cannot open, use the valid payment page. The payment tool opens with this transaction’s details.\n\n4. Check before transferring. In the payment page or bank app, verify the recipient account, amount and transfer reference. Keep the supplied reference unchanged; do not reuse another booking’s QR. The transfer details match the current payment request.\n\n5. Return and check the result. After confirming in your bank app, return to CleanWise. The app checks the booking payment status and opens the success screen when payment is confirmed. Reopen booking details to verify. Use the recorded payment status, rather than a booking-success screen alone, as the result."
+      },
+      {
+        "id": "thanh-toan-vi",
+        "heading": "Thanh toán bằng Ví CleanWise",
+        "heading_en": "Pay with CleanWise Wallet",
+        "steps": [
+          {
+            "title": "Kiểm tra số dư",
+            "text": "Vào Cá nhân → Ví / Thẻ thanh toán, đối chiếu số dư với tổng tiền đơn.",
+            "result": "Số dư đủ cho khoản cần thanh toán.",
+            "title_en": "Check your balance",
+            "text_en": "Go to Account → Wallet / Payment cards. Compare the available balance with the total for the booking.",
+            "result_en": "The balance covers the payment; otherwise top up or choose an available alternative.",
+            "image": {
+              "file": "payment-v3-wallet-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 5,
+                  "y": 12,
+                  "width": 90,
+                  "height": 15
+                }
+              ],
+              "alt": "Kiểm tra số dư — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Check your balance — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Chọn Ví CleanWise",
+            "text": "Ở màn xác nhận đơn, chọn Ví CleanWise, kiểm tra Tổng thanh toán rồi nhấn Đăng việc. Lựa chọn ví có thể bị vô hiệu hóa nếu không đủ số dư.",
+            "result": "Phương thức ví được chọn cho đúng đơn.",
+            "title_en": "Choose CleanWise Wallet",
+            "text_en": "On booking confirmation, choose CleanWise Wallet, review Total payment and tap Post job. The wallet option may be disabled when the balance is insufficient.",
+            "result_en": "The correct booking uses the wallet payment method.",
+            "image": {
+              "file": "payment-v2-10.png",
+              "width": 728,
+              "height": 764,
+              "markers": [],
+              "alt": "Chọn Ví CleanWise — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Choose CleanWise Wallet — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Đối chiếu tiền ra",
+            "text": "Sau khi đặt, kiểm tra trạng thái thanh toán trong đơn và giao dịch Tiền ra trong ví.",
+            "result": "Đối chiếu mã đơn, số tiền và thời gian giao dịch.",
+            "title_en": "Check the outgoing transaction",
+            "text_en": "After booking, inspect its payment status and the Money out list in your wallet. Match the booking reference, amount and time.",
+            "result_en": "The booking payment and outgoing wallet transaction agree.",
+            "image": {
+              "file": "payment-v2-11.png",
+              "width": 728,
+              "height": 642,
+              "markers": [],
+              "alt": "Đối chiếu tiền ra — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Check the outgoing transaction — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Kiểm tra số dư. Vào Cá nhân → Ví / Thẻ thanh toán, đối chiếu số dư với tổng tiền đơn. Số dư đủ cho khoản cần thanh toán.\n\n2. Chọn Ví CleanWise. Ở màn xác nhận đơn, chọn Ví CleanWise, kiểm tra Tổng thanh toán rồi nhấn Đăng việc. Lựa chọn ví có thể bị vô hiệu hóa nếu không đủ số dư. Phương thức ví được chọn cho đúng đơn.\n\n3. Đối chiếu tiền ra. Sau khi đặt, kiểm tra trạng thái thanh toán trong đơn và giao dịch Tiền ra trong ví. Đối chiếu mã đơn, số tiền và thời gian giao dịch.",
+        "text_en": "1. Check your balance. Go to Account → Wallet / Payment cards. Compare the available balance with the total for the booking. The balance covers the payment; otherwise top up or choose an available alternative.\n\n2. Choose CleanWise Wallet. On booking confirmation, choose CleanWise Wallet, review Total payment and tap Post job. The wallet option may be disabled when the balance is insufficient. The correct booking uses the wallet payment method.\n\n3. Check the outgoing transaction. After booking, inspect its payment status and the Money out list in your wallet. Match the booking reference, amount and time. The booking payment and outgoing wallet transaction agree."
+      },
+      {
+        "id": "tien-mat",
+        "heading": "Thanh toán tiền mặt",
+        "heading_en": "Pay in cash",
+        "steps": [
+          {
+            "title": "Chọn Tiền mặt khi được hỗ trợ",
+            "text": "Mở lựa chọn thanh toán và chọn Tiền mặt khi dịch vụ hỗ trợ. Kiểm tra đơn và tổng tiền trước khi nhấn Đăng việc. Gói định kỳ không có lựa chọn Tiền mặt.",
+            "result": "Không phải loại dịch vụ nào cũng có lựa chọn này.",
+            "title_en": "Choose Cash when offered",
+            "text_en": "Open payment options and choose Cash if the service supports it. Review the booking details and total before tapping Post job. Recurring packages do not offer cash.",
+            "result_en": "The booking records Cash as its payment method.",
+            "image": {
+              "file": "payment-v2-12.png",
+              "width": 728,
+              "height": 764,
+              "markers": [],
+              "alt": "Chọn Tiền mặt khi được hỗ trợ — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Choose Cash when offered — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Kiểm tra trạng thái thu tiền",
+            "text": "Sau khi tạo đơn, xem phần thanh toán trong chi tiết đơn.",
+            "result": "Đặt đơn thành công chưa có nghĩa đã thanh toán.",
+            "title_en": "Check whether payment was collected",
+            "text_en": "After creating the booking, open its payment details. Follow the recorded collection status; creating a booking does not confirm that cash has been collected.",
+            "result_en": "Booking success and payment collection are separate states.",
+            "image": {
+              "file": "payment-v2-13.png",
+              "width": 728,
+              "height": 648,
+              "markers": [],
+              "alt": "Kiểm tra trạng thái thu tiền — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Check whether payment was collected — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Chọn Tiền mặt khi được hỗ trợ. Mở lựa chọn thanh toán và chọn Tiền mặt khi dịch vụ hỗ trợ. Kiểm tra đơn và tổng tiền trước khi nhấn Đăng việc. Gói định kỳ không có lựa chọn Tiền mặt. Không phải loại dịch vụ nào cũng có lựa chọn này.\n\n2. Kiểm tra trạng thái thu tiền. Sau khi tạo đơn, xem phần thanh toán trong chi tiết đơn. Đặt đơn thành công chưa có nghĩa đã thanh toán.",
+        "text_en": "1. Choose Cash when offered. Open payment options and choose Cash if the service supports it. Review the booking details and total before tapping Post job. Recurring packages do not offer cash. The booking records Cash as its payment method.\n\n2. Check whether payment was collected. After creating the booking, open its payment details. Follow the recorded collection status; creating a booking does not confirm that cash has been collected. Booking success and payment collection are separate states."
+      },
+      {
+        "id": "nap-tien",
+        "heading": "Nạp tiền vào ví",
+        "heading_en": "Top up your wallet",
+        "steps": [
+          {
+            "title": "Mở Nạp tiền",
+            "text": "Vào Cá nhân → Ví / Thẻ thanh toán rồi chạm Nạp tiền.",
+            "result": "Biểu mẫu Nạp tiền vào ví được mở.",
+            "title_en": "Open Top up",
+            "text_en": "Go to Account → Wallet / Payment cards and tap Top up.",
+            "result_en": "The Top up wallet form opens.",
+            "image": {
+              "file": "payment-v3-wallet-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 8,
+                  "y": 28,
+                  "width": 25,
+                  "height": 12
+                }
+              ],
+              "alt": "Mở Nạp tiền — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Open Top up — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Nhập hoặc chọn số tiền",
+            "text": "Nhập số tiền hoặc chọn mức gợi ý. Kiểm tra giới hạn đang hiển thị rồi chạm Tiếp tục thanh toán.",
+            "result": "Yêu cầu nạp có đúng số tiền bạn muốn.",
+            "title_en": "Enter or choose an amount",
+            "text_en": "Enter an amount or choose a suggested amount. Follow the minimum and maximum displayed in the app, review the amount and tap Continue to payment.",
+            "result_en": "The top-up request has the intended amount.",
+            "image": {
+              "file": "payment-v3-topup-amount-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 6,
+                  "y": 66,
+                  "width": 88,
+                  "height": 27
+                }
+              ],
+              "alt": "Nhập hoặc chọn số tiền — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Enter or choose an amount — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Thử lại khi chưa rõ kết quả tạo lệnh",
+            "text": "Nếu app báo “Chưa rõ yêu cầu đã được tạo chưa”, giữ màn nạp đang mở và chọn Thử lại để tiếp tục cùng yêu cầu. Thông báo này chưa xác nhận nạp thành công. Kiểm tra số dư và lịch sử trước khi tạo yêu cầu khác.",
+            "result": "Tiếp tục yêu cầu đang có; chỉ chuyển tiền khi đã mở được thông tin thanh toán hợp lệ.",
+            "title_en": "Retry when the top-up request result is uncertain",
+            "text_en": "If the app says it is unclear whether the request was created, keep the top-up screen open and tap Retry to continue the same request. This message does not confirm a successful top-up. Check your balance and history before creating another request.",
+            "result_en": "Continue the existing request; transfer only after valid payment details are available.",
+            "image": {
+              "file": "payment-v3-topup-uncertain.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 7,
+                  "y": 81,
+                  "width": 86,
+                  "height": 12
+                }
+              ],
+              "alt": "Thử lại yêu cầu nạp — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Retry a top-up request — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Mở trang thanh toán",
+            "text": "Ở màn chờ, chọn Mở trang thanh toán và kiểm tra tài khoản nhận, số tiền, nội dung trước khi xác nhận tại ngân hàng. Các nút giả lập chỉ dành cho môi trường phát triển, không phải bước thanh toán thông thường.",
+            "result": "Giữ đúng thông tin giao dịch của lệnh nạp này.",
+            "title_en": "Open the payment page",
+            "text_en": "On the waiting screen, tap Open payment page. Verify the recipient, amount and reference before confirming in your bank app. Development-only simulation controls are not part of the normal payment process.",
+            "result_en": "Use the details supplied for this top-up request.",
+            "image": {
+              "file": "payment-v2-16.png",
+              "width": 728,
+              "height": 560,
+              "markers": [],
+              "alt": "Mở trang thanh toán — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Open the payment page — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Kiểm tra số dư sau khi nạp",
+            "text": "Quay lại CleanWise, xem kết quả nạp, số dư và lịch sử Tiền vào. Nếu vẫn chờ, có thể chọn Đóng, kiểm tra sau và mở lại ví. Số dư cập nhật khi hệ thống nhận xác nhận.",
+            "result": "Số dư và giao dịch cập nhật khi hệ thống xác nhận.",
+            "title_en": "Check your updated balance",
+            "text_en": "Return to CleanWise and inspect the top-up result, balance and Money in history. If still pending, use Close, check later and return to the wallet.",
+            "result_en": "The balance and transaction update when the system confirms the payment.",
+            "image": {
+              "file": "payment-v2-17.png",
+              "width": 728,
+              "height": 600,
+              "markers": [],
+              "alt": "Kiểm tra số dư sau khi nạp — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Check your updated balance — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Mở Nạp tiền. Vào Cá nhân → Ví / Thẻ thanh toán rồi chạm Nạp tiền. Biểu mẫu Nạp tiền vào ví được mở.\n\n2. Nhập hoặc chọn số tiền. Nhập số tiền hoặc chọn mức gợi ý. Kiểm tra giới hạn đang hiển thị rồi chạm Tiếp tục thanh toán. Yêu cầu nạp có đúng số tiền bạn muốn.\n\n3. Thử lại khi chưa rõ kết quả tạo lệnh. Nếu app báo “Chưa rõ yêu cầu đã được tạo chưa”, giữ màn nạp đang mở và chọn Thử lại để tiếp tục cùng yêu cầu. Thông báo này chưa xác nhận nạp thành công. Kiểm tra số dư và lịch sử trước khi tạo yêu cầu khác. Tiếp tục yêu cầu đang có; chỉ chuyển tiền khi đã mở được thông tin thanh toán hợp lệ.\n\n4. Mở trang thanh toán. Ở màn chờ, chọn Mở trang thanh toán và kiểm tra tài khoản nhận, số tiền, nội dung trước khi xác nhận tại ngân hàng. Các nút giả lập chỉ dành cho môi trường phát triển, không phải bước thanh toán thông thường. Giữ đúng thông tin giao dịch của lệnh nạp này.\n\n5. Kiểm tra số dư sau khi nạp. Quay lại CleanWise, xem kết quả nạp, số dư và lịch sử Tiền vào. Nếu vẫn chờ, có thể chọn Đóng, kiểm tra sau và mở lại ví. Số dư cập nhật khi hệ thống nhận xác nhận. Số dư và giao dịch cập nhật khi hệ thống xác nhận.",
+        "text_en": "1. Open Top up. Go to Account → Wallet / Payment cards and tap Top up. The Top up wallet form opens.\n\n2. Enter or choose an amount. Enter an amount or choose a suggested amount. Follow the minimum and maximum displayed in the app, review the amount and tap Continue to payment. The top-up request has the intended amount.\n\n3. Retry when the top-up request result is uncertain. If the app says it is unclear whether the request was created, keep the top-up screen open and tap Retry to continue the same request. This message does not confirm a successful top-up. Check your balance and history before creating another request. Continue the existing request; transfer only after valid payment details are available.\n\n4. Open the payment page. On the waiting screen, tap Open payment page. Verify the recipient, amount and reference before confirming in your bank app. Development-only simulation controls are not part of the normal payment process. Use the details supplied for this top-up request.\n\n5. Check your updated balance. Return to CleanWise and inspect the top-up result, balance and Money in history. If still pending, use Close, check later and return to the wallet. The balance and transaction update when the system confirms the payment."
+      },
+      {
+        "id": "ngan-hang",
+        "heading": "Tài khoản ngân hàng",
+        "heading_en": "Bank accounts",
+        "steps": [
+          {
+            "title": "Mở danh sách ngân hàng",
+            "text": "Trong ví, chạm Ngân hàng để xem tài khoản đã lưu. Kiểm tra ngân hàng, số tài khoản được che và trạng thái xác minh trước khi thêm mới.",
+            "result": "Kiểm tra tài khoản trước khi thêm mới.",
+            "title_en": "Open bank accounts",
+            "text_en": "In your wallet, tap Bank to view saved receiving accounts. Inspect the bank, masked number and verification status before adding another account.",
+            "result_en": "You can identify existing accounts and avoid duplicates.",
+            "image": {
+              "file": "payment-v3-banks-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [],
+              "alt": "Mở danh sách ngân hàng — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Open bank accounts — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Thêm thông tin nhận tiền",
+            "text": "Chọn Thêm tài khoản ngân hàng và điền ngân hàng, số tài khoản, tên chủ tài khoản cùng các trường bắt buộc. Nếu biểu mẫu ghi rõ CCCD/CMND Sandbox và số điện thoại Sandbox, làm theo hướng dẫn môi trường thử nghiệm. MoMo/VNPAY có nhãn Sắp hỗ trợ chưa phải phương thức nhận tiền khả dụng.",
+            "result": "Kiểm tra đúng ngân hàng, chủ tài khoản và số tài khoản.",
+            "title_en": "Add receiving account details",
+            "text_en": "Choose Add bank account and fill in the bank, account number, account holder and required fields. Where the form explicitly requests Sandbox identity and phone details, follow the test-environment instructions. MoMo and VNPAY marked Coming soon are not available receiving methods.",
+            "result_en": "Check all receiving details before saving.",
+            "image": {
+              "file": "payment-v3-bank-form-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [],
+              "alt": "Thêm thông tin nhận tiền — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Add receiving account details — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Kiểm tra xác minh",
+            "text": "Làm theo các bước xác minh đang được app cung cấp, gồm OTP xác minh nếu được yêu cầu. Nhãn Đã test Sandbox · chưa dùng để rút tiền không đồng nghĩa đã xác minh để rút tiền thật. Kiểm tra trạng thái cuối trong danh sách.",
+            "result": "Kiểm tra trạng thái tài khoản trong danh sách.",
+            "title_en": "Check verification",
+            "text_en": "Complete the verification steps offered by the app, including verification OTP if required. “Sandbox tested · not yet usable for withdrawal” does not mean verified for real withdrawals. Review the final account status.",
+            "result_en": "Use an account eligible for withdrawal; keep bank-verification OTP separate from withdrawal OTP.",
+            "image": {
+              "file": "payment-v2-20.png",
+              "width": 728,
+              "height": 484,
+              "markers": [],
+              "alt": "Kiểm tra xác minh — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Check verification — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Mở danh sách ngân hàng. Trong ví, chạm Ngân hàng để xem tài khoản đã lưu. Kiểm tra ngân hàng, số tài khoản được che và trạng thái xác minh trước khi thêm mới. Kiểm tra tài khoản trước khi thêm mới.\n\n2. Thêm thông tin nhận tiền. Chọn Thêm tài khoản ngân hàng và điền ngân hàng, số tài khoản, tên chủ tài khoản cùng các trường bắt buộc. Nếu biểu mẫu ghi rõ CCCD/CMND Sandbox và số điện thoại Sandbox, làm theo hướng dẫn môi trường thử nghiệm. MoMo/VNPAY có nhãn Sắp hỗ trợ chưa phải phương thức nhận tiền khả dụng. Kiểm tra đúng ngân hàng, chủ tài khoản và số tài khoản.\n\n3. Kiểm tra xác minh. Làm theo các bước xác minh đang được app cung cấp, gồm OTP xác minh nếu được yêu cầu. Nhãn Đã test Sandbox · chưa dùng để rút tiền không đồng nghĩa đã xác minh để rút tiền thật. Kiểm tra trạng thái cuối trong danh sách. Kiểm tra trạng thái tài khoản trong danh sách.",
+        "text_en": "1. Open bank accounts. In your wallet, tap Bank to view saved receiving accounts. Inspect the bank, masked number and verification status before adding another account. You can identify existing accounts and avoid duplicates.\n\n2. Add receiving account details. Choose Add bank account and fill in the bank, account number, account holder and required fields. Where the form explicitly requests Sandbox identity and phone details, follow the test-environment instructions. MoMo and VNPAY marked Coming soon are not available receiving methods. Check all receiving details before saving.\n\n3. Check verification. Complete the verification steps offered by the app, including verification OTP if required. “Sandbox tested · not yet usable for withdrawal” does not mean verified for real withdrawals. Review the final account status. Use an account eligible for withdrawal; keep bank-verification OTP separate from withdrawal OTP."
+      },
+      {
+        "id": "rut-tien",
+        "heading": "Rút tiền về ngân hàng",
+        "heading_en": "Withdraw to a bank account",
+        "steps": [
+          {
+            "title": "Chọn tài khoản nhận",
+            "text": "Mở Rút tiền trong ví và chọn tài khoản nhận. Nếu chưa có, chọn Thêm tài khoản ngân hàng. Kiểm tra đúng ngân hàng, số tài khoản và trạng thái đủ điều kiện nhận tiền.",
+            "result": "Đúng tài khoản bạn muốn nhận.",
+            "title_en": "Choose the receiving account",
+            "text_en": "Open Withdraw in your wallet and choose the intended bank account. If none is saved, open Add bank account. Check its verification status and eligibility.",
+            "result_en": "The receiving bank account is correct and eligible.",
+            "image": {
+              "file": "payment-v3-withdraw-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [],
+              "alt": "Chọn tài khoản nhận — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Choose the receiving account — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Nhập số tiền",
+            "text": "Nhập số tiền theo số dư và giới hạn trên app, kiểm tra lại rồi chọn Gửi mã OTP.",
+            "result": "Số tiền yêu cầu đúng và hợp lệ.",
+            "title_en": "Enter the withdrawal amount",
+            "text_en": "Enter an amount within your available balance and the displayed limits. Recheck the amount and receiving account, then tap Send OTP.",
+            "result_en": "The requested amount is correct and valid.",
+            "image": {
+              "file": "payment-v2-22.png",
+              "width": 728,
+              "height": 600,
+              "markers": [],
+              "alt": "Nhập số tiền — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Enter the withdrawal amount — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Xác nhận bằng OTP",
+            "text": "Nhập mã 6 số gửi tới email, kiểm tra lại số tiền và tài khoản rồi chọn Xác nhận rút tiền. Chỉ dùng Gửi lại mã khi nút khả dụng; không chia sẻ OTP. Đây là OTP rút tiền, khác OTP xác minh ngân hàng.",
+            "result": "OTP rút tiền khác với bước xác minh tài khoản ngân hàng.",
+            "title_en": "Confirm with OTP",
+            "text_en": "Enter the six-digit code sent to your email, review the amount and account again, then tap Confirm withdrawal. Use Resend code only when available; never share the code.",
+            "result_en": "This OTP confirms the withdrawal, separately from bank-account verification.",
+            "image": {
+              "file": "payment-v2-23.png",
+              "width": 728,
+              "height": 434,
+              "markers": [],
+              "alt": "Xác nhận bằng OTP — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Confirm with OTP — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Theo dõi kết quả",
+            "text": "Kiểm tra trạng thái yêu cầu và lịch sử giao dịch. Đang xử lý chưa phải thành công. Nếu thất bại, đọc lý do và kiểm tra tiền hoàn vào ví. Nếu chưa rõ kết quả, dùng thao tác gửi lại mà app cung cấp và kiểm tra lịch sử trước khi tạo yêu cầu khác.",
+            "result": "Phân biệt đang xử lý, thành công và thất bại.",
+            "title_en": "Track the result",
+            "text_en": "Check the request status and transaction history. Processing is not Success. On failure, read the reason and check the wallet refund. If the result is uncertain, follow the offered retry action and inspect history before creating another request.",
+            "result_en": "Distinguish Processing, Success and Failed and reconcile the wallet balance.",
+            "image": {
+              "file": "payment-v2-24.png",
+              "width": 728,
+              "height": 764,
+              "markers": [],
+              "alt": "Theo dõi kết quả — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Track the result — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Chọn tài khoản nhận. Mở Rút tiền trong ví và chọn tài khoản nhận. Nếu chưa có, chọn Thêm tài khoản ngân hàng. Kiểm tra đúng ngân hàng, số tài khoản và trạng thái đủ điều kiện nhận tiền. Đúng tài khoản bạn muốn nhận.\n\n2. Nhập số tiền. Nhập số tiền theo số dư và giới hạn trên app, kiểm tra lại rồi chọn Gửi mã OTP. Số tiền yêu cầu đúng và hợp lệ.\n\n3. Xác nhận bằng OTP. Nhập mã 6 số gửi tới email, kiểm tra lại số tiền và tài khoản rồi chọn Xác nhận rút tiền. Chỉ dùng Gửi lại mã khi nút khả dụng; không chia sẻ OTP. Đây là OTP rút tiền, khác OTP xác minh ngân hàng. OTP rút tiền khác với bước xác minh tài khoản ngân hàng.\n\n4. Theo dõi kết quả. Kiểm tra trạng thái yêu cầu và lịch sử giao dịch. Đang xử lý chưa phải thành công. Nếu thất bại, đọc lý do và kiểm tra tiền hoàn vào ví. Nếu chưa rõ kết quả, dùng thao tác gửi lại mà app cung cấp và kiểm tra lịch sử trước khi tạo yêu cầu khác. Phân biệt đang xử lý, thành công và thất bại.",
+        "text_en": "1. Choose the receiving account. Open Withdraw in your wallet and choose the intended bank account. If none is saved, open Add bank account. Check its verification status and eligibility. The receiving bank account is correct and eligible.\n\n2. Enter the withdrawal amount. Enter an amount within your available balance and the displayed limits. Recheck the amount and receiving account, then tap Send OTP. The requested amount is correct and valid.\n\n3. Confirm with OTP. Enter the six-digit code sent to your email, review the amount and account again, then tap Confirm withdrawal. Use Resend code only when available; never share the code. This OTP confirms the withdrawal, separately from bank-account verification.\n\n4. Track the result. Check the request status and transaction history. Processing is not Success. On failure, read the reason and check the wallet refund. If the result is uncertain, follow the offered retry action and inspect history before creating another request. Distinguish Processing, Success and Failed and reconcile the wallet balance."
+      },
+      {
+        "id": "lich-su",
+        "heading": "Lịch sử và đối chiếu giao dịch",
+        "heading_en": "History and reconciliation",
+        "steps": [
+          {
+            "title": "Mở Lịch sử thanh toán",
+            "text": "Vào Cá nhân → Lịch sử thanh toán. Đây là mục riêng trên màn Tài khoản.",
+            "result": "Danh sách thanh toán được mở.",
+            "title_en": "Open Payment history",
+            "text_en": "Go to Account → Payment history. It is a separate item on Account, rather than a submenu inside Wallet / Payment cards.",
+            "result_en": "The payment history list opens.",
+            "image": {
+              "file": "payment-v3-account-clean.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 7,
+                  "y": 50.5,
+                  "width": 85,
+                  "height": 6
+                }
+              ],
+              "alt": "Mở Lịch sử thanh toán — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Open Payment history — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Dùng bộ lọc",
+            "text": "Lọc theo Tất cả loại, Qua ví hoặc Online và trạng thái Đã thanh toán, Chờ thanh toán, Đã hủy hoặc Đã hoàn. Đối chiếu mã tham chiếu, số tiền và thời gian.",
+            "result": "Đối chiếu mã tham chiếu, số tiền và thời gian.",
+            "title_en": "Use filters",
+            "text_en": "Filter by All types, Wallet or Online, and by Paid, Pending, Cancelled or Refunded. Compare the transaction reference, amount and time.",
+            "result_en": "The selected filters help locate the correct payment.",
+            "image": {
+              "file": "payment-v3-history-filters-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 6,
+                  "y": 74,
+                  "width": 88,
+                  "height": 20
+                }
+              ],
+              "alt": "Dùng bộ lọc — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Use filters — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Xem lịch sử ví",
+            "text": "Mở ví và chuyển giữa Tất cả, Tiền vào, Tiền ra.",
+            "result": "Phân biệt giao dịch ví với danh sách thanh toán đơn.",
+            "title_en": "Check wallet history",
+            "text_en": "Open the wallet and switch between All, Money in and Money out. Match the description, amount and time with the transaction being checked.",
+            "result_en": "Wallet movements and booking payment records are separate lists.",
+            "image": {
+              "file": "payment-v3-wallet-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 6,
+                  "y": 43,
+                  "width": 88,
+                  "height": 10
+                }
+              ],
+              "alt": "Xem lịch sử ví — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Check wallet history — customer app screenshot; example data."
+            }
+          }
+        ],
+        "text": "1. Mở Lịch sử thanh toán. Vào Cá nhân → Lịch sử thanh toán. Đây là mục riêng trên màn Tài khoản. Danh sách thanh toán được mở.\n\n2. Dùng bộ lọc. Lọc theo Tất cả loại, Qua ví hoặc Online và trạng thái Đã thanh toán, Chờ thanh toán, Đã hủy hoặc Đã hoàn. Đối chiếu mã tham chiếu, số tiền và thời gian. Đối chiếu mã tham chiếu, số tiền và thời gian.\n\n3. Xem lịch sử ví. Mở ví và chuyển giữa Tất cả, Tiền vào, Tiền ra. Phân biệt giao dịch ví với danh sách thanh toán đơn.",
+        "text_en": "1. Open Payment history. Go to Account → Payment history. It is a separate item on Account, rather than a submenu inside Wallet / Payment cards. The payment history list opens.\n\n2. Use filters. Filter by All types, Wallet or Online, and by Paid, Pending, Cancelled or Refunded. Compare the transaction reference, amount and time. The selected filters help locate the correct payment.\n\n3. Check wallet history. Open the wallet and switch between All, Money in and Money out. Match the description, amount and time with the transaction being checked. Wallet movements and booking payment records are separate lists."
+      },
+      {
+        "id": "loi-lien-ket",
+        "heading": "Lỗi hoặc hết hạn liên kết",
+        "heading_en": "Payment link errors or expiry",
+        "steps": [
+          {
+            "title": "Kiểm tra màn thanh toán",
+            "text": "Đọc thông báo và kiểm tra kết nối, đúng mã đơn. Nếu không tạo được liên kết, dùng Thử lại. Nếu đơn không còn khả dụng, kiểm tra trạng thái thực tế trước khi tiếp tục.",
+            "result": "Xác định lỗi tải hay liên kết đã hết hạn.",
+            "title_en": "Inspect the payment screen",
+            "text_en": "Read the message and check your connection and booking reference. For a link creation error, use Retry. If the booking is no longer available, inspect its current state before taking further action.",
+            "result_en": "Identify a load error, expired link or unavailable booking.",
+            "image": {
+              "file": "payment-v2-28.png",
+              "width": 728,
+              "height": 642,
+              "markers": [],
+              "alt": "Kiểm tra màn thanh toán — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Inspect the payment screen — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Thử lại hoặc lấy link mới",
+            "text": "Dùng Thử lại hoặc Lấy link mới khi được cung cấp. App có thể tự tạo liên kết mới khi đơn còn hợp lệ. Chỉ dùng liên kết đang hiệu lực; nếu đã thanh toán hoặc hủy, kiểm tra chi tiết đơn trước. Không tạo đơn trùng chỉ để thử lại.",
+            "result": "Chỉ sử dụng thông tin của liên kết đang hiệu lực.",
+            "title_en": "Retry or request a new link",
+            "text_en": "Use Retry or Get new link when offered. The app may refresh an expired link automatically while the booking remains eligible. Use only the active link; if already paid or cancelled, check booking details first.",
+            "result_en": "Do not use obsolete payment details or create a duplicate booking just to retry.",
+            "image": {
+              "file": "payment-v2-29.png",
+              "width": 728,
+              "height": 598,
+              "markers": [],
+              "alt": "Thử lại hoặc lấy link mới — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Retry or request a new link — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Kiểm tra màn thanh toán. Đọc thông báo và kiểm tra kết nối, đúng mã đơn. Nếu không tạo được liên kết, dùng Thử lại. Nếu đơn không còn khả dụng, kiểm tra trạng thái thực tế trước khi tiếp tục. Xác định lỗi tải hay liên kết đã hết hạn.\n\n2. Thử lại hoặc lấy link mới. Dùng Thử lại hoặc Lấy link mới khi được cung cấp. App có thể tự tạo liên kết mới khi đơn còn hợp lệ. Chỉ dùng liên kết đang hiệu lực; nếu đã thanh toán hoặc hủy, kiểm tra chi tiết đơn trước. Không tạo đơn trùng chỉ để thử lại. Chỉ sử dụng thông tin của liên kết đang hiệu lực.",
+        "text_en": "1. Inspect the payment screen. Read the message and check your connection and booking reference. For a link creation error, use Retry. If the booking is no longer available, inspect its current state before taking further action. Identify a load error, expired link or unavailable booking.\n\n2. Retry or request a new link. Use Retry or Get new link when offered. The app may refresh an expired link automatically while the booking remains eligible. Use only the active link; if already paid or cancelled, check booking details first. Do not use obsolete payment details or create a duplicate booking just to retry."
+      },
+      {
+        "id": "chuyen-tien-dang-cho",
+        "heading": "Đã chuyển tiền nhưng vẫn đang chờ",
+        "heading_en": "Transferred but still pending",
+        "steps": [
+          {
+            "title": "Xem lại đơn và lịch sử",
+            "text": "Quay lại app, kiểm tra trạng thái thanh toán và Lịch sử thanh toán.",
+            "result": "Đúng đơn và đúng giao dịch cần đối chiếu.",
+            "title_en": "Recheck the booking and history",
+            "text_en": "Return to CleanWise and inspect the booking payment status and Payment history. Wait for the check to complete and refresh when appropriate.",
+            "result_en": "Identify the exact booking and transaction to reconcile.",
+            "image": {
+              "file": "payment-v2-30.png",
+              "width": 728,
+              "height": 486,
+              "markers": [],
+              "alt": "Xem lại đơn và lịch sử — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Recheck the booking and history — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Giữ thông tin giao dịch",
+            "text": "Giữ biên nhận có mã giao dịch, thời gian, số tiền và nội dung chuyển khoản. Đối chiếu trước khi chuyển thêm tiền cho cùng đơn; không cung cấp mật khẩu hoặc OTP.",
+            "result": "Đối chiếu trước khi chuyển thêm tiền cho cùng đơn.",
+            "title_en": "Keep the transaction details",
+            "text_en": "Keep the bank receipt containing the transaction reference, time, amount and transfer description. Reconcile these details before transferring again for the same booking; do not share passwords or OTPs.",
+            "result_en": "The receipt provides the details needed to investigate the pending payment.",
+            "image": {
+              "file": "payment-v2-31.png",
+              "width": 728,
+              "height": 650,
+              "markers": [],
+              "alt": "Giữ thông tin giao dịch — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Keep the transaction details — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Xem lại đơn và lịch sử. Quay lại app, kiểm tra trạng thái thanh toán và Lịch sử thanh toán. Đúng đơn và đúng giao dịch cần đối chiếu.\n\n2. Giữ thông tin giao dịch. Giữ biên nhận có mã giao dịch, thời gian, số tiền và nội dung chuyển khoản. Đối chiếu trước khi chuyển thêm tiền cho cùng đơn; không cung cấp mật khẩu hoặc OTP. Đối chiếu trước khi chuyển thêm tiền cho cùng đơn.",
+        "text_en": "1. Recheck the booking and history. Return to CleanWise and inspect the booking payment status and Payment history. Wait for the check to complete and refresh when appropriate. Identify the exact booking and transaction to reconcile.\n\n2. Keep the transaction details. Keep the bank receipt containing the transaction reference, time, amount and transfer description. Reconcile these details before transferring again for the same booking; do not share passwords or OTPs. The receipt provides the details needed to investigate the pending payment."
+      },
+      {
+        "id": "nap-het-han",
+        "heading": "Lệnh nạp hết hạn nhưng đã chuyển",
+        "heading_en": "Top-up expired after a transfer",
+        "steps": [
+          {
+            "title": "Kiểm tra số dư và lịch sử ví",
+            "text": "Mở lại ví để xem số dư và giao dịch Tiền vào.",
+            "result": "Kiểm tra xem tiền đã được ghi nhận hay chưa.",
+            "title_en": "Check the wallet balance and history",
+            "text_en": "Reopen the wallet and inspect its balance and Money in history to see whether the transfer has already been credited.",
+            "result_en": "Confirm whether the payment has been recorded.",
+            "image": {
+              "file": "payment-v3-wallet-final.png",
+              "width": 1080,
+              "height": 2400,
+              "markers": [
+                {
+                  "x": 6,
+                  "y": 12,
+                  "width": 88,
+                  "height": 15
+                },
+                {
+                  "x": 6,
+                  "y": 43,
+                  "width": 88,
+                  "height": 10
+                }
+              ],
+              "alt": "Kiểm tra số dư và lịch sử ví — ảnh chụp app khách để minh họa; dữ liệu mẫu.",
+              "alt_en": "Check the wallet balance and history — customer app screenshot; example data."
+            }
+          },
+          {
+            "title": "Giữ biên nhận để đối chiếu",
+            "text": "Nếu đã chuyển tiền nhưng lệnh nạp hết hạn hoặc bị hủy, giữ biên nhận. Màn nạp thông báo số dư được cộng khi hệ thống nhận xác nhận. Kiểm tra số dư và lịch sử trước khi tạo lệnh nạp khác.",
+            "result": "Theo dõi xác nhận thay vì mặc định cần nạp thêm lần nữa.",
+            "title_en": "Keep the receipt",
+            "text_en": "If the top-up link is expired or cancelled after you transferred, keep the receipt. The top-up screen explains that the balance is credited when the system receives confirmation. Reconcile before creating another top-up.",
+            "result_en": "Keep tracking the original transfer rather than assuming a second payment is needed.",
+            "image": {
+              "file": "payment-v2-33.png",
+              "width": 728,
+              "height": 642,
+              "markers": [],
+              "alt": "Giữ biên nhận để đối chiếu — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Keep the receipt — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Kiểm tra số dư và lịch sử ví. Mở lại ví để xem số dư và giao dịch Tiền vào. Kiểm tra xem tiền đã được ghi nhận hay chưa.\n\n2. Giữ biên nhận để đối chiếu. Nếu đã chuyển tiền nhưng lệnh nạp hết hạn hoặc bị hủy, giữ biên nhận. Màn nạp thông báo số dư được cộng khi hệ thống nhận xác nhận. Kiểm tra số dư và lịch sử trước khi tạo lệnh nạp khác. Theo dõi xác nhận thay vì mặc định cần nạp thêm lần nữa.",
+        "text_en": "1. Check the wallet balance and history. Reopen the wallet and inspect its balance and Money in history to see whether the transfer has already been credited. Confirm whether the payment has been recorded.\n\n2. Keep the receipt. If the top-up link is expired or cancelled after you transferred, keep the receipt. The top-up screen explains that the balance is credited when the system receives confirmation. Reconcile before creating another top-up. Keep tracking the original transfer rather than assuming a second payment is needed."
+      },
+      {
+        "id": "hoan-tien",
+        "heading": "Kiểm tra tiền hoàn sau khi hủy",
+        "heading_en": "Check a refund after cancellation",
+        "steps": [
+          {
+            "title": "Đọc kết quả hủy thực tế",
+            "text": "Kiểm tra kết quả hủy đơn hoặc buổi và thông tin tiền hoàn nếu có.",
+            "result": "Không suy ra đã hoàn tiền chỉ từ trạng thái đã hủy.",
+            "title_en": "Read the actual cancellation result",
+            "text_en": "Inspect the booking or session cancellation result and any refund information. A Cancelled status alone does not establish that a refund was issued.",
+            "result_en": "Use the actual refund amount and destination provided by the result.",
+            "image": {
+              "file": "payment-v2-34.png",
+              "width": 728,
+              "height": 484,
+              "markers": [],
+              "alt": "Đọc kết quả hủy thực tế — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Read the actual cancellation result — interface illustration; example data."
+            }
+          },
+          {
+            "title": "Đối chiếu trong ví",
+            "text": "Nếu kết quả báo hoàn vào ví, kiểm tra số dư và lịch sử Tiền vào.",
+            "result": "Số tiền hoàn khớp kết quả thực tế của đơn hoặc buổi.",
+            "title_en": "Reconcile the wallet credit",
+            "text_en": "If the cancellation result states that money was refunded to the wallet, check your balance and Money in history. Match the booking or session, refund amount and time.",
+            "result_en": "The recorded wallet credit matches the actual cancellation result.",
+            "image": {
+              "file": "payment-v2-35.png",
+              "width": 728,
+              "height": 642,
+              "markers": [],
+              "alt": "Đối chiếu trong ví — hình minh họa giao diện; dữ liệu mẫu.",
+              "alt_en": "Reconcile the wallet credit — interface illustration; example data."
+            }
+          }
+        ],
+        "text": "1. Đọc kết quả hủy thực tế. Kiểm tra kết quả hủy đơn hoặc buổi và thông tin tiền hoàn nếu có. Không suy ra đã hoàn tiền chỉ từ trạng thái đã hủy.\n\n2. Đối chiếu trong ví. Nếu kết quả báo hoàn vào ví, kiểm tra số dư và lịch sử Tiền vào. Số tiền hoàn khớp kết quả thực tế của đơn hoặc buổi.",
+        "text_en": "1. Read the actual cancellation result. Inspect the booking or session cancellation result and any refund information. A Cancelled status alone does not establish that a refund was issued. Use the actual refund amount and destination provided by the result.\n\n2. Reconcile the wallet credit. If the cancellation result states that money was refunded to the wallet, check your balance and Money in history. Match the booking or session, refund amount and time. The recorded wallet credit matches the actual cancellation result."
+      }
+    ],
+    "keywords": "thanh toán chuyển khoản VietQR QR ví nạp tiền rút tiền ngân hàng OTP tiền mặt hoàn tiền lịch sử liên kết hết hạn",
+    "source_document": "CleanWise — Hướng dẫn thanh toán và sử dụng Ví v3; ảnh chụp app khách và hình minh họa có ghi chú",
+    "role": "CUSTOMER",
+    "effective_from": "2026-10-25"
+  }
+]
