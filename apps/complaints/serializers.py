@@ -40,7 +40,7 @@ class ComplaintAttachmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ComplaintAttachment
         fields = ['id', 'file', 'file_type', 'created_at']
-        read_only_fields = ['id', 'file_type', 'created_at']
+        read_only_fields = ['id', 'file', 'file_type', 'created_at']
 
     def validate_file(self, value):
         allowed = ('image/jpeg', 'image/png', 'image/webp')
