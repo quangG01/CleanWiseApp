@@ -7,7 +7,8 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
-
+import math
+from django.db.models import Case, Count, Exists, FloatField, IntegerField, Max, Min, OuterRef, Q, Subquery, Value, When
 from apps.bookings.activity_service import record_booking_activity
 from apps.bookings.models import Booking, BookingActivity, BookingSchedule
 from apps.notifications.models import Notification
@@ -21,7 +22,6 @@ from apps.wallets import earning_service, refund_service
 from .constants import CHECKIN_MISSED_GRACE_MINUTES, MIN_CANCEL_HOURS, AUTO_CANCEL_NOTE
 from .models import BookingAssignment, CustomerFavoriteWorker, WorkerWorkingArea
 
-from django.db.models import Case, Count, Exists, IntegerField, Max, Min, OuterRef, Q, Subquery, When
 from django.db.models.functions import Coalesce
 
 User = get_user_model()
@@ -42,6 +42,12 @@ PREFERRED_WORKER_START_BUFFER = timedelta(minutes=30)
 
 
 # ---------------------------------------------------------------- helpers
+def _haversine_km(lat1, lng1, lat2, lng2):
+    r = 6371
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = p2 - p1, math.radians(lng2 - lng1)
+    h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(h))
 
 def _lock_booking_of_schedule(schedule_id):
     booking_id = get_object_or_404(
@@ -580,7 +586,8 @@ def run_lazy_expiry(*, checkouts=False):
 
 
 def list_available_schedules_for_worker(
-    worker, *, booking_id=None, date_from=None, date_to=None, group_by_booking=False,
+    worker, *, booking_id=None, date_from=None, date_to=None,
+    group_by_booking=False, sort='time', lat=None, lng=None,
 ):
     run_lazy_expiry()
 
@@ -668,18 +675,37 @@ def list_available_schedules_for_worker(
         'booking', 'booking__service', 'booking__address',
         'booking__delivery_address', 'booking__customer',
     )
+    ordering = ['scheduled_start', 'id']
+    if sort == 'area':
+        result = result.annotate(in_my_area=Exists(
+            WorkerWorkingArea.objects.filter(
+                worker=worker, area__is_active=True,
+                area__ward_code=OuterRef('booking__address__ward_code'),
+            )
+        ))
+        ordering = ['-in_my_area', 'scheduled_start', 'id']
+    elif sort == 'distance' and lat is not None and lng is not None:
+        whens = []
+        for s in matched:  # đổi thành all_matched nếu biến của bạn tên vậy
+            a = s.booking.address
+            if a.latitude is not None and a.longitude is not None:
+                km = _haversine_km(lat, lng, float(a.latitude), float(a.longitude))
+                whens.append(When(pk=s.id, then=Value(km)))
+        result = result.annotate(dist_km=Case(
+            *whens, default=Value(1e9), output_field=FloatField(),
+        ))
+        ordering = ['dist_km', 'scheduled_start', 'id']
+
     return _annotate_total_sessions(result).annotate(
-        admin_invited=Exists(BookingAssignment.objects.filter(schedule=OuterRef('pk'), worker=worker, status='PENDING', expired_at__gt=timezone.now())),
+        admin_invited=Exists(BookingAssignment.objects.filter(
+            schedule=OuterRef('pk'), worker=worker,
+            status='PENDING', expired_at__gt=timezone.now(),
+        )),
         preferred_rank=Case(
-            When(
-                preferred_worker=worker,
-                preferred_worker_expires_at__gt=timezone.now(),
-                then=0,
-            ),
-            default=1,
-            output_field=IntegerField(),
+            When(preferred_worker=worker, preferred_worker_expires_at__gt=timezone.now(), then=0),
+            default=1, output_field=IntegerField(),
         ),
-    ).order_by('-admin_invited', 'preferred_rank', 'scheduled_start', 'id')
+    ).order_by('-admin_invited', 'preferred_rank', *ordering)
 
 
 MY_TABS = ('upcoming', 'today', 'completed', 'cancelled')

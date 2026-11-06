@@ -254,11 +254,13 @@ def _validate_schedules(schedules):
     now = timezone.now()
     open_t = settings.BOOKING_OPEN_TIME
     last_t = settings.BOOKING_LAST_START_TIME
+    lead_minutes = getattr(settings, 'BOOKING_MIN_LEAD_MINUTES', 120)
+    min_start = now + timedelta(minutes=lead_minutes)
 
     for idx, schedule in enumerate(schedules, start=1):
-        if schedule['scheduled_start'] <= now:
+        if schedule['scheduled_start'] < min_start:
             raise serializers.ValidationError(
-                {'schedules': f'Buổi {idx}: thời gian bắt đầu phải ở tương lai.'}
+                {'schedules': f'Buổi {idx}: phải đặt trước giờ bắt đầu ít nhất {lead_minutes} phút.'}
             )
         if schedule['scheduled_start'] >= schedule['scheduled_end']:
             raise serializers.ValidationError(
@@ -270,6 +272,7 @@ def _validate_schedules(schedules):
                 {'schedules': f'Buổi {idx}: giờ bắt đầu phải trong khoảng '
                               f'{open_t:%H:%M} đến {last_t:%H:%M}.'}
             )
+            
 def _validate_payment_method(payment_method, *, form_schema, sessions_count):
     allowed = {Payment.Method.CASH, Payment.Method.BANK_TRANSFER, Payment.Method.WALLET}
     if payment_method not in allowed:
