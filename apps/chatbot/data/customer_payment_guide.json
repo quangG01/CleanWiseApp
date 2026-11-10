@@ -44,7 +44,7 @@
           },
           {
             "title": "Đối chiếu tổng tiền",
-            "text": "Kiểm tra dịch vụ, lịch, địa chỉ và Tổng thanh toán trước khi nhấn Đăng việc. Thao tác này xác nhận tạo đơn; chỉ tiếp tục khi thông tin đúng.",
+            "text": "Kiểm tra dịch vụ, lịch, địa chỉ và Tổng thanh toán trước khi nhấn Đặt dịch vụ. Thao tác này xác nhận tạo đơn; chỉ tiếp tục khi thông tin đúng.",
             "result": "Thông tin thanh toán khớp đúng đơn.",
             "title_en": "Check the total",
             "text_en": "Check the service, schedule, address and Total payment before tapping Post job. A new booking is created only after this confirmation.",
@@ -66,7 +66,7 @@
             }
           }
         ],
-        "text": "1. Mở lựa chọn thanh toán. Ở Xác nhận và thanh toán, mở Phương thức thanh toán hoặc chạm Đổi. Xem các phương thức được hỗ trợ cho đơn này.\n\n2. Chọn phương thức khả dụng. Kiểm tra Tiền mặt, Chuyển khoản và Ví CleanWise. Gói định kỳ/nhiều buổi yêu cầu thanh toán trước nên không có Tiền mặt. Nếu số dư không đủ, lựa chọn ví bị vô hiệu hóa và có nhãn Không đủ. Phương thức chọn được hiển thị trên màn xác nhận.\n\n3. Đối chiếu tổng tiền. Kiểm tra dịch vụ, lịch, địa chỉ và Tổng thanh toán trước khi nhấn Đăng việc. Thao tác này xác nhận tạo đơn; chỉ tiếp tục khi thông tin đúng. Thông tin thanh toán khớp đúng đơn.",
+        "text": "1. Mở lựa chọn thanh toán. Ở Xác nhận và thanh toán, mở Phương thức thanh toán hoặc chạm Đổi. Xem các phương thức được hỗ trợ cho đơn này.\n\n2. Chọn phương thức khả dụng. Kiểm tra Tiền mặt, Chuyển khoản và Ví CleanWise. Gói định kỳ/nhiều buổi yêu cầu thanh toán trước nên không có Tiền mặt. Nếu số dư không đủ, lựa chọn ví bị vô hiệu hóa và có nhãn Không đủ. Phương thức chọn được hiển thị trên màn xác nhận.\n\n3. Đối chiếu tổng tiền. Kiểm tra dịch vụ, lịch, địa chỉ và Tổng thanh toán trước khi nhấn Đặt dịch vụ. Thao tác này xác nhận tạo đơn; chỉ tiếp tục khi thông tin đúng. Thông tin thanh toán khớp đúng đơn.",
         "text_en": "1. Open payment options. On Confirmation and payment, open Payment method or tap Change. Review the methods available for this booking.\n\n2. Choose an available method. Check Cash, Bank transfer and CleanWise Wallet. Availability depends on the service type and wallet balance. Recurring packages require prepayment; an insufficient wallet option is disabled. The selected method appears on the confirmation screen.\n\n3. Check the total. Check the service, schedule, address and Total payment before tapping Post job. A new booking is created only after this confirmation. The payment details match the intended booking."
       },
       {
@@ -76,7 +76,7 @@
         "steps": [
           {
             "title": "Chọn Chuyển khoản",
-            "text": "Ở Xác nhận và thanh toán, chọn Chuyển khoản. Kiểm tra Tổng thanh toán rồi nhấn Đăng việc để tạo đơn và mở Thanh toán đơn hàng.",
+            "text": "Ở Xác nhận và thanh toán, chọn Chuyển khoản. Kiểm tra Tổng thanh toán rồi nhấn Đặt dịch vụ để tạo đơn và mở Thanh toán đơn hàng.",
             "result": "Sau khi tạo đơn, mở màn Thanh toán đơn hàng.",
             "title_en": "Choose Bank transfer",
             "text_en": "Choose Bank transfer on the booking confirmation screen. Review the total, then tap Post job to create the booking.",
@@ -155,7 +155,7 @@
             }
           }
         ],
-        "text": "1. Chọn Chuyển khoản. Ở Xác nhận và thanh toán, chọn Chuyển khoản. Kiểm tra Tổng thanh toán rồi nhấn Đăng việc để tạo đơn và mở Thanh toán đơn hàng. Sau khi tạo đơn, mở màn Thanh toán đơn hàng.\n\n2. Kiểm tra đúng đơn. Đối chiếu mã đơn, số tiền cần thanh toán và thời gian còn lại. Đơn và số tiền đúng với yêu cầu của bạn.\n\n3. Mở công cụ thanh toán. Chọn Mở trang thanh toán, nút app ngân hàng được hỗ trợ nếu có, hoặc Hoặc quét mã QR. Chỉ dùng liên kết/QR đang có hiệu lực của đúng đơn. Nếu không mở được app ngân hàng, dùng trang thanh toán còn hiệu lực. Chỉ dùng liên kết hoặc QR đang có hiệu lực của đơn này.\n\n4. Kiểm tra trước khi chuyển. Trong trang thanh toán hoặc app ngân hàng, kiểm tra tài khoản nhận, số tiền và nội dung chuyển khoản. Giữ nguyên nội dung được cung cấp; không dùng QR hoặc liên kết của đơn khác. Giữ đúng thông tin được cung cấp cho giao dịch.\n\n5. Quay lại kiểm tra kết quả. Sau khi xác nhận chuyển khoản ở ngân hàng, quay lại CleanWise. App kiểm tra trạng thái và mở màn thành công khi nhận xác nhận thanh toán. Mở lại chi tiết đơn để đối chiếu trạng thái thanh toán. Kiểm tra trạng thái đã thanh toán thay vì chỉ dựa vào màn đặt thành công.",
+        "text": "1. Chọn Chuyển khoản. Ở Xác nhận và thanh toán, chọn Chuyển khoản. Kiểm tra Tổng thanh toán rồi nhấn Đặt dịch vụ để tạo đơn và mở Thanh toán đơn hàng. Sau khi tạo đơn, mở màn Thanh toán đơn hàng.\n\n2. Kiểm tra đúng đơn. Đối chiếu mã đơn, số tiền cần thanh toán và thời gian còn lại. Đơn và số tiền đúng với yêu cầu của bạn.\n\n3. Mở công cụ thanh toán. Chọn Mở trang thanh toán, nút app ngân hàng được hỗ trợ nếu có, hoặc Hoặc quét mã QR. Chỉ dùng liên kết/QR đang có hiệu lực của đúng đơn. Nếu không mở được app ngân hàng, dùng trang thanh toán còn hiệu lực. Chỉ dùng liên kết hoặc QR đang có hiệu lực của đơn này.\n\n4. Kiểm tra trước khi chuyển. Trong trang thanh toán hoặc app ngân hàng, kiểm tra tài khoản nhận, số tiền và nội dung chuyển khoản. Giữ nguyên nội dung được cung cấp; không dùng QR hoặc liên kết của đơn khác. Giữ đúng thông tin được cung cấp cho giao dịch.\n\n5. Quay lại kiểm tra kết quả. Sau khi xác nhận chuyển khoản ở ngân hàng, quay lại CleanWise. App kiểm tra trạng thái và mở màn thành công khi nhận xác nhận thanh toán. Mở lại chi tiết đơn để đối chiếu trạng thái thanh toán. Kiểm tra trạng thái đã thanh toán thay vì chỉ dựa vào màn đặt thành công.",
         "text_en": "1. Choose Bank transfer. Choose Bank transfer on the booking confirmation screen. Review the total, then tap Post job to create the booking. The app opens Payment for your booking.\n\n2. Check the correct booking. Compare the booking code, Amount to pay and remaining link validity with the booking you created. The reference and amount match your booking.\n\n3. Open the payment tool. Tap Open payment page, a supported bank app button where offered, or Or scan QR code. Use only the current link or QR for this booking. If the bank app cannot open, use the valid payment page. The payment tool opens with this transaction’s details.\n\n4. Check before transferring. In the payment page or bank app, verify the recipient account, amount and transfer reference. Keep the supplied reference unchanged; do not reuse another booking’s QR. The transfer details match the current payment request.\n\n5. Return and check the result. After confirming in your bank app, return to CleanWise. The app checks the booking payment status and opens the success screen when payment is confirmed. Reopen booking details to verify. Use the recorded payment status, rather than a booking-success screen alone, as the result."
       },
       {
@@ -188,7 +188,7 @@
           },
           {
             "title": "Chọn Ví CleanWise",
-            "text": "Ở màn xác nhận đơn, chọn Ví CleanWise, kiểm tra Tổng thanh toán rồi nhấn Đăng việc. Lựa chọn ví có thể bị vô hiệu hóa nếu không đủ số dư.",
+            "text": "Ở màn xác nhận đơn, chọn Ví CleanWise, kiểm tra Tổng thanh toán rồi nhấn Đặt dịch vụ. Lựa chọn ví có thể bị vô hiệu hóa nếu không đủ số dư.",
             "result": "Phương thức ví được chọn cho đúng đơn.",
             "title_en": "Choose CleanWise Wallet",
             "text_en": "On booking confirmation, choose CleanWise Wallet, review Total payment and tap Post job. The wallet option may be disabled when the balance is insufficient.",
@@ -219,7 +219,7 @@
             }
           }
         ],
-        "text": "1. Kiểm tra số dư. Vào Cá nhân → Ví / Thẻ thanh toán, đối chiếu số dư với tổng tiền đơn. Số dư đủ cho khoản cần thanh toán.\n\n2. Chọn Ví CleanWise. Ở màn xác nhận đơn, chọn Ví CleanWise, kiểm tra Tổng thanh toán rồi nhấn Đăng việc. Lựa chọn ví có thể bị vô hiệu hóa nếu không đủ số dư. Phương thức ví được chọn cho đúng đơn.\n\n3. Đối chiếu tiền ra. Sau khi đặt, kiểm tra trạng thái thanh toán trong đơn và giao dịch Tiền ra trong ví. Đối chiếu mã đơn, số tiền và thời gian giao dịch.",
+        "text": "1. Kiểm tra số dư. Vào Cá nhân → Ví / Thẻ thanh toán, đối chiếu số dư với tổng tiền đơn. Số dư đủ cho khoản cần thanh toán.\n\n2. Chọn Ví CleanWise. Ở màn xác nhận đơn, chọn Ví CleanWise, kiểm tra Tổng thanh toán rồi nhấn Đặt dịch vụ. Lựa chọn ví có thể bị vô hiệu hóa nếu không đủ số dư. Phương thức ví được chọn cho đúng đơn.\n\n3. Đối chiếu tiền ra. Sau khi đặt, kiểm tra trạng thái thanh toán trong đơn và giao dịch Tiền ra trong ví. Đối chiếu mã đơn, số tiền và thời gian giao dịch.",
         "text_en": "1. Check your balance. Go to Account → Wallet / Payment cards. Compare the available balance with the total for the booking. The balance covers the payment; otherwise top up or choose an available alternative.\n\n2. Choose CleanWise Wallet. On booking confirmation, choose CleanWise Wallet, review Total payment and tap Post job. The wallet option may be disabled when the balance is insufficient. The correct booking uses the wallet payment method.\n\n3. Check the outgoing transaction. After booking, inspect its payment status and the Money out list in your wallet. Match the booking reference, amount and time. The booking payment and outgoing wallet transaction agree."
       },
       {
@@ -229,7 +229,7 @@
         "steps": [
           {
             "title": "Chọn Tiền mặt khi được hỗ trợ",
-            "text": "Mở lựa chọn thanh toán và chọn Tiền mặt khi dịch vụ hỗ trợ. Kiểm tra đơn và tổng tiền trước khi nhấn Đăng việc. Gói định kỳ không có lựa chọn Tiền mặt.",
+            "text": "Mở lựa chọn thanh toán và chọn Tiền mặt khi dịch vụ hỗ trợ. Kiểm tra đơn và tổng tiền trước khi nhấn Đặt dịch vụ. Gói định kỳ không có lựa chọn Tiền mặt.",
             "result": "Không phải loại dịch vụ nào cũng có lựa chọn này.",
             "title_en": "Choose Cash when offered",
             "text_en": "Open payment options and choose Cash if the service supports it. Review the booking details and total before tapping Post job. Recurring packages do not offer cash.",
@@ -260,7 +260,7 @@
             }
           }
         ],
-        "text": "1. Chọn Tiền mặt khi được hỗ trợ. Mở lựa chọn thanh toán và chọn Tiền mặt khi dịch vụ hỗ trợ. Kiểm tra đơn và tổng tiền trước khi nhấn Đăng việc. Gói định kỳ không có lựa chọn Tiền mặt. Không phải loại dịch vụ nào cũng có lựa chọn này.\n\n2. Kiểm tra trạng thái thu tiền. Sau khi tạo đơn, xem phần thanh toán trong chi tiết đơn. Đặt đơn thành công chưa có nghĩa đã thanh toán.",
+        "text": "1. Chọn Tiền mặt khi được hỗ trợ. Mở lựa chọn thanh toán và chọn Tiền mặt khi dịch vụ hỗ trợ. Kiểm tra đơn và tổng tiền trước khi nhấn Đặt dịch vụ. Gói định kỳ không có lựa chọn Tiền mặt. Không phải loại dịch vụ nào cũng có lựa chọn này.\n\n2. Kiểm tra trạng thái thu tiền. Sau khi tạo đơn, xem phần thanh toán trong chi tiết đơn. Đặt đơn thành công chưa có nghĩa đã thanh toán.",
         "text_en": "1. Choose Cash when offered. Open payment options and choose Cash if the service supports it. Review the booking details and total before tapping Post job. Recurring packages do not offer cash. The booking records Cash as its payment method.\n\n2. Check whether payment was collected. After creating the booking, open its payment details. Follow the recorded collection status; creating a booking does not confirm that cash has been collected. Booking success and payment collection are separate states."
       },
       {
