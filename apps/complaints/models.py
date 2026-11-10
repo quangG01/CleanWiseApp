@@ -67,6 +67,10 @@ class Complaint(models.Model):
     booking = models.ForeignKey(
         'bookings.Booking', on_delete=models.DO_NOTHING, related_name='complaints',
     )
+    discipline_case = models.ForeignKey(
+        'worker.WorkerDisciplineCase', on_delete=models.PROTECT, null=True, blank=True,
+        related_name='appeals',
+    )
 
     # Người GỬI khiếu nại — khách hàng hoặc nhân viên.
     reporter = models.ForeignKey(

@@ -72,12 +72,18 @@ class AdminBookingApiTests(APITestCase):
         self.client.force_authenticate(self.admin)
 
     def _service_data(self, days=2):
-        start = timezone.localtime(timezone.now() + timedelta(days=days))
+        start = self._future_start(days)
         return {
             'date': start.strftime('%Y-%m-%d'),
             'start_time': start.strftime('%H:%M'),
             'duration': '2_HOURS',
         }
+
+    @staticmethod
+    def _future_start(days):
+        return (timezone.localtime() + timedelta(days=days)).replace(
+            hour=10, minute=0, second=0, microsecond=0,
+        )
 
     def _create_booking(self, days=2):
         return create_booking(
@@ -205,7 +211,7 @@ class AdminBookingApiTests(APITestCase):
             actor=self.admin,
         ).exists())
 
-    def test_available_workers_and_direct_assignment(self):
+    def test_available_workers_and_invitation(self):
         available = self.client.get(reverse('admin-schedule-workers', args=[self.schedule.id]))
         self.assertEqual(available.status_code, status.HTTP_200_OK, available.data)
         self.assertEqual(available.data['data']['count'], 1)
@@ -218,7 +224,10 @@ class AdminBookingApiTests(APITestCase):
         )
         self.assertEqual(assigned.status_code, status.HTTP_201_CREATED, assigned.data)
         assignment = BookingAssignment.objects.get(schedule=self.schedule)
-        self.assertEqual(assignment.status, BookingAssignment.Status.ACCEPTED)
+        self.assertEqual(assignment.status, BookingAssignment.Status.PENDING)
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, Booking.Status.PENDING)
+        self.assertIsNone(assignment.commission_reserved)
         self.assertEqual(assignment.assigned_by, self.admin)
 
     def test_admin_can_unassign_worker(self):
@@ -226,6 +235,8 @@ class AdminBookingApiTests(APITestCase):
             reverse('admin-booking-schedule-assign', args=[self.schedule.id]),
             {'worker_id': self.worker.id}, format='json',
         )
+        from apps.worker.assignment_service import claim_schedule
+        claim_schedule(schedule_id=self.schedule.id, worker=self.worker)
         response = self.client.post(
             reverse('admin-schedule-unassign', args=[self.schedule.id]),
             {'reason': 'Đổi kế hoạch'}, format='json',
@@ -237,7 +248,7 @@ class AdminBookingApiTests(APITestCase):
         )
 
     def test_admin_can_reschedule_pending_schedule(self):
-        new_start = timezone.now() + timedelta(days=5)
+        new_start = self._future_start(5)
         response = self.client.patch(
             reverse('admin-schedule-update', args=[self.schedule.id]),
             {
@@ -281,6 +292,8 @@ class AdminBookingApiTests(APITestCase):
             {'worker_id': self.worker.id}, format='json',
         )
         self.assertEqual(assigned.status_code, status.HTTP_201_CREATED, assigned.data)
+        from apps.worker.assignment_service import claim_schedule
+        claim_schedule(schedule_id=self.schedule.id, worker=self.worker)
         self.schedule.status = self.schedule.Status.IN_PROGRESS
         self.schedule.actual_start = timezone.now() - timedelta(hours=1)
         self.schedule.save(update_fields=['status', 'actual_start', 'updated_at'])
@@ -318,3 +331,320 @@ class AdminBookingApiTests(APITestCase):
         self.assertIn(BookingActivity.EventType.REFUND_COMPLETED, events)
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.Status.REFUNDED)
+
+
+    def _invite(self):
+        return self.client.post(reverse('admin-booking-schedule-assign', args=[self.schedule.id]),
+                                {'worker_id': self.worker.id, 'note': 'Mời bạn nhận buổi này', 'response_minutes': 15}, format='json')
+
+    def test_invitation_accepts_existing_record_and_reserves_commission(self):
+        invitation = self._invite().data['data']
+        self.client.force_authenticate(self.worker)
+        response = self.client.post(reverse('worker-invitation-respond', args=[invitation['id']]), {'action': 'accept'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        assignment = BookingAssignment.objects.get(pk=invitation['id'])
+        self.assertEqual(assignment.status, 'ACCEPTED')
+        self.assertEqual(assignment.assigned_by, self.admin)
+        self.assertGreater(assignment.commission_reserved, 0)
+        self.assertEqual(BookingAssignment.objects.filter(schedule=self.schedule).count(), 1)
+        self.assertEqual(self.client.post(reverse('worker-invitation-respond', args=[assignment.id]), {'action': 'accept'}, format='json').status_code, 200)
+
+    def test_invitation_blocks_duplicate_and_other_worker_claim(self):
+        self.assertEqual(self._invite().status_code, 201)
+        self.assertEqual(self._invite().status_code, 400)
+        other = User.objects.create_user(username='other-invited-worker', email='other-invited@example.com', role='WORKER')
+        WorkerProfile.objects.create(user=other, status='ACTIVE', registered_service=self.service)
+        WorkerWorkingArea.objects.create(worker=other, area=self.worker.working_areas.first().area)
+        Wallet.objects.create(user=other, balance=500000)
+        self.client.force_authenticate(other)
+        response = self.client.post(reverse('worker-schedule-claim', args=[self.schedule.id]), {}, format='json')
+        self.assertEqual(response.status_code, 400, response.data)
+        available = self.client.get(reverse('worker-schedule-available'), {'booking_id': self.booking.id})
+        self.assertEqual(available.data['data'], [])
+        invitation = BookingAssignment.objects.get(schedule=self.schedule)
+        self.assertEqual(self.client.post(reverse('worker-invitation-respond', args=[invitation.id]), {'action': 'decline'}, format='json').status_code, 404)
+
+    def test_decline_and_withdraw_keep_invitation_history(self):
+        invitation = self._invite().data['data']
+        self.client.force_authenticate(self.worker)
+        response = self.client.post(reverse('worker-invitation-respond', args=[invitation['id']]), {'action': 'decline'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self._invite().status_code, 201)
+        response = self.client.post(reverse('admin-invitation-withdraw', args=[self.schedule.id]), {'reason': 'Đổi kế hoạch'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(set(BookingAssignment.objects.filter(schedule=self.schedule).values_list('status', flat=True)), {'REJECTED', 'CANCELLED'})
+
+    def test_expired_invitation_cannot_accept_and_opens_again(self):
+        from apps.worker.invitation_service import expire_invitations
+        invitation = self._invite().data['data']
+        BookingAssignment.objects.filter(pk=invitation['id']).update(expired_at=timezone.now() - timedelta(seconds=1))
+        self.client.force_authenticate(self.worker)
+        response = self.client.post(reverse('worker-invitation-respond', args=[invitation['id']]), {'action': 'accept'}, format='json')
+        self.assertEqual(response.status_code, 400, response.data)
+        expire_invitations()
+        self.assertEqual(BookingAssignment.objects.get(pk=invitation['id']).status, 'EXPIRED')
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self._invite().status_code, 201)
+
+    def test_accept_rechecks_wallet_and_rolls_back_invitation(self):
+        invitation = self._invite().data['data']
+        Wallet.objects.filter(user=self.worker).update(balance=0)
+        self.client.force_authenticate(self.worker)
+        response = self.client.post(reverse('worker-invitation-respond', args=[invitation['id']]), {'action': 'accept'}, format='json')
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertEqual(BookingAssignment.objects.get(pk=invitation['id']).status, 'PENDING')
+
+    def test_invitation_notification_and_worker_detail(self):
+        from apps.notifications.models import Notification
+        invitation = self._invite().data['data']
+        notification = Notification.objects.filter(user=self.worker, title='Lời mời nhận việc từ admin').get()
+        self.assertEqual(notification.related_schedule, self.schedule)
+        self.assertEqual(notification.navigation_source, 'available')
+        detail = self.client.get(reverse('admin-booking-detail', args=[self.booking.id])).data['data']['schedules'][0]
+        self.assertIsNone(detail['current_assignment'])
+        self.assertEqual(detail['invitation']['id'], invitation['id'])
+        self.client.force_authenticate(self.worker)
+        detail = self.client.get(reverse('worker-booking-schedules', args=[self.booking.id])).data['data'][0]
+        self.assertNotIn('note', detail['invitation'])
+        self.assertNotIn('invitation_note', invitation)
+        self.assertEqual(detail['invitation']['status'], 'PENDING')
+
+    def test_invitation_reschedule_closes_pending_request(self):
+        invitation = self._invite().data['data']
+        start = self._future_start(5)
+        response = self.client.patch(reverse('admin-schedule-update', args=[self.schedule.id]), {'scheduled_start': start.isoformat(), 'scheduled_end': (start + timedelta(hours=2)).isoformat(), 'reason': 'Khách đổi lịch'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(BookingAssignment.objects.get(pk=invitation['id']).status, 'CANCELLED')
+
+    def test_customer_priority_requires_withdrawal(self):
+        self.schedule.preferred_worker = self.worker
+        self.schedule.preferred_worker_expires_at = timezone.now() + timedelta(minutes=30)
+        self.schedule.save()
+        self.assertEqual(self._invite().status_code, 400)
+        response = self.client.post(reverse('admin-invitation-withdraw', args=[self.schedule.id]), {'reason': 'Khách đồng ý đổi nhân viên'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(self._invite().status_code, 201)
+
+
+    def test_waiting_filter_keeps_unassigned_and_clears_after_accept(self):
+        invitation = self._invite().data['data']
+        url = reverse('admin-booking-list-create')
+        data = self.client.get(url, {'invitation_state': 'waiting', 'unassigned': 'true'}).data['data']
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['results'][0]['waiting_invitations'], 1)
+        self.client.force_authenticate(self.worker)
+        self.client.post(reverse('worker-invitation-respond', args=[invitation['id']]), {'action': 'accept'}, format='json')
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self.client.get(url, {'invitation_state': 'waiting'}).data['data']['count'], 0)
+
+    def test_package_invitation_blocks_only_invited_session(self):
+        from apps.worker.assignment_service import claim_booking_package
+        second = BookingSchedule.objects.create(booking=self.booking, sequence_no=2,
+            scheduled_start=self.schedule.scheduled_start + timedelta(days=1), scheduled_end=self.schedule.scheduled_end + timedelta(days=1))
+        invitation = self._invite().data['data']
+        other = User.objects.create_user(username='package-other', email='package-other@example.com', role='WORKER')
+        WorkerProfile.objects.create(user=other, status='ACTIVE', registered_service=self.service)
+        WorkerWorkingArea.objects.create(worker=other, area=self.worker.working_areas.first().area)
+        Wallet.objects.create(user=other, balance=500000)
+        result = claim_booking_package(booking_id=self.booking.id, worker=other, schedule_ids=[self.schedule.id, second.id])
+        self.assertEqual([a.schedule_id for a in result['claimed']], [second.id])
+        self.assertEqual(result['skipped'][0]['schedule_id'], self.schedule.id)
+        self.assertEqual(BookingAssignment.objects.get(pk=invitation['id']).status, 'PENDING')
+
+    def test_accept_rechecks_time_conflict(self):
+        invitation = self._invite().data['data']
+        other_booking = self._create_booking()
+        other_schedule = other_booking.schedules.get()
+        BookingAssignment.objects.create(schedule=other_schedule, worker=self.worker, status='ACCEPTED')
+        self.client.force_authenticate(self.worker)
+        response = self.client.post(reverse('worker-invitation-respond', args=[invitation['id']]), {'action': 'accept'}, format='json')
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertEqual(BookingAssignment.objects.get(pk=invitation['id']).status, 'PENDING')
+
+    def test_customer_favorite_is_marked_for_admin(self):
+        from apps.worker.models import CustomerFavoriteWorker
+        CustomerFavoriteWorker.objects.create(customer=self.customer, worker=self.worker)
+        data = self.client.get(reverse('admin-schedule-workers', args=[self.schedule.id])).data['data']
+        self.assertTrue(data['results'][0]['is_customer_favorite'])
+
+    def test_favorite_tab_keeps_conflicting_worker_but_disables_invitation(self):
+        from apps.worker.models import CustomerFavoriteWorker
+        CustomerFavoriteWorker.objects.create(customer=self.customer, worker=self.worker)
+        conflict = self._create_booking().schedules.get()
+        BookingAssignment.objects.create(schedule=conflict, worker=self.worker, status='ACCEPTED')
+        url = reverse('admin-schedule-workers', args=[self.schedule.id])
+        self.assertEqual(self.client.get(url).data['data']['count'], 0)
+        data = self.client.get(url, {'group': 'favorites'}).data['data']
+        self.assertEqual(data['count'], 1)
+        worker = data['results'][0]
+        self.assertFalse(worker['can_receive_invitation'])
+        self.assertTrue(worker['has_time_conflict'])
+        self.assertEqual(worker['unavailable_reasons'], ['Trùng lịch'])
+
+    def test_requested_tab_is_schedule_specific_and_distinct_from_favorites(self):
+        from apps.worker.models import CustomerFavoriteWorker
+        CustomerFavoriteWorker.objects.create(customer=self.customer, worker=self.worker)
+        url = reverse('admin-schedule-workers', args=[self.schedule.id])
+        self.assertEqual(self.client.get(url, {'group': 'requested'}).data['data']['count'], 0)
+        self.schedule.preferred_worker = self.worker
+        self.schedule.preferred_worker_expires_at = timezone.now() - timedelta(minutes=1)
+        self.schedule.save()
+        data = self.client.get(url, {'group': 'requested'}).data['data']
+        self.assertEqual(data['count'], 1)
+        self.assertTrue(data['results'][0]['is_customer_requested'])
+        self.assertTrue(data['results'][0]['can_receive_invitation'])
+        second = BookingSchedule.objects.create(booking=self.booking, sequence_no=2,
+            scheduled_start=self.schedule.scheduled_start + timedelta(days=1),
+            scheduled_end=self.schedule.scheduled_end + timedelta(days=1))
+        self.assertEqual(self.client.get(reverse('admin-schedule-workers', args=[second.id]), {'group': 'requested'}).data['data']['count'], 0)
+
+    def test_requested_tab_explains_insufficient_balance(self):
+        self.schedule.preferred_worker = self.worker
+        self.schedule.save()
+        Wallet.objects.filter(user=self.worker).update(balance=0)
+        data = self.client.get(reverse('admin-schedule-workers', args=[self.schedule.id]), {'group': 'requested'}).data['data']
+        self.assertFalse(data['results'][0]['can_receive_invitation'])
+        self.assertEqual(data['results'][0]['unavailable_reasons'], ['Không đủ số dư'])
+
+    def test_favorite_tab_keeps_worker_with_missing_profile_and_excludes_other_customers(self):
+        from apps.worker.models import CustomerFavoriteWorker
+        worker = User.objects.create_user(username='no-profile-favorite', email='no-profile@example.com', role='WORKER')
+        CustomerFavoriteWorker.objects.create(customer=self.customer, worker=worker)
+        other_customer = User.objects.create_user(username='other-favorite-customer-admin', email='other-favorite-admin@example.com', role='CUSTOMER')
+        CustomerFavoriteWorker.objects.create(customer=other_customer, worker=self.worker)
+        response = self.client.get(reverse('admin-schedule-workers', args=[self.schedule.id]), {'group': 'favorites'})
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data['data']
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['results'][0]['id'], worker.id)
+        self.assertFalse(data['results'][0]['can_receive_invitation'])
+        self.assertIn('Hồ sơ chưa được duyệt', data['results'][0]['unavailable_reasons'])
+
+    def test_worker_tabs_reject_unknown_group(self):
+        response = self.client.get(reverse('admin-schedule-workers', args=[self.schedule.id]), {'group': 'unknown'})
+        self.assertEqual(response.status_code, 400)
+
+    def test_all_worker_tabs_returns_union_without_pagination_or_duplicates(self):
+        from apps.worker.models import CustomerFavoriteWorker
+        favorite = self._additional_invitation_worker('union-favorite')
+        requested = self._additional_invitation_worker('union-requested')
+        unrelated = self._additional_invitation_worker('union-unrelated')
+        CustomerFavoriteWorker.objects.create(customer=self.customer, worker=favorite)
+        CustomerFavoriteWorker.objects.create(customer=self.customer, worker=requested)
+        Wallet.objects.filter(user__in=[favorite, requested, unrelated]).update(balance=0)
+        self.schedule.preferred_worker = requested
+        self.schedule.save()
+        response = self.client.get(reverse('admin-schedule-workers', args=[self.schedule.id]), {'group': 'all', 'page_size': 1})
+        self.assertEqual(response.status_code, 200, response.data)
+        workers = response.data['data']['results']
+        self.assertEqual({worker['id'] for worker in workers}, {self.worker.id, favorite.id, requested.id})
+        self.assertEqual(len(workers), 3)
+        by_id = {worker['id']: worker for worker in workers}
+        self.assertTrue(by_id[self.worker.id]['can_receive_invitation'])
+        self.assertFalse(by_id[favorite.id]['can_receive_invitation'])
+        self.assertEqual(by_id[requested.id]['unavailable_reasons'], ['Không đủ số dư'])
+        self.assertTrue(by_id[requested.id]['is_customer_requested'])
+
+    def test_accept_rechecks_cancelled_booking(self):
+        invitation = self._invite().data['data']
+        self.client.post(reverse('admin-booking-cancel', args=[self.booking.id]), {'reason': 'Khách hủy'}, format='json')
+        self.client.force_authenticate(self.worker)
+        response = self.client.post(reverse('worker-invitation-respond', args=[invitation['id']]), {'action': 'accept'}, format='json')
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertEqual(BookingAssignment.objects.get(pk=invitation['id']).status, 'CANCELLED')
+
+
+    def test_other_session_customer_priority_does_not_block_admin_invitation(self):
+        other = User.objects.create_user(username='priority-other', email='priority-other@example.com', role='WORKER')
+        BookingSchedule.objects.create(booking=self.booking, sequence_no=2,
+            scheduled_start=self.schedule.scheduled_start + timedelta(days=1), scheduled_end=self.schedule.scheduled_end + timedelta(days=1),
+            preferred_worker=other, preferred_worker_expires_at=timezone.now() + timedelta(minutes=30))
+        invitation = self._invite().data['data']
+        self.client.force_authenticate(self.worker)
+        detail = self.client.get(reverse('worker-booking-schedules', args=[self.booking.id]))
+        self.assertEqual(len(detail.data['data']), 2)
+        self.assertEqual(detail.data['data'][1]['claim_state'], 'TAKEN')
+        response = self.client.post(reverse('worker-invitation-respond', args=[invitation['id']]), {'action': 'accept'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+
+    def _additional_invitation_worker(self, name='batch-worker'):
+        worker = User.objects.create_user(username=name, email=f'{name}@example.com', role='WORKER')
+        WorkerProfile.objects.create(user=worker, status='ACTIVE', registered_service=self.service)
+        WorkerWorkingArea.objects.create(worker=worker, area=self.worker.working_areas.first().area)
+        Wallet.objects.create(user=worker, balance=500000)
+        return worker
+
+    def _invite_workers(self, workers):
+        self.client.force_authenticate(self.admin)
+        return self.client.post(reverse('admin-schedule-bulk-assign'), {
+            'booking_id': self.booking.id, 'schedule_ids': [self.schedule.id],
+            'worker_ids': [worker.id for worker in workers], 'response_minutes': 30,
+        }, format='json')
+
+    def test_multi_invitation_each_recipient_can_see_and_first_accept_closes_others(self):
+        from apps.notifications.models import Notification
+        other = self._additional_invitation_worker()
+        response = self._invite_workers([self.worker, other])
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(len(response.data['data']['assigned']), 2)
+        detail = self.client.get(reverse('admin-booking-detail', args=[self.booking.id])).data['data']['schedules'][0]
+        self.assertEqual(detail['invitation']['pending_count'], 2)
+        self.assertEqual({w['id'] for w in detail['invitation']['workers']}, {self.worker.id, other.id})
+        for worker in [self.worker, other]:
+            self.client.force_authenticate(worker)
+            available = self.client.get(reverse('worker-schedule-available'), {'booking_id': self.booking.id})
+            self.assertTrue(available.data['data'])
+            schedules = self.client.get(reverse('worker-booking-schedules', args=[self.booking.id])).data['data']
+            self.assertEqual(schedules[0]['claim_state'], 'OPEN')
+            self.assertEqual(schedules[0]['invitation']['id'], BookingAssignment.objects.get(schedule=self.schedule, worker=worker).id)
+        other_invite = BookingAssignment.objects.get(schedule=self.schedule, worker=other)
+        accepted = self.client.post(reverse('worker-invitation-respond', args=[other_invite.id]), {'action': 'accept'}, format='json')
+        self.assertEqual(accepted.status_code, 200, accepted.data)
+        self.assertEqual(BookingAssignment.objects.get(schedule=self.schedule, worker=self.worker).status, 'CANCELLED')
+        self.assertEqual(BookingAssignment.objects.filter(schedule=self.schedule, status='ACCEPTED').count(), 1)
+        self.assertTrue(Notification.objects.filter(user=self.worker, message__contains='đã có người nhận').exists())
+        self.client.force_authenticate(self.worker)
+        closed = BookingAssignment.objects.get(schedule=self.schedule, worker=self.worker)
+        self.assertEqual(self.client.post(reverse('worker-invitation-respond', args=[closed.id]), {'action': 'accept'}, format='json').status_code, 400)
+
+    def test_multi_invitation_decline_one_keeps_remaining_restricted_until_all_decline(self):
+        other = self._additional_invitation_worker()
+        outsider = self._additional_invitation_worker('outsider-worker')
+        self.assertEqual(self._invite_workers([self.worker, other]).status_code, 201)
+        for worker in [self.worker, other]:
+            self.client.force_authenticate(worker)
+            invitation = BookingAssignment.objects.get(schedule=self.schedule, worker=worker)
+            self.assertEqual(self.client.post(reverse('worker-invitation-respond', args=[invitation.id]), {'action': 'decline'}, format='json').status_code, 200)
+            if worker == self.worker:
+                self.client.force_authenticate(outsider)
+                self.assertEqual(self.client.post(reverse('worker-schedule-claim', args=[self.schedule.id]), {}, format='json').status_code, 400)
+        self.client.force_authenticate(outsider)
+        result = self.client.post(reverse('worker-schedule-claim', args=[self.schedule.id]), {}, format='json')
+        self.assertEqual(result.status_code, 201, result.data)
+
+    def test_multi_invitation_withdraw_closes_all(self):
+        other = self._additional_invitation_worker()
+        self.assertEqual(self._invite_workers([self.worker, other]).status_code, 201)
+        result = self.client.post(reverse('admin-invitation-withdraw', args=[self.schedule.id]), {'reason': 'Đổi kế hoạch'}, format='json')
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertEqual(BookingAssignment.objects.filter(schedule=self.schedule, status='CANCELLED').count(), 2)
+        self.assertFalse(BookingAssignment.objects.filter(schedule=self.schedule, status='PENDING').exists())
+
+    def test_multi_invitation_invalid_recipient_does_not_send_partial_batch(self):
+        other = self._additional_invitation_worker()
+        Wallet.objects.filter(user=other).update(balance=0)
+        result = self._invite_workers([self.worker, other])
+        self.assertEqual(result.status_code, 400, result.data)
+        self.assertFalse(BookingAssignment.objects.filter(schedule=self.schedule).exists())
+        self.assertEqual(self._invite_workers([self.worker, self.worker]).status_code, 400)
+
+    def test_multi_invitation_failed_accept_leaves_every_invitation_pending(self):
+        other = self._additional_invitation_worker()
+        self.assertEqual(self._invite_workers([self.worker, other]).status_code, 201)
+        Wallet.objects.filter(user=other).update(balance=0)
+        self.client.force_authenticate(other)
+        invitation = BookingAssignment.objects.get(schedule=self.schedule, worker=other)
+        result = self.client.post(reverse('worker-invitation-respond', args=[invitation.id]), {'action': 'accept'}, format='json')
+        self.assertEqual(result.status_code, 400, result.data)
+        self.assertEqual(BookingAssignment.objects.filter(schedule=self.schedule, status='PENDING').count(), 2)

@@ -3,12 +3,14 @@ import time
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.http import Http404
 from django.test import SimpleTestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -23,9 +25,10 @@ from apps.bookings.models import Booking, BookingSchedule
 from apps.payments.models import Payment
 from apps.services.models import Service
 from apps.worker.models import BookingAssignment
-from .agent.factory import create_customer_agent, extract_answer
+from .agent.factory import (address_management_answer, create_customer_agent, extract_answer,
+                            generic_booking_service_choices)
 from .agent.schemas import AgentAnswer, AgentContext
-from .agent.tools import CUSTOMER_TOOLS
+from .agent.tools import CUSTOMER_TOOLS, is_explicit_booking_confirmation, result as run_tool_result
 from .exceptions import AgentUnavailable, ChatbotError
 from .models import ChatbotRun
 from .services import queries
@@ -67,11 +70,25 @@ class ChatbotApiTests(APITestCase):
     def send(self, text='Đơn gần nhất của tôi?', key=None):
         return self.client.post(self.messages_url, {'text': text, 'client_message_id': str(key or uuid.uuid4())}, format='json')
 
-    def test_authentication_and_customer_role(self):
+    @patch('apps.chatbot.services.conversation.run_agent')
+    def test_selected_language_reaches_agent_for_both_roles(self, agent):
+        agent.return_value = AgentAnswer('Your schedule is ready.', [], {})
+        for user in (self.customer, self.worker):
+            self.client.force_authenticate(user)
+            conversation = ChatbotSession.objects.create(customer=user)
+            for language in ('en', 'vi'):
+                response = self.client.post(f'/api/chatbot/conversations/{conversation.id}/messages/', {
+                    'text': 'Lịch làm của tôi?', 'client_message_id': str(uuid.uuid4()), 'language': language,
+                }, format='json')
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual(agent.call_args.kwargs['language'], language)
+                self.assertEqual(agent.call_args.kwargs['role'], user.role)
+
+    def test_authentication_and_supported_roles(self):
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get('/api/chatbot/conversations/').status_code, 401)
         self.client.force_authenticate(self.worker)
-        self.assertEqual(self.client.get('/api/chatbot/conversations/').status_code, 403)
+        self.assertEqual(self.client.get('/api/chatbot/conversations/').status_code, 200)
         admin = User.objects.create_user(username='bot-admin', email='bot-admin@test.com', role='ADMIN', is_superuser=True)
         self.client.force_authenticate(admin)
         self.assertEqual(self.client.get('/api/chatbot/conversations/').status_code, 403)
@@ -144,6 +161,8 @@ class ChatbotApiTests(APITestCase):
         self.assertEqual(len(response.data['assistant_message']['cards']), 1)
         self.assertEqual(response.data['assistant_message']['cards'][0]['booking_id'], self.booking.id)
         self.assertEqual(agent.call_args.kwargs['customer_id'], self.customer.id)
+        self.assertEqual(agent.call_args.kwargs['conversation_id'], self.conversation.id)
+        self.assertEqual(agent.call_args.kwargs['run_id'], str(ChatbotRun.objects.get().id))
         replay = self.send(key=key)
         self.assertEqual(replay.status_code, 200)
         self.assertTrue(replay.data['replayed'])
@@ -234,6 +253,25 @@ class ChatbotApiTests(APITestCase):
         self.client.patch(f'/api/chatbot/conversations/{self.conversation.id}/', {'status': 'CLOSED'}, format='json')
         self.assertEqual(self.send().status_code, 409)
 
+    @patch('apps.chatbot.services.conversation.run_agent', return_value=AgentAnswer('Chào bạn'))
+    def test_status_poll_expires_a_stale_run_and_marks_message_failed(self, agent):
+        response = self.send()
+        run_id = response.data['run']['id']
+        run = ChatbotRun.objects.get(pk=run_id)
+        run.status = ChatbotRun.Status.RUNNING
+        run.assistant_message = None
+        run.lease_expires_at = timezone.now() - timedelta(seconds=1)
+        run.save(update_fields=['status', 'assistant_message', 'lease_expires_at'])
+        run.user_message.status = ChatbotMessage.Status.PROCESSING
+        run.user_message.save(update_fields=['status'])
+
+        status_response = self.client.get(f'/api/chatbot/runs/{run_id}/')
+
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.data['run']['status'], ChatbotRun.Status.FAILED)
+        self.assertEqual(status_response.data['run']['error_code'], 'RUN_EXPIRED')
+        self.assertEqual(status_response.data['user_message']['status'], ChatbotMessage.Status.FAILED)
+
     def test_query_scope_accent_matching_payment_and_checkin(self):
         results = queries.search_services('don nha')['results']
         self.assertEqual(results[0]['id'], self.service.id)
@@ -255,6 +293,16 @@ class ChatbotApiTests(APITestCase):
         with self.assertRaises(queries.ToolQueryError):
             queries.get_service_details(self.service.id)
         self.assertEqual(build_cards(self.customer.id, [{'type': 'service', 'id': self.service.id}]), [])
+
+    def test_service_search_does_not_return_unrelated_results_for_partial_terms(self):
+        unrelated = Service.objects.create(
+            code='WINDOW_CLEANING', section_code='HOME', name='Lau kính',
+            description='Vệ sinh cửa sổ và kính trong nhà',
+            form_schema={'fields': []}, pricing_config={},
+        )
+        self.assertEqual(queries.search_services('vệ sinh máy lạnh')['results'], [])
+        self.assertEqual(queries.search_services('máy lạnh')['results'], [])
+        self.assertEqual(queries.search_services('vệ sinh lau kính')['results'][0]['id'], unrelated.id)
 
     def test_schedule_pagination_remaining_count_and_date_filters(self):
         for sequence in range(2, 14):
@@ -358,6 +406,22 @@ class LangChainIntegrationTests(TransactionTestCase):
         self.assertNotIn(self.foreign_booking.booking_code, '\n'.join(str(m.content) for m in result['messages']))
         self.assertTrue(saver.get_tuple(config))
 
+    def test_agent_can_run_list_my_addresses_tool(self):
+        model = ScriptedChatModel(replies=[
+            AIMessage(content='', tool_calls=[{'name': 'list_my_addresses', 'args': {},
+                                               'id': 'list-addresses', 'type': 'tool_call'}]),
+            AIMessage(content='Bạn hãy chọn địa chỉ đã lưu.'),
+        ])
+        agent = create_customer_agent(model, InMemorySaver())
+        result = agent.invoke({'messages': [HumanMessage(content='Tôi muốn đặt lịch chuyển nhà.')]},
+                              config={'configurable': {'thread_id': 'list-addresses-test'}},
+                              context=AgentContext(self.customer.id, time.monotonic() + 30))
+
+        self.assertEqual(model.call_index, 2)
+        tool_message = next(message for message in result['messages']
+                            if isinstance(message, ToolMessage) and message.name == 'list_my_addresses')
+        self.assertEqual(len(json.loads(tool_message.content)), 1)
+
     @patch('langchain.agents.middleware.model_retry.time.sleep')
     def test_provider_503_retries_model_then_runs_booking_tool_once(self, sleep):
         model = ScriptedChatModel(replies=[
@@ -398,10 +462,15 @@ class LangChainIntegrationTests(TransactionTestCase):
                          context=AgentContext(self.customer.id, time.monotonic() + 30))
         self.assertEqual(model.call_index, 1)
 
-    def test_hidden_actor_and_no_write_or_complaint_tools(self):
+    def test_customer_tools_hide_actor_and_exclude_worker_tools(self):
         names = {tool.name for tool in CUSTOMER_TOOLS}
         self.assertEqual(names, {'search_services', 'get_service_details', 'list_my_bookings',
-                                 'get_my_booking_detail', 'get_my_booking_schedules', 'select_response_cards', 'search_help_articles'})
+                                 'get_my_booking_detail', 'get_my_booking_schedules', 'select_response_cards',
+                                 'search_help_articles', 'list_my_addresses', 'get_my_wallet_balance',
+                                 'prepare_booking_draft', 'confirm_booking_draft', 'discard_booking_draft_tool',
+                                 'list_my_vouchers', 'list_favorite_workers', 'get_my_wallet', 'get_payment_link',
+                                 'get_booking_for_reorder', 'prepare_cancel', 'confirm_cancel', 'search_wards',
+                                 'prepare_address', 'confirm_address', 'open_address_map_picker'})
         for tool in CUSTOMER_TOOLS:
             self.assertNotIn('runtime', tool.args)
             self.assertNotIn('customer_id', tool.args)
@@ -430,6 +499,80 @@ class LangChainIntegrationTests(TransactionTestCase):
 
 
 class ResponseCardSelectionTests(SimpleTestCase):
+    @patch('apps.chatbot.agent.factory.queries.search_services')
+    def test_generic_booking_request_returns_service_choice_cards(self, search_services):
+        search_services.return_value = {'results': [
+            {'id': 12, 'name': 'Dọn dẹp nhà - Ca lẻ'},
+            {'id': 13, 'name': 'Dọn dẹp nhà - Gói tháng'},
+            {'id': 15, 'name': 'Dịch vụ chuyển nhà'},
+        ], 'has_next': False}
+
+        answer = generic_booking_service_choices('Tôi muốn đặt lịch dịch vụ.')
+
+        self.assertEqual(answer.card_references, [
+            {'type': 'service', 'id': 12}, {'type': 'service', 'id': 13},
+            {'type': 'service', 'id': 15},
+        ])
+        self.assertIn('Dọn dẹp nhà - Ca lẻ', answer.text)
+        self.assertIn('Dịch vụ chuyển nhà', answer.text)
+        self.assertTrue(answer.text.startswith('Chào bạn!'))
+        self.assertIn('\nGói lẻ:', answer.text)
+        self.assertIn('\nGói tháng:', answer.text)
+
+    def test_address_question_returns_concrete_customer_app_steps(self):
+        answer = address_management_answer('Vậy tôi thêm 2 địa chỉ trên làm địa chỉ mới được không?')
+
+        self.assertTrue(answer.text.startswith('Chào bạn!'))
+        self.assertIn('Cá nhân > Địa chỉ của tôi > Thêm địa chỉ', answer.text)
+        self.assertIn('Chọn trên bản đồ hoặc Nhập thủ công', answer.text)
+        self.assertIn('địa chỉ chuyển đi và địa chỉ chuyển đến', answer.text)
+
+    def test_follow_up_address_answer_does_not_repeat_greeting(self):
+        answer = address_management_answer('Tôi thêm địa chỉ mới thế nào?', [('Xin chào!', 'Được bạn nhé.')])
+        self.assertFalse(answer.text.startswith('Chào bạn!'))
+
+    @patch('apps.chatbot.agent.factory.queries.search_services')
+    def test_catalog_question_explains_service_formats_and_lists_all_pages(self, search_services):
+        search_services.side_effect = [
+            {'results': [{'id': i, 'name': f'Dịch vụ {i}'} for i in range(1, 6)], 'has_next': True},
+            {'results': [{'id': 6, 'name': 'Dịch vụ 6'}], 'has_next': False},
+        ]
+
+        answer = generic_booking_service_choices('CleanWise có những dịch vụ nào?')
+
+        self.assertIn('Gói lẻ', answer.text)
+        self.assertIn('Gói tháng', answer.text)
+        self.assertEqual([ref['id'] for ref in answer.card_references], [1, 2, 3, 4, 5, 6])
+        self.assertEqual(search_services.call_count, 2)
+
+    @patch('apps.chatbot.agent.factory.queries.search_services')
+    def test_specific_or_contextual_booking_request_uses_normal_agent_flow(self, search_services):
+        search_services.return_value = {'results': [
+            {'id': 15, 'name': 'Dịch vụ chuyển nhà'},
+        ], 'has_next': False}
+
+        self.assertIsNone(generic_booking_service_choices('Tôi muốn đặt dịch vụ chuyển nhà.'))
+        self.assertIsNone(generic_booking_service_choices(
+            'Tôi muốn đặt dịch vụ này.', [('Bạn có thể chọn Dịch vụ chuyển nhà.', '')]))
+
+    def test_stale_booking_reference_becomes_recoverable_tool_error(self):
+        def missing_reference():
+            raise Http404
+
+        payload, artifact = run_tool_result(
+            missing_reference,
+            SimpleNamespace(context=SimpleNamespace(deadline=time.monotonic() + 10)),
+        )
+
+        self.assertEqual(json.loads(payload)['error'], 'NOT_FOUND_OR_INVALID_INPUT')
+        self.assertEqual(artifact, {'cards': []})
+
+    def test_booking_confirmation_requires_an_explicit_short_reply(self):
+        self.assertTrue(is_explicit_booking_confirmation('  XÁC NHẬN ĐẶT LỊCH! '))
+        self.assertTrue(is_explicit_booking_confirmation('ok'))
+        self.assertFalse(is_explicit_booking_confirmation('ngày mai'))
+        self.assertFalse(is_explicit_booking_confirmation('được, nhưng đổi sang 9 giờ'))
+
     def answer(self, tools, text='Kết quả phù hợp.'):
         return extract_answer({'messages': [HumanMessage(content='Tra đơn'), *tools, AIMessage(content=text)]})
 
@@ -443,6 +586,50 @@ class ResponseCardSelectionTests(SimpleTestCase):
         self.assertEqual(self.answer([self.discovery()]).card_references, [])
         self.assertEqual(self.answer([self.discovery()], 'Đơn CW-TWO đã thanh toán.').card_references,
                          [{'type': 'booking', 'id': 2}])
+
+    def test_service_search_fallback_includes_only_services_named_in_answer(self):
+        services = ToolMessage(content=json.dumps({'results': [
+            {'id': 10, 'name': 'Dọn dẹp nhà - Ca lẻ'},
+            {'id': 11, 'name': 'Dịch vụ chuyển nhà'},
+        ]}), name='search_services', tool_call_id='services', artifact={'cards': [
+            {'type': 'service', 'id': 10}, {'type': 'service', 'id': 11},
+        ]})
+        answer = self.answer([services], 'Dọn dẹp nhà - Ca lẻ phù hợp với nhu cầu của bạn.')
+        self.assertEqual(answer.card_references, [{'type': 'service', 'id': 10}])
+
+    def test_service_names_with_wording_variations_attach_every_named_service(self):
+        services = ToolMessage(content=json.dumps({'results': [
+            {'id': 12, 'name': 'Dọn dẹp nhà - Ca lẻ'},
+            {'id': 13, 'name': 'Dọn dẹp nhà - Gói tháng'},
+            {'id': 15, 'name': 'Dịch vụ chuyển nhà'},
+        ]}), name='search_services', tool_call_id='services', artifact={'cards': [
+            {'type': 'service', 'id': 12}, {'type': 'service', 'id': 13},
+            {'type': 'service', 'id': 15},
+        ]})
+        answer = self.answer([services],
+            'Bạn có thể chọn Dọn dẹp nhà theo ca lẻ, Dọn dẹp nhà theo gói tháng hoặc Dịch vụ chuyển nhà.')
+        self.assertEqual(answer.card_references, [
+            {'type': 'service', 'id': 12}, {'type': 'service', 'id': 13},
+            {'type': 'service', 'id': 15},
+        ])
+
+    def test_service_selection_cannot_attach_a_card_not_named_in_the_reply(self):
+        services = ToolMessage(content=json.dumps({'results': [
+            {'id': 10, 'name': 'Dọn nhà theo giờ'},
+            {'id': 11, 'name': 'Dịch vụ chuyển nhà'},
+        ]}), name='search_services', tool_call_id='services', artifact={'cards': [
+            {'type': 'service', 'id': 10}, {'type': 'service', 'id': 11},
+        ]})
+        selection = ToolMessage(content='OK', name='select_response_cards', tool_call_id='select',
+                                artifact={'selected_cards': [{'type': 'service', 'id': 11}]})
+        answer = self.answer([services, selection], 'Mình tìm thấy Dọn nhà theo giờ.')
+        self.assertEqual(answer.card_references, [{'type': 'service', 'id': 10}])
+
+    def test_internal_reference_json_is_removed_from_saved_assistant_text(self):
+        payload = json.dumps({'references': [{'id': 12, 'type': 'service'}]})
+        answer = self.answer([], f'Mình tìm được dịch vụ phù hợp.\n{payload}\nBạn muốn đặt lịch chứ?')
+        self.assertEqual(answer.text, 'Mình tìm được dịch vụ phù hợp.\n\nBạn muốn đặt lịch chứ?')
+        self.assertNotIn('references', answer.text)
 
     def test_detail_does_not_include_other_discovered_orders(self):
         detail = ToolMessage(content='{}', name='get_my_booking_detail', tool_call_id='detail',

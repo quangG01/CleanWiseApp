@@ -35,7 +35,7 @@
           },
           {
             "title": "Chuẩn bị địa chỉ, liên hệ và lịch",
-            "text": "Chuẩn bị địa chỉ thực hiện, số điện thoại người nhận và thời gian mong muốn. Quy trình gồm chọn dịch vụ, điền nhu cầu, xác nhận, Đăng việc và kiểm tra đơn.",
+            "text": "Chuẩn bị địa chỉ thực hiện, số điện thoại người nhận và thời gian mong muốn. Quy trình gồm chọn dịch vụ, điền nhu cầu, xác nhận, Đặt dịch vụ và kiểm tra đơn.",
             "result": "Bạn có thông tin cần thiết trước khi điền biểu mẫu.",
             "title_en": "Prepare the address, contact and schedule",
             "text_en": "Have the service address, recipient phone number and preferred schedule ready. Choose a service, fill in the request, review it, post the job and check the booking.",
@@ -50,7 +50,7 @@
             }
           }
         ],
-        "text": "1. Bắt đầu bằng tài khoản khách hàng. Mở CleanWise và đăng nhập tài khoản khách hàng. Vào Trang chủ để xem các dịch vụ đang cung cấp. Ảnh trong chương dùng dữ liệu mẫu; giá, ngày và lựa chọn thực tế có thể khác. Bạn đang ở Trang chủ của tài khoản khách hàng.\n\n2. Chuẩn bị địa chỉ, liên hệ và lịch. Chuẩn bị địa chỉ thực hiện, số điện thoại người nhận và thời gian mong muốn. Quy trình gồm chọn dịch vụ, điền nhu cầu, xác nhận, Đăng việc và kiểm tra đơn. Bạn có thông tin cần thiết trước khi điền biểu mẫu.",
+        "text": "1. Bắt đầu bằng tài khoản khách hàng. Mở CleanWise và đăng nhập tài khoản khách hàng. Vào Trang chủ để xem các dịch vụ đang cung cấp. Ảnh trong chương dùng dữ liệu mẫu; giá, ngày và lựa chọn thực tế có thể khác. Bạn đang ở Trang chủ của tài khoản khách hàng.\n\n2. Chuẩn bị địa chỉ, liên hệ và lịch. Chuẩn bị địa chỉ thực hiện, số điện thoại người nhận và thời gian mong muốn. Quy trình gồm chọn dịch vụ, điền nhu cầu, xác nhận, Đặt dịch vụ và kiểm tra đơn. Bạn có thông tin cần thiết trước khi điền biểu mẫu.",
         "text_en": "1. Start with a customer account. Open CleanWise and sign in as a customer. Open Home to see available services. Images use example data; actual prices, dates and choices can differ. You are on the customer Home screen.\n\n2. Prepare the address, contact and schedule. Have the service address, recipient phone number and preferred schedule ready. Choose a service, fill in the request, review it, post the job and check the booking. You have the information needed for the form."
       },
       {
@@ -803,8 +803,8 @@
             }
           },
           {
-            "title": "Nhấn Đăng việc và chờ kết quả",
-            "text": "Nhấn Đăng việc một lần khi đã kiểm tra xong. Chờ app trả kết quả; không nhấn liên tục hoặc vội tạo lại đơn nếu đang tải hay mất mạng.",
+            "title": "Nhấn Đặt dịch vụ và chờ kết quả",
+            "text": "Nhấn Đặt dịch vụ một lần khi đã kiểm tra xong. Chờ app trả kết quả; không nhấn liên tục hoặc vội tạo lại đơn nếu đang tải hay mất mạng.",
             "result": "Tiếp tục kiểm tra mã đơn hoặc màn thanh toán mà app mở sau đó.",
             "title_en": "Tap Post job and wait",
             "text_en": "Tap Post job once after reviewing the request. Wait for the result; do not repeatedly tap or immediately create another booking while loading or disconnected.",
@@ -826,7 +826,7 @@
             }
           }
         ],
-        "text": "1. Đối chiếu thông tin và giá cuối cùng. Kiểm tra lịch, công việc, địa chỉ, voucher, nhân viên nếu có và phương thức thanh toán. Đối chiếu Giá dịch vụ, Giảm giá, Tổng thanh toán và Tổng tiền ở cuối màn. Thông tin và số tiền đã đúng trước khi gửi.\n\n2. Nhấn Đăng việc và chờ kết quả. Nhấn Đăng việc một lần khi đã kiểm tra xong. Chờ app trả kết quả; không nhấn liên tục hoặc vội tạo lại đơn nếu đang tải hay mất mạng. Tiếp tục kiểm tra mã đơn hoặc màn thanh toán mà app mở sau đó.",
+        "text": "1. Đối chiếu thông tin và giá cuối cùng. Kiểm tra lịch, công việc, địa chỉ, voucher, nhân viên nếu có và phương thức thanh toán. Đối chiếu Giá dịch vụ, Giảm giá, Tổng thanh toán và Tổng tiền ở cuối màn. Thông tin và số tiền đã đúng trước khi gửi.\n\n2. Nhấn Đặt dịch vụ và chờ kết quả. Nhấn Đặt dịch vụ một lần khi đã kiểm tra xong. Chờ app trả kết quả; không nhấn liên tục hoặc vội tạo lại đơn nếu đang tải hay mất mạng. Tiếp tục kiểm tra mã đơn hoặc màn thanh toán mà app mở sau đó.",
         "text_en": "1. Review the final details and price. Check the schedule, work, address, voucher, optional worker and payment method. Compare Service price, Discount, Total payment and the bottom total. The details and amount are correct before submitting.\n\n2. Tap Post job and wait. Tap Post job once after reviewing the request. Wait for the result; do not repeatedly tap or immediately create another booking while loading or disconnected. Next, check the booking code or payment screen opened by the app."
       },
       {
@@ -978,7 +978,7 @@
           },
           {
             "title": "Bổ sung địa chỉ và chọn thời gian hợp lệ",
-            "text": "Kiểm tra ô địa chỉ, ngày và giờ bắt đầu; dịch vụ chuyển nhà cần đủ cả nơi đi và đến. Với dịch vụ một lần, chọn ngày giờ ở tương lai. Mở xác nhận lại và kiểm tra trước khi Đăng việc.",
+            "text": "Kiểm tra ô địa chỉ, ngày và giờ bắt đầu; dịch vụ chuyển nhà cần đủ cả nơi đi và đến. Với dịch vụ một lần, chọn ngày giờ ở tương lai. Mở xác nhận lại và kiểm tra trước khi Đặt dịch vụ.",
             "result": "Địa chỉ và lịch đã đủ, hợp lệ và đúng nhu cầu.",
             "title_en": "Complete addresses and a valid time",
             "text_en": "Check the address, date and start time. Moving requires both pickup and delivery addresses. A single visit must start in the future. Reopen confirmation and review before posting.",
@@ -1006,7 +1006,7 @@
             }
           }
         ],
-        "text": "1. Đọc đúng trường được báo thiếu. Nếu app báo Thiếu thông tin, đọc trường được nêu rồi quay lại biểu mẫu. Ảnh minh họa lỗi thiếu Giờ bắt đầu: mở bộ chọn giờ và chạm dấu ✓ để xác nhận giá trị. Bạn biết trường cần bổ sung thay vì gửi lại biểu mẫu chưa đủ.\n\n2. Bổ sung địa chỉ và chọn thời gian hợp lệ. Kiểm tra ô địa chỉ, ngày và giờ bắt đầu; dịch vụ chuyển nhà cần đủ cả nơi đi và đến. Với dịch vụ một lần, chọn ngày giờ ở tương lai. Mở xác nhận lại và kiểm tra trước khi Đăng việc. Địa chỉ và lịch đã đủ, hợp lệ và đúng nhu cầu.",
+        "text": "1. Đọc đúng trường được báo thiếu. Nếu app báo Thiếu thông tin, đọc trường được nêu rồi quay lại biểu mẫu. Ảnh minh họa lỗi thiếu Giờ bắt đầu: mở bộ chọn giờ và chạm dấu ✓ để xác nhận giá trị. Bạn biết trường cần bổ sung thay vì gửi lại biểu mẫu chưa đủ.\n\n2. Bổ sung địa chỉ và chọn thời gian hợp lệ. Kiểm tra ô địa chỉ, ngày và giờ bắt đầu; dịch vụ chuyển nhà cần đủ cả nơi đi và đến. Với dịch vụ một lần, chọn ngày giờ ở tương lai. Mở xác nhận lại và kiểm tra trước khi Đặt dịch vụ. Địa chỉ và lịch đã đủ, hợp lệ và đúng nhu cầu.",
         "text_en": "1. Read the missing field message. If the app reports Missing information, read the specified field and return to the form. The screenshot shows a missing start time: open its picker and tap the check mark to confirm. You know which field must be completed before continuing.\n\n2. Complete addresses and a valid time. Check the address, date and start time. Moving requires both pickup and delivery addresses. A single visit must start in the future. Reopen confirmation and review before posting. The address and schedule are complete, valid and correct."
       },
       {
@@ -1063,8 +1063,8 @@
         "heading_en": "Connection loss, expiry or cancellation",
         "steps": [
           {
-            "title": "Chưa rõ kết quả sau Đăng việc",
-            "text": "Nếu mất mạng hoặc lỗi sau khi nhấn Đăng việc, chưa thể kết luận đơn chưa tạo. Khi có mạng, mở Đơn hàng để tìm và kiểm tra yêu cầu trước khi tạo đơn mới cùng nhu cầu.",
+            "title": "Chưa rõ kết quả sau Đặt dịch vụ",
+            "text": "Nếu mất mạng hoặc lỗi sau khi nhấn Đặt dịch vụ, chưa thể kết luận đơn chưa tạo. Khi có mạng, mở Đơn hàng để tìm và kiểm tra yêu cầu trước khi tạo đơn mới cùng nhu cầu.",
             "result": "Bạn xác định kết quả của yêu cầu trước để tránh tạo trùng.",
             "title_en": "An uncertain result after posting",
             "text_en": "A network error after Post job does not prove the booking was not created. Once connected, inspect Bookings for the request before creating another for the same work.",
@@ -1118,7 +1118,7 @@
             }
           }
         ],
-        "text": "1. Chưa rõ kết quả sau Đăng việc. Nếu mất mạng hoặc lỗi sau khi nhấn Đăng việc, chưa thể kết luận đơn chưa tạo. Khi có mạng, mở Đơn hàng để tìm và kiểm tra yêu cầu trước khi tạo đơn mới cùng nhu cầu. Bạn xác định kết quả của yêu cầu trước để tránh tạo trùng.\n\n2. Nếu đã thấy đơn, mở đúng chi tiết. Đối chiếu mã đơn, dịch vụ, lịch và Tổng thanh toán. Tiếp tục từ trạng thái hiện tại của đơn. Nếu chưa xác định được kết quả, giữ thông tin lỗi để tra cứu thay vì tạo liên tiếp. Bạn tiếp tục đúng đơn đang có hoặc giữ đủ thông tin để kiểm tra.\n\n3. Đơn hết hạn hoặc đã hủy: kiểm tra tiền trước. Kiểm tra trạng thái đơn và thanh toán trước khi dùng Đặt lại. Nếu đã chuyển tiền, giữ biên nhận có mã giao dịch, thời gian, số tiền và nội dung chuyển khoản để đối chiếu trước khi trả lần nữa. Chỉ coi đã hoàn tiền khi có kết quả và giao dịch hoàn được ghi nhận. Bạn xác định giao dịch trước khi đặt hoặc thanh toán lại.",
+        "text": "1. Chưa rõ kết quả sau Đặt dịch vụ. Nếu mất mạng hoặc lỗi sau khi nhấn Đặt dịch vụ, chưa thể kết luận đơn chưa tạo. Khi có mạng, mở Đơn hàng để tìm và kiểm tra yêu cầu trước khi tạo đơn mới cùng nhu cầu. Bạn xác định kết quả của yêu cầu trước để tránh tạo trùng.\n\n2. Nếu đã thấy đơn, mở đúng chi tiết. Đối chiếu mã đơn, dịch vụ, lịch và Tổng thanh toán. Tiếp tục từ trạng thái hiện tại của đơn. Nếu chưa xác định được kết quả, giữ thông tin lỗi để tra cứu thay vì tạo liên tiếp. Bạn tiếp tục đúng đơn đang có hoặc giữ đủ thông tin để kiểm tra.\n\n3. Đơn hết hạn hoặc đã hủy: kiểm tra tiền trước. Kiểm tra trạng thái đơn và thanh toán trước khi dùng Đặt lại. Nếu đã chuyển tiền, giữ biên nhận có mã giao dịch, thời gian, số tiền và nội dung chuyển khoản để đối chiếu trước khi trả lần nữa. Chỉ coi đã hoàn tiền khi có kết quả và giao dịch hoàn được ghi nhận. Bạn xác định giao dịch trước khi đặt hoặc thanh toán lại.",
         "text_en": "1. An uncertain result after posting. A network error after Post job does not prove the booking was not created. Once connected, inspect Bookings for the request before creating another for the same work. You check the earlier request’s result to avoid duplicates.\n\n2. If the booking exists, inspect its details. Match its code, service, schedule and total. Continue from the booking’s current state. If the outcome remains uncertain, retain the error details for investigation rather than creating repeated requests. You continue with the existing booking or keep enough information to investigate.\n\n3. Expired or cancelled: reconcile money first. Check the booking and payment before using Rebook. If you transferred money, keep the receipt with its reference, time, amount and transfer description and reconcile before paying again. A refund is established only by the actual result and recorded credit. You reconcile the original transaction before rebooking or paying again."
       }
     ],

@@ -18,6 +18,7 @@ from apps.bookings.models import Booking, BookingSchedule, BookingScheduleImage
 from apps.common.distributed_lock import distributed_lock
 from apps.complaints.models import Complaint, ComplaintIssueType
 from apps.complaints.serializers import AUTO_CANCEL_COMPLAINT_HOURS, ComplaintCreateSerializer
+from apps.worker.discipline_service import APPEAL_CODE
 from apps.notifications.realtime import push_complaint_changed
 from apps.reviews.models import Review
 from apps.reviews.review_service import worker_review_summary
@@ -495,7 +496,7 @@ def confirm_check_out(worker_id, thread_id):
 # ---------------------------------------------------------------- tạo khiếu nại
 
 def list_complaint_issue_types():
-    rows = ComplaintIssueType.objects.filter(is_active=True, applies_to__in=['WORKER', 'ANY'])
+    rows = ComplaintIssueType.objects.filter(is_active=True, applies_to__in=['WORKER', 'ANY']).exclude(code=APPEAL_CODE)
     return {'results': [{'id': t.id, 'code': t.code, 'name': t.name, 'description': t.description,
                          'stage': t.get_stage_display()} for t in rows],
             'note': 'Mỗi loại chỉ hợp lệ ở đúng giai đoạn của đơn (trước/đang/sau khi làm). '

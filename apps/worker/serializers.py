@@ -166,6 +166,7 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
     total_sessions = serializers.IntegerField(read_only=True)
     address_city = serializers.CharField(source='booking.address.city', read_only=True)
     address_ward = serializers.CharField(source='booking.address.ward', read_only=True)
+    distance_km = serializers.FloatField(read_only=True)
     payment_method = serializers.SerializerMethodField()
     cash_to_collect = serializers.SerializerMethodField()
     platform_fee = serializers.SerializerMethodField()
@@ -256,7 +257,7 @@ class WorkerScheduleSerializer(serializers.ModelSerializer):
             'sequence_no', 'total_sessions', 'scheduled_start', 'scheduled_end', 'status',
             'address_city', 'address_ward', 'address_latitude', 'address_longitude',
             'customer_avatar', 'customer_name', 'payment_status', 'price',
-            'service_data', 'assignment_id', 'available_sessions', 'delivery_city', 'delivery_ward',
+            'service_data', 'assignment_id', 'available_sessions', 'delivery_city', 'delivery_ward', 'distance_km',
             'is_preferred_for_me', 'preferred_until', 'invitation',
             'payment_method', 'cash_to_collect', 'platform_fee',
         ]
@@ -328,7 +329,7 @@ class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
     def get_can_cancel(self, obj):
         return (
             obj.status == BookingSchedule.Status.PENDING
-            and assignment_service.get_cancel_deadline(obj) > timezone.now()
+            and assignment_service.get_cancel_deadline(obj) >= timezone.now()
         )
 
     def get_cancel_deadline(self, obj):
@@ -396,6 +397,13 @@ class WorkerBookingScheduleSerializer(WorkerScheduleSerializer):
 
 class CancelAssignmentSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=500, trim_whitespace=True)
+    expected_deduction = serializers.IntegerField(required=False, min_value=1, max_value=3)
+    expected_score = serializers.IntegerField(required=False, min_value=0, max_value=10)
+
+
+class DisciplineDecisionSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['CONFIRM', 'WAIVE', 'SUSPEND', 'PROPOSE_BAN', 'APPROVE_BAN', 'REJECT_BAN'])
+    note = serializers.CharField(max_length=2000)
 
 
 class ClaimBookingPackageSerializer(serializers.Serializer):
