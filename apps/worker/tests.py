@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone as utc
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
@@ -12,13 +13,31 @@ from apps.authentication.models import WorkerProfile
 from apps.bookings.models import Booking, BookingSchedule
 from apps.services.models import Service
 
-from .models import BookingAssignment, CustomerFavoriteWorker
+from .models import BookingAssignment, CustomerFavoriteWorker, WorkerFavoriteMonthlyEntry
 
 
 User = get_user_model()
 
 
 class CustomerFavoriteWorkerAPITests(APITestCase):
+    def test_monthly_history_deduplicates_toggles_and_uses_vietnam_calendar(self):
+        self.client.force_authenticate(self.customer)
+        with patch('django.utils.timezone.now', return_value=datetime(2026, 10, 31, 16, 59, tzinfo=utc.utc)):
+            self.assertEqual(self.client.put(self.detail_url, {}, format='json').status_code, 201)
+            self.assertEqual(self.client.put(self.detail_url, {}, format='json').status_code, 200)
+            self.client.delete(self.detail_url)
+            self.assertEqual(self.client.put(self.detail_url, {}, format='json').status_code, 201)
+        self.assertEqual(WorkerFavoriteMonthlyEntry.objects.count(), 1)
+        self.assertEqual(WorkerFavoriteMonthlyEntry.objects.get().month.isoformat(), '2026-10-01')
+        # Merely retaining a favorite into the next month is not a new addition.
+        with patch('django.utils.timezone.now', return_value=datetime(2026, 10, 31, 17, 0, tzinfo=utc.utc)):
+            self.client.put(self.detail_url, {}, format='json')
+            self.assertEqual(WorkerFavoriteMonthlyEntry.objects.count(), 1)
+            self.client.delete(self.detail_url)
+            self.client.put(self.detail_url, {}, format='json')
+        self.assertEqual(WorkerFavoriteMonthlyEntry.objects.count(), 2)
+        self.assertEqual(set(WorkerFavoriteMonthlyEntry.objects.values_list('month__month', flat=True)), {10, 11})
+
     def setUp(self):
         self.customer = User.objects.create_user(
             username='favorite-customer', email='favorite-customer@example.com',
