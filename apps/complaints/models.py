@@ -131,7 +131,8 @@ def complaint_attachment_path(instance, filename):
 
 class ComplaintAttachment(models.Model):
     complaint = models.ForeignKey(Complaint, on_delete=models.CASCADE, related_name='attachments')
-    file = models.ImageField(upload_to=complaint_attachment_path)
+    file = models.URLField(max_length=500)
+    public_id = models.CharField(max_length=255, blank=True, default='')
     file_type = models.CharField(max_length=30, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

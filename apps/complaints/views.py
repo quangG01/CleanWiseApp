@@ -8,6 +8,8 @@ from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 from django.db import transaction
 from rest_framework.parsers import MultiPartParser, FormParser
+from django.conf import settings
+from apps.common.cloudinary_storage import upload_image
 
 from .models import Complaint, ComplaintAttachment, ComplaintIssueType
 
@@ -217,55 +219,44 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
 
         if len(files) > MAX_ATTACHMENTS:
             return Response(
-                {
-                    "attachments": [
-                        f"Tối đa {MAX_ATTACHMENTS} ảnh."
-                    ]
-                },
+                {"attachments": [f"Tối đa {MAX_ATTACHMENTS} ảnh."]},
                 status=400,
             )
 
         for f in files:
             if f.content_type not in ALLOWED_IMAGE_TYPES:
                 return Response(
-                    {
-                        "attachments": [
-                            f"File {f.name} không đúng định dạng ảnh."
-                        ]
-                    },
+                    {"attachments": [f"File {f.name} không đúng định dạng ảnh."]},
                     status=400,
                 )
-
             if f.size > MAX_IMAGE_SIZE:
                 return Response(
-                    {
-                        "attachments": [
-                            f"File {f.name} vượt quá 5MB."
-                        ]
-                    },
+                    {"attachments": [f"File {f.name} vượt quá 5MB."]},
                     status=400,
                 )
 
         with transaction.atomic():
-            serializer = self.get_serializer(
-                data=request.data
-            )
-
-            serializer.is_valid(
-                raise_exception=True
-            )
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
             complaint = serializer.save()
 
-            # Báo realtime cho admin/sidebar/danh sách khiếu nại.
-            push_complaint_changed(complaint.id)
-
             for f in files:
+                up = upload_image(
+                    f,
+                    folder=settings.CLOUDINARY_COMPLAINT_IMAGE_FOLDER,
+                    public_id_prefix="complaint",
+                    field_name="attachments",
+                )
                 ComplaintAttachment.objects.create(
                     complaint=complaint,
-                    file=f,
+                    file=up["url"],
+                    public_id=up["public_id"],
                     file_type=f.content_type or "",
                 )
+
+        # Báo realtime SAU khi đã lưu xong ảnh để admin thấy đủ ảnh.
+        push_complaint_changed(complaint.id)
 
         return Response(
             ComplaintDetailSerializer(
@@ -274,8 +265,8 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
             ).data,
             status=status.HTTP_201_CREATED,
         )
-
-
+        
+        
 @COMPLAINT_DETAIL_SCHEMA
 class ComplaintDetailView(generics.RetrieveAPIView):
     serializer_class = ComplaintDetailSerializer
@@ -517,25 +508,24 @@ class ComplaintAttachmentUploadView(
                 }
             )
 
-        f = serializer.validated_data.get("file")
+        f = self.request.FILES.get("file")
+        
+        if f is None:
+            raise ValidationError({"file": "Thiếu file ảnh."})
+        if f.content_type not in ALLOWED_IMAGE_TYPES:
+            raise ValidationError({"file": "Chỉ nhận ảnh jpeg, png, webp."})
+        if f.size > MAX_IMAGE_SIZE:
+            raise ValidationError({"file": "Ảnh vượt quá 5MB."})
 
-        if f is not None:
-            if f.content_type not in ALLOWED_IMAGE_TYPES:
-                raise ValidationError(
-                    {
-                        "file": (
-                            "Chỉ nhận ảnh jpeg, png, webp."
-                        )
-                    }
-                )
-
-            if f.size > MAX_IMAGE_SIZE:
-                raise ValidationError(
-                    {
-                        "file": "Ảnh vượt quá 5MB."
-                    }
-                )
-
+        up = upload_image(
+            f,
+            folder=settings.CLOUDINARY_COMPLAINT_IMAGE_FOLDER,
+            public_id_prefix="complaint",
+            field_name="file",
+        )
         serializer.save(
-            complaint=complaint
+            complaint=complaint,
+            file=up["url"],
+            public_id=up["public_id"],
+            file_type=f.content_type or "",
         )

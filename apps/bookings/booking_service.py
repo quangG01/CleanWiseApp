@@ -275,6 +275,8 @@ def _validate_schedules(schedules, *, min_advance_minutes=0):
                 {'schedules': f'Buổi {idx}: giờ bắt đầu phải trong khoảng '
                               f'{open_t:%H:%M} đến {last_t:%H:%M}.'}
             )
+
+
 def _validate_payment_method(payment_method, *, form_schema, sessions_count):
     allowed = {Payment.Method.CASH, Payment.Method.BANK_TRANSFER, Payment.Method.WALLET}
     if payment_method not in allowed:
@@ -626,7 +628,7 @@ def cancel_booking_core(*, booking, actor, reason, by_admin=False):
     previous_status = booking.status
 
     if booking.status not in CANCELLABLE_STATUSES:
-        raise serializers.ValidationError({'booking': 'Đơn hàng không thể hủy ở trạng thái hiện tại.'})
+        raise serializers.ValidationError({'booking': 'Đơn dịch vụ không thể hủy ở trạng thái hiện tại.'})
     if booking.schedules.filter(status=BookingSchedule.Status.IN_PROGRESS).exists():
         raise serializers.ValidationError({'booking': 'Đơn đang được thực hiện, không thể hủy.'})
 
@@ -739,7 +741,7 @@ def cancel_schedule_by_customer(*, schedule_id, customer, reason):
     schedule = BookingSchedule.objects.select_for_update().get(pk=schedule_id)
 
     if booking.status not in CANCELLABLE_STATUSES:
-        raise serializers.ValidationError({'schedule': 'Đơn hàng không thể hủy ở trạng thái hiện tại.'})
+        raise serializers.ValidationError({'schedule': 'Đơn dịch vụ không thể hủy ở trạng thái hiện tại.'})
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'schedule': 'Chỉ hủy được buổi chưa bắt đầu.'})
     if schedule.scheduled_start - timezone.now() < timedelta(hours=CUSTOMER_MIN_CANCEL_HOURS):

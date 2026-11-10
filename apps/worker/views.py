@@ -294,12 +294,28 @@ class WorkerAvailableScheduleListView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         booking_id = _parse_booking_id_param(request)
+
+        sort = request.query_params.get('sort', 'time')
+        if sort not in ('time', 'area', 'distance'):
+            raise ValidationError({'sort': 'sort không hợp lệ.'})
+
+        lat = lng = None
+        if sort == 'distance':
+            try:
+                lat = float(request.query_params['lat'])
+                lng = float(request.query_params['lng'])
+            except (KeyError, ValueError):
+                raise ValidationError({'lat': 'Cần lat và lng hợp lệ khi sort=distance.'})
+
         queryset = _prefetch_assignments(assignment_service.list_available_schedules_for_worker(
             request.user,
             booking_id=booking_id,
             date_from=_parse_date_param(request, 'date_from'),
             date_to=_parse_date_param(request, 'date_to'),
             group_by_booking=request.query_params.get('group_by') == 'booking',
+            sort=sort,
+            lat=lat,
+            lng=lng,
         ))
         return _paginate_or_full(
             request, self, queryset, self.get_serializer_class(), booking_id,

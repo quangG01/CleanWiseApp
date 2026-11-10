@@ -7,7 +7,8 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
-
+import math
+from django.db.models import Case, Count, Exists, FloatField, IntegerField, Max, Min, OuterRef, Q, Subquery, Value, When
 from apps.bookings.activity_service import record_booking_activity
 from apps.bookings.models import Booking, BookingActivity, BookingSchedule
 from apps.notifications.models import Notification
@@ -21,7 +22,6 @@ from apps.wallets import earning_service, refund_service
 from .constants import CHECKIN_MISSED_GRACE_MINUTES, MIN_CANCEL_HOURS, AUTO_CANCEL_NOTE
 from .models import BookingAssignment, CustomerFavoriteWorker, WorkerWorkingArea
 
-from django.db.models import Case, Count, Exists, IntegerField, Max, Min, OuterRef, Q, Subquery, When
 from django.db.models.functions import Coalesce
 
 User = get_user_model()
@@ -42,6 +42,12 @@ PREFERRED_WORKER_START_BUFFER = timedelta(minutes=30)
 
 
 # ---------------------------------------------------------------- helpers
+def _haversine_km(lat1, lng1, lat2, lng2):
+    r = 6371
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = p2 - p1, math.radians(lng2 - lng1)
+    h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(h))
 
 def _lock_booking_of_schedule(schedule_id):
     booking_id = get_object_or_404(
@@ -261,9 +267,9 @@ def validate_worker_for_schedule(*, schedule, worker):
     profile = _get_claimable_profile(worker)
     booking = schedule.booking
     if booking.status not in OPEN_BOOKING_STATUSES:
-        raise serializers.ValidationError({'schedule': 'Đơn hàng không còn nhận nhân viên.'})
+        raise serializers.ValidationError({'schedule': 'Đơn dịch vụ không còn nhận nhân viên.'})
     if not _is_bookable(booking):
-        raise serializers.ValidationError({'schedule': 'Đơn hàng chưa thanh toán, chưa thể phân công.'})
+        raise serializers.ValidationError({'schedule': 'Đơn dịch vụ chưa thanh toán, chưa thể phân công.'})
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'schedule': 'Chỉ được phân công buổi chưa bắt đầu.'})
     if schedule.scheduled_start <= timezone.now():
@@ -286,9 +292,9 @@ def list_available_workers_for_schedule(*, schedule_id, search=None, group='suit
     )
     booking = schedule.booking
     if booking.status not in OPEN_BOOKING_STATUSES:
-        raise serializers.ValidationError({'schedule': 'Đơn hàng không còn nhận nhân viên.'})
+        raise serializers.ValidationError({'schedule': 'Đơn dịch vụ không còn nhận nhân viên.'})
     if not _is_bookable(booking):
-        raise serializers.ValidationError({'schedule': 'Đơn hàng chưa thanh toán, chưa thể phân công.'})
+        raise serializers.ValidationError({'schedule': 'Đơn dịch vụ chưa thanh toán, chưa thể phân công.'})
     if schedule.status != BookingSchedule.Status.PENDING or schedule.scheduled_start <= timezone.now():
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không còn khả dụng.'})
 
@@ -618,7 +624,8 @@ def run_lazy_expiry(*, checkouts=False):
 
 
 def list_available_schedules_for_worker(
-    worker, *, booking_id=None, date_from=None, date_to=None, group_by_booking=False,
+    worker, *, booking_id=None, date_from=None, date_to=None,
+    group_by_booking=False, sort='time', lat=None, lng=None,
 ):
     run_lazy_expiry()
 
@@ -706,18 +713,37 @@ def list_available_schedules_for_worker(
         'booking', 'booking__service', 'booking__address',
         'booking__delivery_address', 'booking__customer',
     )
+    ordering = ['scheduled_start', 'id']
+    if sort == 'area':
+        result = result.annotate(in_my_area=Exists(
+            WorkerWorkingArea.objects.filter(
+                worker=worker, area__is_active=True,
+                area__ward_code=OuterRef('booking__address__ward_code'),
+            )
+        ))
+        ordering = ['-in_my_area', 'scheduled_start', 'id']
+    elif sort == 'distance' and lat is not None and lng is not None:
+        whens = []
+        for s in matched:  # đổi thành all_matched nếu biến của bạn tên vậy
+            a = s.booking.address
+            if a.latitude is not None and a.longitude is not None:
+                km = _haversine_km(lat, lng, float(a.latitude), float(a.longitude))
+                whens.append(When(pk=s.id, then=Value(km)))
+        result = result.annotate(dist_km=Case(
+            *whens, default=Value(1e9), output_field=FloatField(),
+        ))
+        ordering = ['dist_km', 'scheduled_start', 'id']
+
     return _annotate_total_sessions(result).annotate(
-        admin_invited=Exists(BookingAssignment.objects.filter(schedule=OuterRef('pk'), worker=worker, status='PENDING', expired_at__gt=timezone.now())),
+        admin_invited=Exists(BookingAssignment.objects.filter(
+            schedule=OuterRef('pk'), worker=worker,
+            status='PENDING', expired_at__gt=timezone.now(),
+        )),
         preferred_rank=Case(
-            When(
-                preferred_worker=worker,
-                preferred_worker_expires_at__gt=timezone.now(),
-                then=0,
-            ),
-            default=1,
-            output_field=IntegerField(),
+            When(preferred_worker=worker, preferred_worker_expires_at__gt=timezone.now(), then=0),
+            default=1, output_field=IntegerField(),
         ),
-    ).order_by('-admin_invited', 'preferred_rank', 'scheduled_start', 'id')
+    ).order_by('-admin_invited', 'preferred_rank', *ordering)
 
 
 MY_TABS = ('upcoming', 'today', 'completed', 'cancelled')
@@ -901,9 +927,9 @@ def claim_schedule(*, schedule_id, worker, invitation_id=None):
         raise serializers.ValidationError({'schedule': 'Buổi làm việc này đã có người nhận.'})
 
     if booking.status not in OPEN_BOOKING_STATUSES:
-        raise serializers.ValidationError({'schedule': 'Đơn hàng không còn nhận nhân viên.'})
+        raise serializers.ValidationError({'schedule': 'Đơn dịch vụ không còn nhận nhân viên.'})
     if not _is_bookable(booking):
-        raise serializers.ValidationError({'schedule': 'Đơn hàng chưa thanh toán, chưa thể nhận việc.'})
+        raise serializers.ValidationError({'schedule': 'Đơn dịch vụ chưa thanh toán, chưa thể nhận việc.'})
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'schedule': 'Buổi làm việc không còn khả dụng.'})
     if schedule.scheduled_start <= timezone.now():
@@ -954,9 +980,9 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
     )
 
     if booking.status not in OPEN_BOOKING_STATUSES:
-        raise serializers.ValidationError({'booking': 'Đơn hàng không còn nhận nhân viên.'})
+        raise serializers.ValidationError({'booking': 'Đơn dịch vụ không còn nhận nhân viên.'})
     if not _is_bookable(booking):
-        raise serializers.ValidationError({'booking': 'Đơn hàng chưa thanh toán, chưa thể nhận việc.'})
+        raise serializers.ValidationError({'booking': 'Đơn dịch vụ chưa thanh toán, chưa thể nhận việc.'})
     if booking.service.section_code != profile.registered_service.section_code:
         raise serializers.ValidationError({'booking': 'Gói này không thuộc dịch vụ bạn đã đăng ký.'})
     if not _covers(_worker_area_index(worker), booking.address):
@@ -1076,7 +1102,7 @@ def cancel_assignment(*, assignment_id, worker, reason):
     if schedule.status != BookingSchedule.Status.PENDING:
         raise serializers.ValidationError({'assignment': 'Chỉ được hủy buổi chưa bắt đầu.'})
     if booking.status not in OPEN_BOOKING_STATUSES:
-        raise serializers.ValidationError({'assignment': 'Đơn hàng đã kết thúc hoặc đã hủy.'})
+        raise serializers.ValidationError({'assignment': 'Đơn dịch vụ đã kết thúc hoặc đã hủy.'})
 
     hours_before = _hours_between(now, schedule.scheduled_start)
     if hours_before < MIN_CANCEL_HOURS:
@@ -1124,7 +1150,7 @@ def admin_assign_worker(*, schedule_id, worker_id, admin_user, response_minutes=
 def decline_preferred_request(*, booking_id, worker):
     booking = get_object_or_404(Booking.objects.select_for_update(), pk=booking_id)
     if booking.status not in OPEN_BOOKING_STATUSES:
-        raise serializers.ValidationError({'booking': 'Đơn hàng không còn nhận nhân viên.'})
+        raise serializers.ValidationError({'booking': 'Đơn dịch vụ không còn nhận nhân viên.'})
 
     now = timezone.now()
     mine = list(
