@@ -87,8 +87,8 @@ class WorkerEarning(models.Model):
     """
     Sổ cái thu nhập của nhân viên: mỗi buổi làm hoàn thành = 1 dòng.
 
-    - ONLINE: khách đã trả trước cho app -> app giữ tiền, cộng worker_amount
-      (đã trừ hoa hồng) vào ví nhân viên.
+    - ONLINE: khách đã trả trước, worker_amount (sau hoa hồng) được cộng
+      vào ví nhân viên khi hoàn thành buổi.
     - CASH: nhân viên đã thu tiền mặt của khách -> không đụng ví, chỉ ghi
       commission_amount là khoản nhân viên phải nộp lại app (settled_at
       null = chưa nộp).

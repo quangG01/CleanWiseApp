@@ -14,6 +14,7 @@ from apps.common.permissions import get_user_role
 from apps.worker.constants import AUTO_CANCEL_NOTE
 from apps.worker.models import BookingAssignment
 
+from . import resolution_service
 from .models import (
     Complaint,
     ComplaintAttachment,
@@ -249,13 +250,14 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source='get_status_display', read_only=True)
     my_amount = serializers.SerializerMethodField()
     booking_is_cash = serializers.SerializerMethodField()
+    service_used = serializers.SerializerMethodField()
 
     class Meta:
         model = Complaint
         fields = [
             'id', 'code', 'reporter', 'reporter_role', 'reporter_name',
             'worker', 'worker_name',
-            'booking', 'booking_code', 'booking_is_cash', 'schedule', 'schedule_sequence_no',
+            'booking', 'booking_code', 'booking_is_cash', 'service_used', 'schedule', 'schedule_sequence_no',
             'issue_type', 'issue_type_code', 'issue_type_name',
             'stage', 'stage_label',
             'content',
@@ -269,6 +271,9 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
 
     def get_booking_is_cash(self, obj):
         return any(p.method == 'CASH' for p in obj.booking.payments.all())
+
+    def get_service_used(self, obj) -> bool:
+        return resolution_service.has_used_service(obj.schedule)
 
     def get_my_amount(self, obj):
         """Số tiền đã cộng (+) / trừ (-) vào ví của CHÍNH người gửi khiếu nại."""
@@ -296,7 +301,7 @@ class ComplaintResolveSerializer(serializers.ModelSerializer):
         Complaint.Status.REJECTED.value,
     ])
     outcome = serializers.ChoiceField(
-        choices=[Complaint.Outcome.REFUND_CUSTOMER.value, Complaint.Outcome.PAY_WORKER.value],
+        choices=[value for value in Complaint.Outcome.values if value],
         required=False,
     )
     # Chỉ dùng với REFUND_CUSTOMER: True = hủy/thu hồi thu nhập buổi đó của nhân viên.
@@ -321,6 +326,8 @@ class ComplaintResolveSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'outcome': 'Chỉ hoàn tiền khách cho khiếu nại của khách.'})
             if outcome == Complaint.Outcome.PAY_WORKER and c.reporter_role != Complaint.ReporterRole.WORKER:
                 raise serializers.ValidationError({'outcome': 'Chỉ trả tiền nhân viên cho khiếu nại của nhân viên.'})
+            if outcome == Complaint.Outcome.RECOVER_WORKER_EARNING and not (attrs.get('resolution_note') or '').strip():
+                raise serializers.ValidationError({'resolution_note': 'Vui lòng nhập căn cứ thu hồi tiền công.'})
         return attrs
 
     def update(self, instance, validated_data):
@@ -337,7 +344,6 @@ class ComplaintResolveSerializer(serializers.ModelSerializer):
 
         outcome = validated_data.get('outcome')
         if instance.status == Complaint.Status.RESOLVED and outcome:
-            from . import resolution_service
             resolution_service.apply_outcome(
                 complaint=instance,
                 admin=request.user,

@@ -10,6 +10,7 @@ import requests
 import urllib3
 import logging
 from apps.common.cloudinary_storage import upload_image
+from apps.bookings.schedule_builder import get_booking_policy
 
 from apps.common.permissions import IsAdminRole
 
@@ -115,8 +116,10 @@ class ServiceDetailView(generics.RetrieveAPIView):
         if data is None:
             data = dict(self.get_serializer(self.get_object()).data)
             cache.set(cache_key, data, SERVICES_TTL)
-        return Response({'message': 'Lấy chi tiết dịch vụ thành công.', 'data': data},
-                        status=status.HTTP_200_OK)
+        return Response({
+            'message': 'Lấy chi tiết dịch vụ thành công.',
+            'data': {**data, 'booking_policy': get_booking_policy()},
+        }, status=status.HTTP_200_OK)
 
 
 # ============================================================

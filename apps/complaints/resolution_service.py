@@ -20,6 +20,30 @@ def _is_cash(booking):
     return Payment.objects.filter(booking=booking, method=Payment.Method.CASH).exists()
 
 
+def has_used_service(schedule):
+    return bool(schedule and (schedule.actual_start or schedule.status in (
+        BookingSchedule.Status.IN_PROGRESS, BookingSchedule.Status.COMPLETED,
+    )))
+
+
+def _validate_customer_refund(booking, schedule):
+    if has_used_service(schedule):
+        raise serializers.ValidationError(
+            {'outcome': 'Khách đã sử dụng dịch vụ. Xử lý chất lượng với nhân viên theo khiếu nại.'})
+    if _is_cash(booking):
+        raise serializers.ValidationError(
+            {'outcome': 'Đơn tiền mặt: khách đã trả trực tiếp cho nhân viên, không hoàn qua ví được.'})
+
+
+def _validate_worker_recovery(complaint, earning):
+    if complaint.reporter_role != Complaint.ReporterRole.CUSTOMER or not has_used_service(complaint.schedule):
+        raise serializers.ValidationError({'outcome': 'Chỉ thu hồi tiền công khi xử lý khiếu nại chất lượng của khách.'})
+    if (not earning or earning.worker_id != complaint.worker_id
+            or earning.payment_method != WorkerEarning.PaymentMethod.ONLINE
+            or not earning.wallet_credited_at or earning.voided_at):
+        raise serializers.ValidationError({'outcome': 'Buổi này không có tiền công online có thể thu hồi.'})
+
+
 def _sum_tx(prefix, direction):
     return TX.objects.filter(
         idempotency_key__startswith=prefix, direction=direction, status=TX.Status.SUCCESS,
@@ -63,14 +87,15 @@ def _restore_booking_after_clawback(booking, taken):
     booking.save(update_fields=fields)
 
 
-def _reverse_worker_earning(*, complaint, admin):
+def _reverse_worker_earning(*, complaint, admin, earning=None):
     schedule, booking = complaint.schedule, complaint.booking
-    earning = WorkerEarning.objects.select_for_update().filter(schedule=schedule).first()
+    if earning is None:
+        earning = WorkerEarning.objects.select_for_update().filter(schedule=schedule).first()
     if not earning or earning.voided_at:
         return ZERO, ZERO
     earning.voided_at = timezone.now()
     earning.save(update_fields=['voided_at'])
-    if not earning.wallet_credited_at:   # đang giữ, chưa vào ví: chỉ cần hủy
+    if not earning.wallet_credited_at:
         return ZERO, ZERO
     return _debit_up_to(
         user=earning.worker, owed=earning.worker_amount, booking=booking, admin=admin,
@@ -81,9 +106,7 @@ def _reverse_worker_earning(*, complaint, admin):
 
 def _refund_customer(*, complaint, admin, charge_worker):
     booking, schedule = complaint.booking, complaint.schedule
-    if _is_cash(booking):
-        raise serializers.ValidationError(
-            {'outcome': 'Đơn tiền mặt: khách đã trả trực tiếp cho nhân viên, không hoàn qua ví được.'})
+    _validate_customer_refund(booking, schedule)
 
     cap = refund_service.per_session_refund_amount(booking) - _net_refunded(schedule)
     if cap <= 0:
@@ -102,6 +125,13 @@ def _refund_customer(*, complaint, admin, charge_worker):
     if charge_worker:
         taken, short = _reverse_worker_earning(complaint=complaint, admin=admin)
     return {'customer_delta': refunded, 'worker_delta': -taken, 'shortfall': short}
+
+
+def _recover_worker_earning(*, complaint, admin):
+    earning = WorkerEarning.objects.select_for_update().filter(schedule=complaint.schedule).first()
+    _validate_worker_recovery(complaint, earning)
+    taken, short = _reverse_worker_earning(complaint=complaint, admin=admin, earning=earning)
+    return {'customer_delta': ZERO, 'worker_delta': -taken, 'shortfall': short}
 
 
 def _pay_worker(*, complaint, admin):
@@ -171,13 +201,15 @@ def _pay_worker(*, complaint, admin):
 def apply_outcome(*, complaint, admin, outcome, charge_worker=True):
     if complaint.schedule_id is None:
         raise serializers.ValidationError({'outcome': 'Khiếu nại chưa gắn buổi làm nên không xử lý tiền được.'})
-    Booking.objects.select_for_update().get(pk=complaint.booking_id)
-    BookingSchedule.objects.select_for_update().get(pk=complaint.schedule_id)
+    complaint.booking = Booking.objects.select_for_update().get(pk=complaint.booking_id)
+    complaint.schedule = BookingSchedule.objects.select_for_update().get(pk=complaint.schedule_id)
 
     if outcome == Complaint.Outcome.REFUND_CUSTOMER:
         r = _refund_customer(complaint=complaint, admin=admin, charge_worker=charge_worker)
     elif outcome == Complaint.Outcome.PAY_WORKER:
         r = _pay_worker(complaint=complaint, admin=admin)
+    elif outcome == Complaint.Outcome.RECOVER_WORKER_EARNING:
+        r = _recover_worker_earning(complaint=complaint, admin=admin)
     else:
         raise serializers.ValidationError({'outcome': 'Kết quả không hợp lệ.'})
 
@@ -212,9 +244,7 @@ def preview_outcome(*, complaint, outcome, charge_worker=True):
     notes = []
 
     if outcome == Complaint.Outcome.REFUND_CUSTOMER:
-        if cash:
-            raise serializers.ValidationError(
-                {'outcome': 'Đơn tiền mặt: khách đã trả trực tiếp cho nhân viên, không hoàn qua ví được.'})
+        _validate_customer_refund(booking, schedule)
         remaining = (booking.total_amount or ZERO) - (booking.refunded_amount or ZERO)
         refund = min(session_paid - _net_refunded(schedule), remaining)
         if refund <= 0:
@@ -227,9 +257,16 @@ def preview_outcome(*, complaint, outcome, charge_worker=True):
                 worker_delta, short = -take, earning.worker_amount - take
             else:
                 notes.append(
-                    f'Hủy khoản thu nhập {earning.worker_amount:,.0f}đ của nhân viên đang được giữ (chưa vào ví).')
+                    f'Hủy khoản thu nhập {earning.worker_amount:,.0f}đ của nhân viên chưa vào ví.')
         return {'customer_delta': str(refund), 'worker_delta': str(worker_delta),
                 'shortfall': str(short), 'notes': notes}
+
+    if outcome == Complaint.Outcome.RECOVER_WORKER_EARNING:
+        _validate_worker_recovery(complaint, earning)
+        take = min(earning.worker_amount, _balance(earning.worker))
+        return {'customer_delta': str(ZERO), 'worker_delta': str(-take),
+                'shortfall': str(earning.worker_amount - take),
+                'notes': ['Khoản khách đã thanh toán cho buổi này được giữ nguyên.']}
 
     if outcome == Complaint.Outcome.PAY_WORKER:
         if earning and earning.voided_at:

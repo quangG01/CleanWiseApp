@@ -1,14 +1,23 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
-from django.conf import settings
 
 DURATION_HOURS = {'2_HOURS': 2, '3_HOURS': 3, '4_HOURS': 4}
 PACKAGE_WEEKS = {'1_MONTH': 4, '2_MONTHS': 8, '3_MONTHS': 12, '6_MONTHS': 24}
 WEEKDAY_INDEX = {'MON': 0, 'TUE': 1, 'WED': 2, 'THU': 3, 'FRI': 4, 'SAT': 5, 'SUN': 6}
 
 FALLBACK_DURATION_HOURS = 3
+
+
+def get_booking_policy():
+    return {
+        'time_zone': settings.TIME_ZONE,
+        'min_advance_minutes': settings.BOOKING_MIN_ADVANCE_MINUTES,
+        'open_time': settings.BOOKING_OPEN_TIME.strftime('%H:%M'),
+        'last_start_time': settings.BOOKING_LAST_START_TIME.strftime('%H:%M'),
+    }
 
 
 def _resolve_duration_hours(form_schema, service_data):
@@ -35,30 +44,30 @@ def build_once_schedules(form_schema, service_data):
 
 
 def build_weekly_recurring_schedules(form_schema, service_data):
-    """Dịch vụ định kỳ: sinh đúng (số thứ/tuần × số tuần của gói) buổi.
-    Buổi đầu có thể là hôm nay nếu còn đủ thời gian đặt trước
-    (BOOKING_MIN_LEAD_MINUTES), nếu không thì từ ngày gần nhất phù hợp.
+    """Dịch vụ định kỳ: sinh đúng (số thứ/tuần × số tuần của gói) buổi,
+    bắt đầu sớm nhất từ ngày mai.
+
+    ĐỔI: trước đây build theo khoảng ngày dương lịch (first_day -> last_day
+    qua _add_months), nên số buổi thực tế lệch theo số ngày trong tháng
+    (dư/thiếu so với số buổi đã tính giá). Giờ build đúng
+    total_sessions = len(weekdays) * PACKAGE_WEEKS[package_duration],
+    khớp 100% với sessions_count dùng tính giá ở booking_service.py.
     """
     weekdays = {WEEKDAY_INDEX[d] for d in service_data['weekdays']}
     hour, minute = map(int, service_data['start_time'].split(':'))
     duration = _resolve_duration_hours(form_schema, service_data)
     total_sessions = len(weekdays) * PACKAGE_WEEKS[service_data['package_duration']]
 
-    min_start = timezone.now() + timedelta(
-        minutes=getattr(settings, 'BOOKING_MIN_LEAD_MINUTES', 120)
-    )
-
     schedules = []
-    current = timezone.localdate()
+    current = timezone.localdate() + timedelta(days=1)
     while len(schedules) < total_sessions:
         if current.weekday() in weekdays:
             naive_start = timezone.datetime(current.year, current.month, current.day, hour, minute)
             start = timezone.make_aware(naive_start)
-            if start >= min_start:
-                schedules.append({
-                    'scheduled_start': start,
-                    'scheduled_end': start + timedelta(hours=duration),
-                })
+            schedules.append({
+                'scheduled_start': start,
+                'scheduled_end': start + timedelta(hours=duration),
+            })
         current += timedelta(days=1)
     return schedules
 

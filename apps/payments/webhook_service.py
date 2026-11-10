@@ -8,7 +8,7 @@ from apps.bookings.activity_service import record_booking_activity
 from apps.bookings.expiry_service import cancel_unpaid_booking
 from apps.bookings.models import Booking, BookingActivity
 from apps.vouchers.voucher_service import mark_user_voucher_used
-from apps.wallets import refund_service
+from apps.wallets import earning_service, refund_service
 
 from .models import Payment
 from .payment_link_service import get_payos_client
@@ -100,6 +100,7 @@ def handle_payos_webhook(webhook_data):
 
     booking.payment_status = Booking.PaymentStatus.PAID
     booking.save(update_fields=['payment_status', 'updated_at'])
+    earning_service.settle_pending_online_earnings(booking_id=booking.pk)
     if booking.user_voucher_id:
         mark_user_voucher_used(user_voucher_id=booking.user_voucher_id)
     record_booking_activity(

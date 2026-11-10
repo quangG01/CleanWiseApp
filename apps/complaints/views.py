@@ -409,6 +409,7 @@ class ComplaintPreviewView(APIView):
         if outcome not in (
             Complaint.Outcome.REFUND_CUSTOMER,
             Complaint.Outcome.PAY_WORKER,
+            Complaint.Outcome.RECOVER_WORKER_EARNING,
         ):
             raise ValidationError(
                 {

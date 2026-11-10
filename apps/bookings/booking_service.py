@@ -247,20 +247,23 @@ def _generate_booking_code():
     raise serializers.ValidationError({'booking': 'Không tạo được mã đơn, vui lòng thử lại.'})
 
 
-def _validate_schedules(schedules):
+def _validate_schedules(schedules, *, min_advance_minutes=0):
     if not schedules:
         raise serializers.ValidationError({'schedules': 'Cần ít nhất 1 buổi làm việc.'})
 
     now = timezone.now()
+    earliest_start = now + timedelta(minutes=min_advance_minutes)
     open_t = settings.BOOKING_OPEN_TIME
     last_t = settings.BOOKING_LAST_START_TIME
-    lead_minutes = getattr(settings, 'BOOKING_MIN_LEAD_MINUTES', 120)
-    min_start = now + timedelta(minutes=lead_minutes)
 
     for idx, schedule in enumerate(schedules, start=1):
-        if schedule['scheduled_start'] < min_start:
+        if schedule['scheduled_start'] <= now:
             raise serializers.ValidationError(
-                {'schedules': f'Buổi {idx}: phải đặt trước giờ bắt đầu ít nhất {lead_minutes} phút.'}
+                {'schedules': f'Buổi {idx}: thời gian bắt đầu phải ở tương lai.'}
+            )
+        if schedule['scheduled_start'] < earliest_start:
+            raise serializers.ValidationError(
+                {'schedules': f'Vui lòng đặt trước ít nhất {min_advance_minutes} phút.'}
             )
         if schedule['scheduled_start'] >= schedule['scheduled_end']:
             raise serializers.ValidationError(
@@ -272,7 +275,8 @@ def _validate_schedules(schedules):
                 {'schedules': f'Buổi {idx}: giờ bắt đầu phải trong khoảng '
                               f'{open_t:%H:%M} đến {last_t:%H:%M}.'}
             )
-            
+
+
 def _validate_payment_method(payment_method, *, form_schema, sessions_count):
     allowed = {Payment.Method.CASH, Payment.Method.BANK_TRANSFER, Payment.Method.WALLET}
     if payment_method not in allowed:
@@ -283,6 +287,47 @@ def _validate_payment_method(payment_method, *, form_schema, sessions_count):
         raise serializers.ValidationError(
             {'payment_method': 'Dịch vụ định kỳ/nhiều buổi phải thanh toán trước (chuyển khoản hoặc ví).'}
         )
+
+
+def build_booking_schedules(service, service_data):
+    validate_service_data(service.form_schema, service_data)
+    schedules = build_schedules(service.form_schema, service_data)
+    schedule_type = service.form_schema.get('schedule_type', 'ONCE')
+    _validate_schedules(
+        schedules,
+        min_advance_minutes=settings.BOOKING_MIN_ADVANCE_MINUTES if schedule_type == 'ONCE' else 0,
+    )
+    return schedules
+
+
+def get_favorite_worker_availability(*, customer, service_id, address_id, service_data):
+    from apps.worker.assignment_service import (
+        can_receive_preferred_request,
+        workers_with_schedule_conflicts,
+    )
+    from apps.worker.favorite_worker_service import list_favorite_workers
+
+    service = get_object_or_404(Service, pk=service_id, is_active=True)
+    get_object_or_404(CustomerAddress, pk=address_id, customer=customer, is_active=True)
+    schedules = build_booking_schedules(service, service_data)
+    favorites = list_favorite_workers(
+        customer=customer, service_id=service.id, address_id=address_id,
+    )
+    busy_ids = workers_with_schedule_conflicts(
+        [favorite.worker_id for favorite in favorites], schedules,
+    )
+    for favorite in favorites:
+        if not can_receive_preferred_request(favorite.worker):
+            favorite.availability = 'UNAVAILABLE'
+        elif favorite.worker_id in busy_ids:
+            favorite.availability = 'BUSY'
+        else:
+            favorite.availability = 'AVAILABLE'
+    return {
+        'results': favorites,
+        'first_schedule': schedules[0],
+        'session_count': len(schedules),
+    }
 
 
 @transaction.atomic
@@ -362,23 +407,17 @@ def create_booking(
             {'delivery_address_id': 'Dịch vụ này không cần địa chỉ chuyển đến.'}
         )
 
-    preferred_worker = None
-    if preferred_worker_id:
-        from apps.worker.assignment_service import validate_preferred_worker
-        preferred_worker = validate_preferred_worker(
-            customer=customer, worker_id=preferred_worker_id,
-            service=service, address=address,
-        )
-    validate_service_data(
-        service.form_schema,
-        service_data,
-    )
-
-    schedules = build_schedules(service.form_schema, service_data)
-    _validate_schedules(schedules)
+    schedules = build_booking_schedules(service, service_data)
     _validate_payment_method(
         payment_method, form_schema=service.form_schema, sessions_count=len(schedules),
     )
+    preferred_worker = None
+    if preferred_worker_id is not None:
+        from apps.worker.assignment_service import validate_preferred_worker
+        preferred_worker = validate_preferred_worker(
+            customer=customer, worker_id=preferred_worker_id,
+            service=service, address=address, schedules=schedules,
+        )
 
     pricing_config = service.pricing_config or {}
     per_session = pricing_config.get('pricing_unit') == 'PER_SESSION'

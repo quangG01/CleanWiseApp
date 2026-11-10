@@ -104,9 +104,17 @@ def _exclusive_to_other(booking, worker):
     ).exclude(preferred_worker=worker).exists()
 
 
-def validate_preferred_worker(*, customer, worker_id, service, address):
+def can_receive_preferred_request(worker):
+    return worker.is_active
+
+
+def validate_preferred_worker(*, customer, worker_id, service, address, schedules=None):
+    workers = User.objects
+    if schedules is not None:
+        # Serialize the final check with claim_schedule and claim_booking_package.
+        workers = workers.select_for_update(no_key=True, of=('self',))
     worker = (
-        User.objects
+        workers
         .select_related('worker_profile', 'worker_profile__registered_service')
         .filter(
             pk=worker_id, role='WORKER', is_active=True,
@@ -131,6 +139,12 @@ def validate_preferred_worker(*, customer, worker_id, service, address):
     if not _covers(_worker_area_index(worker), address):
         raise serializers.ValidationError(
             {'preferred_worker_id': 'Nhân viên này không hoạt động tại khu vực của bạn.'}
+        )
+    if not can_receive_preferred_request(worker):
+        raise serializers.ValidationError({'preferred_worker_id': 'Nhân viên hiện không thể nhận việc mới.'})
+    if workers_with_schedule_conflicts([worker.id], schedules):
+        raise serializers.ValidationError(
+            {'preferred_worker_id': 'Nhân viên đã bận trong lịch bạn chọn. Vui lòng chọn lại.'}
         )
     return worker
 
@@ -218,14 +232,34 @@ def _annotate_available_sessions(queryset, available_ids):
     return queryset.annotate(available_sessions=Subquery(counts))
 
 
+def _assignment_time_overlap(start, end):
+    return Q(schedule__scheduled_start__lt=end, schedule__scheduled_end__gt=start)
+
+
+def _active_assignments():
+    return BookingAssignment.objects.filter(
+        status=BookingAssignment.Status.ACCEPTED,
+        schedule__status__in=ACTIVE_SCHEDULE_STATUSES,
+    )
+
+
+def workers_with_schedule_conflicts(worker_ids, schedules):
+    if not worker_ids or not schedules:
+        return set()
+    overlaps = Q()
+    for schedule in schedules:
+        overlaps |= _assignment_time_overlap(schedule['scheduled_start'], schedule['scheduled_end'])
+    return set(
+        _active_assignments().filter(overlaps, worker_id__in=worker_ids)
+        .order_by().values_list('worker_id', flat=True).distinct()
+    )
+
+
 def _has_time_conflict(worker, schedule):
-    return BookingSchedule.objects.filter(
-        assignments__worker=worker,
-        assignments__status=BookingAssignment.Status.ACCEPTED,
-        status__in=ACTIVE_SCHEDULE_STATUSES,
-        scheduled_start__lt=schedule.scheduled_end,
-        scheduled_end__gt=schedule.scheduled_start,
-    ).exclude(pk=schedule.pk).exists()
+    return _active_assignments().filter(
+        _assignment_time_overlap(schedule.scheduled_start, schedule.scheduled_end),
+        worker=worker,
+    ).exclude(schedule=schedule).exists()
 
 
 def validate_worker_for_schedule(*, schedule, worker):
@@ -357,6 +391,10 @@ def _sync_booking_status_after_claim(booking):
 
 def get_cancel_deadline(schedule):
     return schedule.scheduled_start - timedelta(hours=MIN_CANCEL_HOURS)
+
+
+def get_checkout_deadline(schedule):
+    return schedule.scheduled_end + timedelta(minutes=CHECKOUT_GRACE_MINUTES)
 
 
 @transaction.atomic
@@ -578,7 +616,7 @@ def run_lazy_expiry(*, checkouts=False):
     expire_unclaimed_schedules()
     from apps.bookings.expiry_service import expire_unpaid_bookings
     expire_unpaid_bookings()
-    earning_service.release_held_earnings()
+    earning_service.settle_pending_online_earnings()
     if checkouts:
         handle_missed_checkouts()
 

@@ -388,7 +388,7 @@ CELERY_BEAT_SCHEDULE = {
         'options': {'expires': 55},
     },
 
-    'release-held-earnings': {
+    'settle-pending-online-earnings': {
         'task': 'apps.worker.tasks.release_held_earnings_task',
         'schedule': 600.0,
         'options': {'expires': 590},
@@ -442,6 +442,6 @@ PAYOUT_METHOD_COOLDOWN_HOURS = int(os.environ.get("PAYOUT_METHOD_COOLDOWN_HOURS"
 # Khung giờ nhận lịch: giờ BẮT ĐẦU phải nằm trong khoảng này
 BOOKING_OPEN_TIME = time(8, 0)
 BOOKING_LAST_START_TIME = time(18, 0)
-BOOKING_MIN_LEAD_MINUTES = 120
+BOOKING_MIN_ADVANCE_MINUTES = 120
 
 WITHDRAW_OTP_REQUIRED = os.environ.get('WITHDRAW_OTP_REQUIRED', '1') == '1'
