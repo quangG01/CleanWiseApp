@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 
 from apps.worker.models import Area, WorkerWorkingArea
 from apps.services.models import Service
-from .models import PasswordResetOTP, WorkerProfile, WorkerVerificationDocument
+from .models import PasswordResetOTP, WorkerProfile, WorkerProfileReviewEvent, WorkerVerificationDocument
 from django.core import mail
 
 User = get_user_model()
@@ -385,6 +385,40 @@ class WorkerProfileSubmitTests(APITestCase):
         self.assertEqual(self.profile.status, WorkerProfile.Status.PENDING)
         self.assertEqual(response.data['data']['status'], WorkerProfile.Status.PENDING)
         self.assertTrue(response.data['data']['is_complete'])
+        event = self.profile.review_events.get()
+        self.assertEqual(event.action, WorkerProfileReviewEvent.Action.SUBMITTED)
+        self.assertEqual(event.actor, self.worker)
+        self.assertEqual(event.previous_status, WorkerProfile.Status.DRAFT)
+        self.assertEqual(event.new_status, WorkerProfile.Status.PENDING)
+
+    def test_resubmission_preserves_the_rejection_in_history(self):
+        self.profile.registered_service = self.service
+        self.profile.status = WorkerProfile.Status.REJECTED
+        self.profile.rejection_reason = 'Cần sửa tên.'
+        self.profile.rejected_fields = {'first_name': 'Sửa đúng theo giấy tờ.'}
+        self.profile.save()
+        WorkerWorkingArea.objects.create(worker=self.worker, area=self.area)
+        admin = User.objects.create_user(
+            username='submit-profile-admin', email='submit-profile-admin@example.com', role=User.Role.ADMIN,
+        )
+        WorkerProfileReviewEvent.record(
+            profile=self.profile, actor=admin, action=WorkerProfileReviewEvent.Action.REJECTED,
+            previous_status=WorkerProfile.Status.PENDING, reason=self.profile.rejection_reason,
+            rejected_fields=self.profile.rejected_fields,
+        )
+
+        edited = self.client.patch(reverse('worker-profile'), {'first_name': 'Văn Bình'}, format='json')
+        self.assertEqual(edited.status_code, status.HTTP_200_OK, edited.data)
+        submitted = self.client.post(reverse('worker-profile-submit'), format='json')
+        self.assertEqual(submitted.status_code, status.HTTP_200_OK, submitted.data)
+
+        latest, previous = self.profile.review_events.all()
+        self.assertEqual(latest.action, WorkerProfileReviewEvent.Action.RESUBMITTED)
+        self.assertEqual(latest.actor, self.worker)
+        self.assertEqual(latest.rejected_fields, {})
+        self.assertEqual(previous.action, WorkerProfileReviewEvent.Action.REJECTED)
+        self.assertEqual(previous.reason, 'Cần sửa tên.')
+        self.assertEqual(previous.rejected_fields, {'first_name': 'Sửa đúng theo giấy tờ.'})
 
     def test_incomplete_profile_remains_draft_and_returns_missing_fields(self):
         response = self.client.post(reverse('worker-profile-submit'), format='json')
@@ -392,6 +426,7 @@ class WorkerProfileSubmitTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.status, WorkerProfile.Status.DRAFT)
+        self.assertFalse(self.profile.review_events.exists())
         self.assertSetEqual(
             set(response.data['errors']['missing_fields']),
             {'service_id', 'working_areas'},

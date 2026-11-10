@@ -1,4 +1,5 @@
 import re
+from collections.abc import Mapping
 from pathlib import Path
 
 from django.conf import settings
@@ -13,8 +14,9 @@ from google.oauth2 import id_token as google_id_token
 from rest_framework import serializers
 
 from apps.common.cloudinary_storage import upload_file, upload_image
+from apps.common.exceptions import ConcurrentUpdateError
 from apps.services.models import Service
-from .models import PasswordResetOTP, WorkerProfile, WorkerVerificationDocument
+from .models import PasswordResetOTP, WorkerProfile, WorkerProfileReviewEvent, WorkerVerificationDocument
 from .worker_profile import get_worker_profile_completeness
 
 from rest_framework_simplejwt.token_blacklist.models import (
@@ -409,6 +411,8 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
     experience_years = serializers.IntegerField(required=False, min_value=0, help_text='Số năm kinh nghiệm, không được âm.')
     identity_number = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=30, help_text='Số CCCD/CMND gồm 9 hoặc 12 chữ số và không được trùng.')
     registered_service = WorkerRegisteredServiceSerializer(read_only=True, help_text='Thông tin loại dịch vụ nhân viên đã đăng ký.')
+    requested_service = WorkerRegisteredServiceSerializer(read_only=True)
+    service_request_token = serializers.UUIDField(read_only=True)
     service_id = serializers.PrimaryKeyRelatedField(
         source='registered_service',
         queryset=Service.objects.filter(is_active=True),
@@ -456,7 +460,7 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         protected_fields = {
-            'role', 'status', 'approved_by', 'approved_at', 'rejection_reason',
+            'email', 'role', 'status', 'approved_by', 'approved_at', 'rejection_reason',
             'rejected_fields', 'average_rating', 'total_completed_jobs',
             'created_at', 'updated_at',
         }
@@ -503,16 +507,35 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        instance = WorkerProfile.objects.select_for_update().get(pk=instance.pk)
+        if instance.status not in (WorkerProfile.Status.DRAFT, WorkerProfile.Status.REJECTED):
+            guarded = {
+                'first_name': instance.user.first_name, 'last_name': instance.user.last_name,
+                'birth_date': instance.user.birth_date, 'gender': instance.user.gender,
+                'identity_number': instance.identity_number, 'registered_service': instance.registered_service,
+                'portrait': None, 'identity_front': None, 'identity_back': None, 'certificate_file': None,
+            }
+            errors = {
+                'service_id' if field == 'registered_service' else field:
+                    'Vui lòng thực hiện qua luồng cập nhật và xét duyệt hồ sơ.'
+                for field, current in guarded.items()
+                if field in validated_data and validated_data[field] != current
+            }
+            if errors:
+                raise serializers.ValidationError(errors)
+            for field in guarded.keys() & validated_data.keys():
+                validated_data.pop(field)
+        edited_fields = set(validated_data)
         portrait = validated_data.pop('portrait', None)
         identity_front = validated_data.pop('identity_front', None)
         identity_back = validated_data.pop('identity_back', None)
         certificate_file = validated_data.pop('certificate_file', None)
 
         user_fields = {'first_name', 'last_name', 'phone_number', 'gender', 'birth_date'}
-        for field in list(validated_data):
-            if field in user_fields:
-                setattr(instance.user, field, validated_data.pop(field))
-        instance.user.save()
+        changed_user_fields = user_fields.intersection(validated_data)
+        for field in changed_user_fields:
+            setattr(instance.user, field, validated_data.pop(field))
+        instance.user.save(update_fields=[*changed_user_fields, 'updated_at'])
 
         for field, value in validated_data.items():
             setattr(instance, field, value)
@@ -528,7 +551,10 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
         # Hồ sơ đang bị từ chối, worker vừa sửa lại (bất kỳ field nào) ->
         # đưa về DRAFT để có thể gửi duyệt lại qua WorkerProfileSubmitView,
         # đồng thời xoá lý do/field bị đánh dấu cũ vì đã được cập nhật.
-        if instance.status == WorkerProfile.Status.REJECTED:
+        if instance.status == WorkerProfile.Status.REJECTED and (
+            edited_fields - {'bio', 'experience_years'}
+            or edited_fields.intersection(instance.rejected_fields)
+        ):
             instance.status = WorkerProfile.Status.DRAFT
             instance.rejection_reason = None
             instance.rejected_fields = {}
@@ -568,6 +594,10 @@ class WorkerProfileUpdateSerializer(serializers.Serializer):
             'registered_service': WorkerRegisteredServiceSerializer(
                 instance.registered_service,
             ).data if instance.registered_service else None,
+            'requested_service': WorkerRegisteredServiceSerializer(
+                instance.requested_service,
+            ).data if instance.requested_service else None,
+            'service_request_token': instance.service_request_token if instance.requested_service_id else None,
             'portrait': instance.avatar,
             'identity_front': documents.get(WorkerVerificationDocument.DocumentType.IDENTITY_FRONT),
             'identity_back': documents.get(WorkerVerificationDocument.DocumentType.IDENTITY_BACK),
@@ -605,10 +635,8 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"Field không hợp lệ: {', '.join(sorted(invalid))}.")
         return value
 
-    def validate(self, attrs):
-        target = attrs['status']
-        current = self.instance.status
-
+    @staticmethod
+    def _validate_status_transition(current, target):
         # Hồ sơ chờ duyệt có thể được duyệt/từ chối. Hồ sơ tạm khóa có thể
         # được kích hoạt lại. Chỉ hồ sơ đang hoạt động mới được tạm khóa.
         if target == WorkerProfile.Status.ACTIVE:
@@ -632,6 +660,10 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
                     'status': f'Chỉ hồ sơ đang ACTIVE mới được thu hồi phê duyệt (hiện tại: {current}).',
                 })
 
+    def validate(self, attrs):
+        target = attrs['status']
+        self._validate_status_transition(self.instance.status, target)
+
         if target == WorkerProfile.Status.REJECTED:
             if not attrs.get('reason'):
                 raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do từ chối hồ sơ.'})
@@ -649,7 +681,11 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         instance = WorkerProfile.objects.select_for_update().get(pk=instance.pk)
+        previous_status = instance.status
         target_status = validated_data['status']
+        # Another admin may have changed the status before this row was locked.
+        self._validate_status_transition(previous_status, target_status)
+        actor = self.context['request'].user
         reason = validated_data.get('reason')
         instance.status = target_status
         instance.approved_by = None
@@ -657,7 +693,7 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
         instance.rejection_reason = None
         instance.rejected_fields = {}
         if target_status == WorkerProfile.Status.ACTIVE:
-            instance.approved_by = self.context['request'].user
+            instance.approved_by = actor
             instance.approved_at = timezone.now()
         elif target_status == WorkerProfile.Status.REJECTED:
             instance.rejection_reason = reason
@@ -667,8 +703,94 @@ class AdminWorkerStatusUpdateSerializer(serializers.Serializer):
         elif target_status == WorkerProfile.Status.DRAFT:
             instance.rejection_reason = reason
             instance.rejected_fields = validated_data.get('rejected_fields', {})
+            if instance.requested_service_id:
+                WorkerProfileReviewEvent.record(
+                    profile=instance, actor=actor,
+                    action=WorkerProfileReviewEvent.Action.SERVICE_REJECTED, previous_status=previous_status,
+                    reason='Hồ sơ được yêu cầu cập nhật và gửi duyệt lại.',
+                    changes={'service': {
+                        'before': instance.registered_service.name if instance.registered_service else None,
+                        'after': instance.requested_service.name,
+                    }},
+                )
+                instance.requested_service = None
+                instance.service_request_token = None
         instance.save()
+        actions = WorkerProfileReviewEvent.Action
+        action = {
+            WorkerProfile.Status.ACTIVE: (
+                actions.REACTIVATED if previous_status == WorkerProfile.Status.SUSPENDED else actions.APPROVED
+            ),
+            WorkerProfile.Status.REJECTED: actions.REJECTED,
+            WorkerProfile.Status.SUSPENDED: actions.SUSPENDED,
+            WorkerProfile.Status.DRAFT: actions.REVOKED,
+        }[target_status]
+        WorkerProfileReviewEvent.record(
+            profile=instance, actor=actor, action=action, previous_status=previous_status,
+            reason=reason, rejected_fields=instance.rejected_fields,
+        )
         return instance
+
+
+class AdminWorkerContactUpdateSerializer(serializers.Serializer):
+    previous_phone_number = serializers.CharField(
+        max_length=15, allow_null=True, allow_blank=True, trim_whitespace=False,
+    )
+    phone_number = serializers.RegexField(
+        regex=r'\A(?:0|\+84)[0-9]{9}\Z',
+        error_messages={'invalid': 'Số điện thoại Việt Nam không hợp lệ.'},
+    )
+    reason = serializers.CharField(max_length=1000)
+    confirmed_with_worker = serializers.BooleanField()
+
+    def validate_confirmed_with_worker(self, value):
+        if not value:
+            raise serializers.ValidationError('Vui lòng xác nhận số mới với nhân viên trước khi lưu.')
+        return value
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping) and set(data) - set(self.fields):
+            raise serializers.ValidationError({
+                'non_field_errors': ['Chỉ được chỉnh sửa số điện thoại tại đây.'],
+            })
+        return super().to_internal_value(data)
+
+    @transaction.atomic
+    def update(self, profile, validated_data):
+        worker = User.objects.select_for_update().get(pk=profile.user_id)
+        previous_phone = worker.phone_number
+        if previous_phone != validated_data['previous_phone_number']:
+            raise ConcurrentUpdateError('Số điện thoại vừa được cập nhật. Hãy mở lại biểu mẫu và kiểm tra số hiện tại.')
+
+        entered_phone = validated_data['phone_number']
+        local_phone = f'0{entered_phone[-9:]}'
+        international_phone = f'+84{entered_phone[-9:]}'
+        if previous_phone in (local_phone, international_phone):
+            raise serializers.ValidationError({'phone_number': 'Số mới phải khác số hiện tại.'})
+        if User.objects.filter(phone_number__in=(local_phone, international_phone)).exclude(pk=worker.pk).exists():
+            raise serializers.ValidationError({'phone_number': 'Số điện thoại này đã được sử dụng.'})
+
+        worker.phone_number = local_phone
+        worker.save(update_fields=['phone_number', 'updated_at'])
+        profile.refresh_from_db()
+        profile.user = worker
+        WorkerProfileReviewEvent.record(
+            profile=profile, actor=self.context['request'].user,
+            action=WorkerProfileReviewEvent.Action.CONTACT_UPDATED, previous_status=profile.status,
+            reason=validated_data['reason'],
+            changes={'phone_number': {'before': previous_phone, 'after': local_phone}},
+        )
+        return profile
+
+
+class WorkerProfileReviewEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkerProfileReviewEvent
+        fields = (
+            'id', 'actor_name', 'action', 'previous_status', 'new_status',
+            'reason', 'rejected_fields', 'changes', 'created_at',
+        )
+        read_only_fields = fields
 
 
 class ForgotPasswordSerializer(serializers.Serializer):
