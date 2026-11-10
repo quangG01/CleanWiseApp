@@ -11,9 +11,11 @@ from apps.authentication.models import WorkerProfile
 from apps.bookings.models import Booking, BookingSchedule
 from apps.services.models import Service
 from apps.worker.assignment_service import admin_assign_worker, claim_schedule
+from apps.worker.invitation_service import respond_invitation
 from apps.worker.models import Area, WorkerWorkingArea
 
 from .models import ChatConversation, ChatConversationAssignment, ChatMessage
+from .service import ensure_chat_for_assignment
 
 
 User = get_user_model()
@@ -69,7 +71,53 @@ class ChatApiTests(APITestCase):
         )
 
     def claim(self, schedule=None, worker=None):
-        return claim_schedule(schedule_id=(schedule or self.schedule).id, worker=worker or self.worker)
+        assignment = claim_schedule(schedule_id=(schedule or self.schedule).id, worker=worker or self.worker)
+        ensure_chat_for_assignment(assignment)
+        return assignment
+
+    def test_blocked_messages_do_not_save_or_publish_for_either_participant(self):
+        self.claim()
+        conversation = ChatConversation.objects.get()
+        original_updated_at = conversation.updated_at
+        for user, text, category in (
+            (self.customer, '0912 345 678', 'PHONE_NUMBER'),
+            (self.worker, 'Lần sau thuê riêng em nhé', 'OFF_PLATFORM_SOLICITATION'),
+            (self.worker, 'Lần tới mình làm riêng cho tiện nha', 'OFF_PLATFORM_SOLICITATION'),
+        ):
+            self.client.force_authenticate(user)
+            with patch('apps.chat.service.publish_message') as publish:
+                with self.captureOnCommitCallbacks(execute=True):
+                    response = self.client.post(reverse('chat-message-send'), {
+                        'conversation_id': conversation.id, 'message': text,
+                    })
+                publish.assert_not_called()
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.data['error_code'], 'CHAT_CONTENT_BLOCKED')
+            self.assertEqual(response.data['errors']['violation_type'], category)
+            self.assertIn('Vui lòng chỉnh sửa', response.data['message'])
+        self.assertFalse(ChatMessage.objects.filter(conversation=conversation).exists())
+        conversation.refresh_from_db()
+        self.assertEqual(conversation.updated_at, original_updated_at)
+
+    def test_allowed_message_preserves_original_text(self):
+        self.claim()
+        conversation = ChatConversation.objects.get()
+        self.client.force_authenticate(self.customer)
+        text = 'Địa chỉ 123 Nguyễn Trãi, phòng 1205. Đến lúc 9h30 nhé.'
+        response = self.client.post(reverse('chat-message-send'), {
+            'conversation_id': conversation.id, 'message': text,
+        })
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(ChatMessage.objects.get().message, text)
+
+    def test_authorization_precedes_content_moderation(self):
+        self.claim()
+        self.client.force_authenticate(self.outsider)
+        response = self.client.post(reverse('chat-message-send'), {
+            'conversation_id': ChatConversation.objects.get().id,
+            'message': 'Gọi 0912345678',
+        })
+        self.assertEqual(response.status_code, 404)
 
     def test_claim_reuses_conversation_without_creating_messages(self):
         first = self.claim()
@@ -174,10 +222,12 @@ class ChatApiTests(APITestCase):
         old_conversation = ChatConversation.objects.get()
         first.status = 'CANCELLED'
         first.save(update_fields=['status'])
-        second = admin_assign_worker(
+        invitation = admin_assign_worker(
             schedule_id=self.schedule.id, worker_id=self.other_worker.id,
             admin_user=self.admin,
         )
+        second = respond_invitation(invitation_id=invitation.id, worker=self.other_worker, accept=True)
+        ensure_chat_for_assignment(second)
         self.assertEqual(ChatConversation.objects.count(), 2)
         self.client.force_authenticate(self.worker)
         denied = self.client.post(reverse('chat-message-send'), {
