@@ -217,6 +217,12 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         files = request.FILES.getlist("attachments")
+        # Multipart text parts are kept in POST, separate from uploaded files.
+        if any(request.POST.getlist("attachments")):
+            return Response(
+                {"attachments": ["Không đọc được tệp đính kèm. Vui lòng chọn lại ảnh."]},
+                status=400,
+            )
 
         if len(files) > MAX_ATTACHMENTS:
             return Response(
