@@ -13,8 +13,6 @@ from rest_framework import serializers
 from apps.addresses.models import CustomerAddress
 from apps.bookings import booking_service
 from apps.bookings.models import Booking, BookingSchedule
-from apps.bookings.schedule_builder import build_schedules
-from apps.bookings.service_data_validation import validate_service_data
 from apps.payments.models import Payment
 from apps.payments.payment_link_service import create_payos_payment_link
 from apps.services.models import Service
@@ -205,9 +203,7 @@ def prepare_booking(customer_id, thread_id, service_id, service_data, address_id
             raise ToolQueryError(_flatten(exc.detail)) from exc
 
     try:
-        validate_service_data(service.form_schema, service_data)
-        schedules = build_schedules(service.form_schema, service_data)
-        booking_service._validate_schedules(schedules)
+        schedules = booking_service.build_booking_schedules(service, service_data)
         booking_service._validate_payment_method(
             getattr(Payment.Method, payment_method), form_schema=service.form_schema,
             sessions_count=len(schedules))

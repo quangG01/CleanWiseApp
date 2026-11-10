@@ -4,6 +4,7 @@ from rest_framework import serializers
 from apps.addresses.models import CustomerAddress
 from apps.payments.models import Payment
 from apps.worker.models import BookingAssignment, CustomerFavoriteWorker
+from apps.worker.serializers import FavoriteWorkerSerializer
 
 from .booking_service import create_booking
 from .models import Booking, BookingSchedule, BookingScheduleImage  
@@ -342,6 +343,32 @@ class BookingDetailSerializer(serializers.ModelSerializer):
         ).data
         
         
+class BookingFavoriteWorkerAvailabilityRequestSerializer(serializers.Serializer):
+    service_id = serializers.IntegerField(min_value=1)
+    address_id = serializers.IntegerField(min_value=1)
+    service_data = serializers.DictField()
+
+
+class BookingFavoriteWorkerSerializer(FavoriteWorkerSerializer):
+    availability = serializers.ChoiceField(
+        choices=('AVAILABLE', 'BUSY', 'UNAVAILABLE'), read_only=True,
+    )
+
+    class Meta(FavoriteWorkerSerializer.Meta):
+        fields = [*FavoriteWorkerSerializer.Meta.fields, 'availability']
+
+
+class BookingAvailabilityScheduleSerializer(serializers.Serializer):
+    scheduled_start = serializers.DateTimeField()
+    scheduled_end = serializers.DateTimeField()
+
+
+class BookingFavoriteWorkerAvailabilitySerializer(serializers.Serializer):
+    results = BookingFavoriteWorkerSerializer(many=True)
+    first_schedule = BookingAvailabilityScheduleSerializer()
+    session_count = serializers.IntegerField()
+
+
 class BookingCreateSerializer(serializers.Serializer):
     service_id = serializers.IntegerField()
     address_id = serializers.IntegerField()

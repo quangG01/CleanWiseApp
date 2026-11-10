@@ -57,6 +57,7 @@ class Complaint(models.Model):
         NONE = '', 'Không xử lý tiền'
         REFUND_CUSTOMER = 'REFUND_CUSTOMER', 'Hoàn tiền khách'
         PAY_WORKER = 'PAY_WORKER', 'Trả tiền nhân viên'
+        RECOVER_WORKER_EARNING = 'RECOVER_WORKER_EARNING', 'Thu hồi tiền công nhân viên'
 
     code = models.CharField(max_length=30, unique=True, null=True, blank=True, editable=False)
     schedule = models.ForeignKey(

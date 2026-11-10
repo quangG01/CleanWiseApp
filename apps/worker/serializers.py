@@ -301,6 +301,7 @@ class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
     receiver_phone = serializers.CharField(source='booking.address.receiver_phone', read_only=True)
     can_cancel = serializers.SerializerMethodField()
     cancel_deadline = serializers.SerializerMethodField()
+    check_out_until = serializers.SerializerMethodField()
     completed_sessions = serializers.SerializerMethodField()
     accepted_sessions = serializers.SerializerMethodField()
     booking_status = serializers.CharField(source='booking.status', read_only=True)
@@ -312,7 +313,7 @@ class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
     class Meta(WorkerScheduleSerializer.Meta):
         fields = WorkerScheduleSerializer.Meta.fields + [
             'form_schema', 'note', 'cancel_reason', 'address_line', 'receiver_name', 'receiver_phone',
-            'can_cancel', 'cancel_deadline', 'images', 'completion_note', 'delivery_address_line',
+            'can_cancel', 'cancel_deadline', 'check_out_until', 'images', 'completion_note', 'delivery_address_line',
             'completed_sessions', 'accepted_sessions',
             'booking_status',
         ]
@@ -332,6 +333,11 @@ class WorkerMyScheduleSerializer(WorkerScheduleSerializer):
 
     def get_cancel_deadline(self, obj):
         return assignment_service.get_cancel_deadline(obj)
+
+    def get_check_out_until(self, obj) -> str | None:
+        if obj.status == BookingSchedule.Status.IN_PROGRESS:
+            return serializers.DateTimeField().to_representation(assignment_service.get_checkout_deadline(obj))
+        return None
 
 
 class WorkerBookingScheduleSerializer(WorkerScheduleSerializer):

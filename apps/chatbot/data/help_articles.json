@@ -235,7 +235,7 @@
     "sections": [
       {
         "heading": "Thẻ Số dư ví",
-        "text": "Thẻ Số dư ví hiện số dư hiện tại và nút Rút tiền. Phía dưới có Hoa hồng tiền mặt chưa nộp và, khi có, khoản Đang chờ giải ngân. Khoản chờ giải ngân vào ví tối đa 24 giờ sau khi hoàn thành."
+        "text": "Thẻ Số dư ví hiện số dư hiện tại, nút Rút tiền và hoa hồng tiền mặt chưa nộp. Tiền công của buổi đã thanh toán online được cộng vào ví khi buổi làm hoàn thành."
       },
       {
         "heading": "Rút tiền",
@@ -243,11 +243,11 @@
       },
       {
         "heading": "Thống kê theo kỳ",
-        "text": "Chọn kỳ tuần hoặc tháng để xem thu nhập sau hoa hồng, số đơn hoàn thành và tổng giá trị đơn. Mục Đối soát với CleanWise cho biết phần đơn online (ứng dụng giữ tiền, vào ví sau tối đa 24 giờ) và phần đơn tiền mặt (bạn đã thu, hoa hồng đã trừ ví)."
+        "text": "Chọn kỳ tuần hoặc tháng để xem thu nhập sau hoa hồng, số đơn hoàn thành và tổng giá trị đơn. Mục Đối soát với CleanWise cho biết tiền công online đã vào ví và hoa hồng đơn tiền mặt."
       },
       {
         "heading": "Lịch sử",
-        "text": "Mục Đơn đã hoàn thành liệt kê từng đơn trong kỳ, có nhãn Đang chờ giải ngân nếu tiền chưa vào ví. Mục Giao dịch ví gần đây liệt kê tiền vào và tiền ra của ví."
+        "text": "Mục Đơn đã hoàn thành liệt kê từng đơn trong kỳ, có nhãn Chưa ghi có nếu tiền chưa vào ví. Mục Giao dịch ví gần đây liệt kê tiền vào và tiền ra của ví."
       }
     ],
     "keywords": "thu nhập ví rút tiền số dư giải ngân hoa hồng tiền mặt đối soát",

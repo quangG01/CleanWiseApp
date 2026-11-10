@@ -93,7 +93,8 @@ def _schedule_row(assignment):
         row['check_in_until'] = _lt(s.scheduled_start + timedelta(minutes=checkin_service.CHECKIN_LATE_MINUTES))
         row['check_in_note'] = 'Check-in cần GPS nên chỉ làm được trong ứng dụng.'
     elif s.status == BookingSchedule.Status.IN_PROGRESS:
-        row['check_out_until'] = _lt(s.scheduled_end + timedelta(minutes=checkin_service.CHECKOUT_GRACE_MINUTES))
+        row['check_out_from'] = _lt(s.scheduled_end)
+        row['check_out_until'] = _lt(checkin_service.get_checkout_deadline(s))
         row['before_images'] = s.images.filter(image_type=I.BEFORE).count()
         row['after_images'] = s.images.filter(image_type=I.AFTER).count()
     elif s.status == BookingSchedule.Status.MISSED:
@@ -330,8 +331,8 @@ def get_my_earnings(worker_id, period='week'):
             'income_after_commission': str(agg['income']), 'commission_total': str(agg['commission']),
             'online_income': str(agg['online_income']), 'cash_commission': str(agg['cash_commission']),
             'commission_owed_all_time': str(owed), 'pending_release_all_time': str(pending),
-            'note': f'pending_release: thu nhập đơn online chưa vào ví, được cộng sau '
-                    f'{earning_service.EARNING_HOLD_HOURS} giờ nếu không có khiếu nại đang mở. '
+            'note': 'Tiền công đơn online đã thanh toán được cộng vào ví khi hoàn thành buổi. '
+                    'pending_release: khoản online chưa được ghi có. '
                     'commission_owed: hoa hồng đơn tiền mặt chưa được trừ.',
             'observed_at': _lt(timezone.now())}
 
@@ -451,10 +452,10 @@ def _find_in_progress(worker_id, booking_reference, schedule_no):
 def prepare_check_out(worker_id, thread_id, booking_reference, schedule_no, completion_note):
     s = _find_in_progress(worker_id, booking_reference, schedule_no)
     b = s.booking
-    now = timezone.now()
-    deadline = s.scheduled_end + timedelta(minutes=checkin_service.CHECKOUT_GRACE_MINUTES)
-    if now > deadline:
-        raise ToolQueryError(f'Đã quá hạn tự check-out ({_fmt(deadline)}). Hệ thống sẽ tự hoàn thành buổi này.')
+    try:
+        checkin_service.validate_checkout_window(s, now=timezone.now())
+    except serializers.ValidationError as exc:
+        raise ToolQueryError(_flatten(exc.detail)) from exc
     I = BookingScheduleImage.ImageType
     before = s.images.filter(image_type=I.BEFORE).count()
     after = s.images.filter(image_type=I.AFTER).count()

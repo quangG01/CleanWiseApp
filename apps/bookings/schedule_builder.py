@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -8,6 +9,15 @@ PACKAGE_WEEKS = {'1_MONTH': 4, '2_MONTHS': 8, '3_MONTHS': 12, '6_MONTHS': 24}
 WEEKDAY_INDEX = {'MON': 0, 'TUE': 1, 'WED': 2, 'THU': 3, 'FRI': 4, 'SAT': 5, 'SUN': 6}
 
 FALLBACK_DURATION_HOURS = 3
+
+
+def get_booking_policy():
+    return {
+        'time_zone': settings.TIME_ZONE,
+        'min_advance_minutes': settings.BOOKING_MIN_ADVANCE_MINUTES,
+        'open_time': settings.BOOKING_OPEN_TIME.strftime('%H:%M'),
+        'last_start_time': settings.BOOKING_LAST_START_TIME.strftime('%H:%M'),
+    }
 
 
 def _resolve_duration_hours(form_schema, service_data):
