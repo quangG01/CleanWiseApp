@@ -7,7 +7,7 @@
     "sections": [
       {
         "heading": "Quy trình từ chuẩn bị đến đặt đơn",
-        "text": "1. Chuẩn bị tài khoản và địa chỉ. Đăng nhập tài khoản khách hàng. Vào Cá nhân rồi Địa chỉ của tôi để kiểm tra tên người nhận, số điện thoại và địa chỉ thực hiện dịch vụ.\n\n2. Chọn dịch vụ. Ở Trang chủ, mở một dịch vụ trong mục Dịch vụ. Xem mô tả và điền các lựa chọn hiển thị trên biểu mẫu của dịch vụ đó.\n\n3. Chọn lịch và nơi thực hiện. Chọn ngày giờ tương lai cho dịch vụ một lần. Với dịch vụ định kỳ, điền các ngày trong tuần, giờ bắt đầu và thời hạn gói theo biểu mẫu. Dịch vụ chuyển nhà cần cả địa chỉ chuyển đi và chuyển đến.\n\n4. Kiểm tra trước khi gửi. Nhấn Đặt dịch vụ để mở Xác nhận và thanh toán. Đối chiếu thời gian làm việc, chi tiết công việc, địa chỉ và Tổng thanh toán; chọn voucher và nhân viên yêu thích nếu phù hợp.\n\n5. Đăng việc và thanh toán. Chọn phương thức đang khả dụng rồi nhấn Đăng việc. Nếu chọn Chuyển khoản, hoàn tất bước thanh toán ở màn hình Thanh toán đơn hàng. Nếu chọn Ví CleanWise, kiểm tra số dư đủ trước khi gửi."
+        "text": "1. Chuẩn bị tài khoản và địa chỉ. Đăng nhập tài khoản khách hàng. Vào Cá nhân rồi Địa chỉ của tôi để kiểm tra tên người nhận, số điện thoại và địa chỉ thực hiện dịch vụ.\n\n2. Chọn dịch vụ. Ở Trang chủ, mở một dịch vụ trong mục Dịch vụ. Xem mô tả và điền các lựa chọn hiển thị trên biểu mẫu của dịch vụ đó.\n\n3. Chọn lịch và nơi thực hiện. Chọn ngày giờ tương lai cho dịch vụ một lần. Với dịch vụ định kỳ, điền các ngày trong tuần, giờ bắt đầu và thời hạn gói theo biểu mẫu. Dịch vụ chuyển nhà cần cả địa chỉ chuyển đi và chuyển đến.\n\n4. Kiểm tra trước khi gửi. Nhấn Đặt dịch vụ để mở Xác nhận và thanh toán. Đối chiếu thời gian làm việc, chi tiết công việc, địa chỉ và Tổng thanh toán; chọn voucher và nhân viên yêu thích nếu phù hợp.\n\n5. Đặt dịch vụ và thanh toán. Chọn phương thức đang khả dụng rồi nhấn Đặt dịch vụ. Nếu chọn Chuyển khoản, hoàn tất bước thanh toán ở màn hình Thanh toán đơn hàng. Nếu chọn Ví CleanWise, kiểm tra số dư đủ trước khi gửi."
       },
       {
         "heading": "Kết quả cần kiểm tra",
@@ -67,7 +67,7 @@
       },
       {
         "heading": "Kiểm tra Xác nhận và thanh toán",
-        "text": "1. Kiểm tra lịch. Xem Thời gian làm việc, ngày giờ và thông tin gói nếu có. Khi cần sửa, quay lại màn hình dịch vụ để điều chỉnh.\n\n2. Kiểm tra công việc và địa chỉ. Đối chiếu Chi tiết công việc, địa chỉ thực hiện và địa chỉ chuyển đến nếu có. Bổ sung ghi chú trong trường của dịch vụ nếu biểu mẫu cung cấp.\n\n3. Kiểm tra voucher. Nhấn Thêm voucher nếu khả dụng, chọn voucher và xem kết quả áp dụng. Có thể dùng Đổi voucher hoặc Bỏ voucher; kiểm tra lại Tổng thanh toán sau khi đổi.\n\n4. Chọn nhân viên yêu thích khi cần. Nếu có nhân viên phù hợp trong danh sách, chọn người muốn gửi yêu cầu. Nếu không có, tiếp tục đặt mà không chọn. Theo dõi đơn để biết kết quả nhận việc.\n\n5. Chọn phương thức thanh toán. Mở Phương thức thanh toán hoặc nhấn Đổi, rồi chọn phương thức khả dụng. Gói định kỳ hoặc nhiều buổi yêu cầu thanh toán trước, nên tiền mặt không xuất hiện trong danh sách.\n\n6. Gửi đơn. Đối chiếu Giá dịch vụ, Giảm giá và Tổng thanh toán, sau đó nhấn Đăng việc. Chờ ứng dụng trả kết quả trước khi thao tác tiếp."
+        "text": "1. Kiểm tra lịch. Xem Thời gian làm việc, ngày giờ và thông tin gói nếu có. Khi cần sửa, quay lại màn hình dịch vụ để điều chỉnh.\n\n2. Kiểm tra công việc và địa chỉ. Đối chiếu Chi tiết công việc, địa chỉ thực hiện và địa chỉ chuyển đến nếu có. Bổ sung ghi chú trong trường của dịch vụ nếu biểu mẫu cung cấp.\n\n3. Kiểm tra voucher. Nhấn Thêm voucher nếu khả dụng, chọn voucher và xem kết quả áp dụng. Có thể dùng Đổi voucher hoặc Bỏ voucher; kiểm tra lại Tổng thanh toán sau khi đổi.\n\n4. Chọn nhân viên yêu thích khi cần. Nếu có nhân viên phù hợp trong danh sách, chọn người muốn gửi yêu cầu. Nếu không có, tiếp tục đặt mà không chọn. Theo dõi đơn để biết kết quả nhận việc.\n\n5. Chọn phương thức thanh toán. Mở Phương thức thanh toán hoặc nhấn Đổi, rồi chọn phương thức khả dụng. Gói định kỳ hoặc nhiều buổi yêu cầu thanh toán trước, nên tiền mặt không xuất hiện trong danh sách.\n\n6. Gửi đơn. Đối chiếu Giá dịch vụ, Giảm giá và Tổng thanh toán, sau đó nhấn Đặt dịch vụ. Chờ ứng dụng trả kết quả trước khi thao tác tiếp."
       },
       {
         "heading": "Điều cần lưu ý về giá",
@@ -83,14 +83,14 @@
       },
       {
         "heading": "Voucher không còn hợp lệ",
-        "text": "Kiểm tra thông báo, chọn voucher khác hoặc bỏ voucher. Đối chiếu lại Tổng thanh toán trước khi nhấn Đăng việc."
+        "text": "Kiểm tra thông báo, chọn voucher khác hoặc bỏ voucher. Đối chiếu lại Tổng thanh toán trước khi nhấn Đặt dịch vụ."
       },
       {
         "heading": "Ví không đủ tiền",
         "text": "Nạp thêm tiền vào Ví CleanWise hoặc chọn phương thức khác đang khả dụng. Gói định kỳ không cho chọn tiền mặt."
       },
       {
-        "heading": "Mất mạng sau khi nhấn Đăng việc",
+        "heading": "Mất mạng sau khi nhấn Đặt dịch vụ",
         "text": "Kiểm tra danh sách Đơn hàng để biết đơn đã được tạo chưa. Nếu chưa xác định được kết quả, tránh vội tạo đơn mới với cùng nhu cầu; giữ thông tin lỗi để đối chiếu."
       },
       {
