@@ -599,9 +599,9 @@ def create_booking(
 
     # Ví / tiền mặt: đơn nhận việc được ngay -> bắt đầu thời gian ưu tiên.
     # Chuyển khoản: kích hoạt khi thanh toán xong (xem webhook).
-    if preferred_worker and payment_method in (Payment.Method.CASH, Payment.Method.WALLET):
-        from apps.worker.assignment_service import activate_preferred_worker_request
-        activate_preferred_worker_request(booking)
+    if payment_method in (Payment.Method.CASH, Payment.Method.WALLET):
+        from apps.worker.assignment_service import open_booking_for_workers
+        open_booking_for_workers(booking)
         
     creator = actor or customer
     record_booking_activity(

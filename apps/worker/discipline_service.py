@@ -130,7 +130,7 @@ def cancellation_preview(assignment, now=None):
     pending = assignment.schedule.status == BookingSchedule.Status.PENDING
     can_cancel = pending and remaining >= timedelta(hours=MIN_CANCEL_HOURS)
     late = pending and timedelta(0) < remaining < timedelta(hours=MIN_CANCEL_HOURS)
-    deduction = 3 if late else 1 if remaining >= timedelta(hours=24) else 2
+    deduction = 3 if late else 2
     state = summary(assignment.worker_id, now)
     projected = max(0, state['score'] - deduction)
     return {
@@ -144,7 +144,7 @@ def _notify(case, title, message):
 
     transaction.on_commit(lambda: create_notification_with_push(
         user=case.assignment.worker, title=title, message=message,
-        related_booking=case.assignment.schedule.booking,
+        related_booking=case.assignment.schedule.booking, target='discipline',
     ), robust=True)
 
 

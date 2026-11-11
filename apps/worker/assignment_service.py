@@ -154,7 +154,7 @@ def activate_preferred_worker_request(booking):
         ).order_by('scheduled_start')
     )
     if not schedules:
-        return
+        return False
 
     now = timezone.now()
     for schedule in schedules:
@@ -170,6 +170,12 @@ def activate_preferred_worker_request(booking):
         schedules[0].preferred_worker,
         schedules[0].preferred_worker_expires_at,
     )
+    return True
+
+
+def open_booking_for_workers(booking):
+    if not activate_preferred_worker_request(booking):
+        transaction.on_commit(lambda: _notify_workers_available_booking(booking.pk), robust=True)
 
 _CITY_PREFIX_RE = re.compile(r'^(thành phố|tp\.?|tỉnh)\s+', re.IGNORECASE)
 
@@ -371,6 +377,35 @@ def list_available_workers_for_schedule(*, schedule_id, search=None, group='suit
         worker.cash_balance_eligible = cash_eligible
         workers.append(worker)
     return workers
+
+
+def _notify_workers_available_booking(booking_id):
+    from apps.notifications.services import notify_worker_available_job
+
+    now = timezone.now()
+    assignments = BookingAssignment.objects.filter(schedule_id=OuterRef('pk'))
+    reserved = assignments.filter(
+        Q(status=BookingAssignment.Status.ACCEPTED)
+        | Q(status=BookingAssignment.Status.PENDING, expired_at__gt=now)
+    )
+    schedules = BookingSchedule.objects.filter(
+        booking_id=booking_id, booking__status__in=OPEN_BOOKING_STATUSES,
+        status=BookingSchedule.Status.PENDING, scheduled_start__gt=now,
+    ).exclude(
+        Q(preferred_worker__isnull=False, preferred_worker_expires_at__gt=now)
+        | Exists(reserved)
+    ).select_related('booking').order_by('scheduled_start', 'pk')
+    notified = set()
+    for schedule in schedules:
+        try:
+            workers = list_available_workers_for_schedule(schedule_id=schedule.pk)
+        except serializers.ValidationError:
+            # The booking may have changed after the creation/payment transaction.
+            continue
+        for worker in workers:
+            if worker.pk not in notified:
+                notify_worker_available_job(schedule, worker)
+                notified.add(worker.pk)
 
 
 def _sync_booking_status_after_claim(booking):
