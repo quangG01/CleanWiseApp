@@ -111,8 +111,8 @@ def handle_payos_webhook(webhook_data):
         new_data={'status': Payment.Status.SUCCESS, 'payment_id': payment.id},
     )
 
-    from apps.worker.assignment_service import activate_preferred_worker_request
-    activate_preferred_worker_request(booking)
+    from apps.worker.assignment_service import open_booking_for_workers
+    open_booking_for_workers(booking)
     
     # Chuyển dư -> hoàn phần dư vào ví
     extra = amount - payment.amount

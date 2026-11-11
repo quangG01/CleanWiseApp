@@ -328,6 +328,19 @@ def notify_customer_worker_removed(schedule, worker):
 
 # ===================== WORKER =====================
 
+def notify_worker_available_job(schedule, worker):
+    booking = schedule.booking
+    return create_notification_with_push(
+        user=worker,
+        title='Có công việc mới',
+        message=f'Đơn {code(booking)} bắt đầu lúc {fmt_time(schedule.scheduled_start)}.',
+        type=Notification.Type.BOOKING,
+        related_booking=booking,
+        related_schedule=schedule,
+        extra_data={'source': 'available'},
+    )
+
+
 def notify_worker_new_job(assignment):
     booking = assignment.schedule.booking
     return create_notification_with_push(
