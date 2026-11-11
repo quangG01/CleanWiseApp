@@ -58,7 +58,7 @@ class KnowledgeTests(APITransactionTestCase):
 
     def test_revisions_retire_old_sources_and_do_not_resurrect(self):
         old = HelpArticle.objects.get(slug='thanh-toan-va-vi')
-        new = HelpArticle.objects.create(slug=old.slug, version=2, title=old.title,
+        new = HelpArticle.objects.create(slug=old.slug, version=old.version + 1, title=old.title,
             summary=old.summary, sections=[{'heading': 'Nạp tiền', 'text': 'Nạp tiền vào ví bằng hướng dẫn mới.'}],
             source_document=old.source_document, status='PUBLISHED')
         old.refresh_from_db()

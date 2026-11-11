@@ -1,5 +1,6 @@
 from django.db.models import Prefetch, Q
 from django.utils.dateparse import parse_date
+from rest_framework import serializers
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -287,6 +288,11 @@ class WorkerWorkingAreaView(generics.GenericAPIView):
         })
 
 
+class AvailableJobLocationSerializer(serializers.Serializer):
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, min_value=-90, max_value=90)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, min_value=-180, max_value=180)
+
+
 @WORKER_AVAILABLE_SCHEDULE_SCHEMA
 class WorkerAvailableScheduleListView(generics.GenericAPIView):
     permission_classes = [IsWorkerRole]
@@ -294,18 +300,19 @@ class WorkerAvailableScheduleListView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         booking_id = _parse_booking_id_param(request)
-
         sort = request.query_params.get('sort', 'time')
         if sort not in ('time', 'area', 'distance'):
             raise ValidationError({'sort': 'sort không hợp lệ.'})
 
-        lat = lng = None
-        if sort == 'distance':
-            try:
-                lat = float(request.query_params['lat'])
-                lng = float(request.query_params['lng'])
-            except (KeyError, ValueError):
-                raise ValidationError({'lat': 'Cần lat và lng hợp lệ khi sort=distance.'})
+        origin = None
+        if not booking_id and sort == 'distance':
+            params = request.query_params
+            location = AvailableJobLocationSerializer(data={
+                'latitude': params.get('latitude', params.get('lat')),
+                'longitude': params.get('longitude', params.get('lng')),
+            })
+            location.is_valid(raise_exception=True)
+            origin = (float(location.validated_data['latitude']), float(location.validated_data['longitude']))
 
         queryset = _prefetch_assignments(assignment_service.list_available_schedules_for_worker(
             request.user,
@@ -314,8 +321,7 @@ class WorkerAvailableScheduleListView(generics.GenericAPIView):
             date_to=_parse_date_param(request, 'date_to'),
             group_by_booking=request.query_params.get('group_by') == 'booking',
             sort=sort,
-            lat=lat,
-            lng=lng,
+            origin=origin,
         ))
         return _paginate_or_full(
             request, self, queryset, self.get_serializer_class(), booking_id,
@@ -494,6 +500,9 @@ class WorkerCancelAssignmentView(generics.GenericAPIView):
         assignment = assignment_service.cancel_assignment(
             assignment_id=kwargs['assignment_id'], worker=request.user,
             reason=serializer.validated_data['reason'],
+            report_late=kwargs.get('report_late', False),
+            expected_deduction=serializer.validated_data.get('expected_deduction'),
+            expected_score=serializer.validated_data.get('expected_score'),
         )
         return Response({
             'message': 'Hủy nhận việc thành công.',

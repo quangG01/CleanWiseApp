@@ -76,6 +76,21 @@ class PasswordResetOTP(models.Model):
         self.save(update_fields=['used_at'])
 
 
+class WorkerEmailChange(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    email = models.EmailField()
+    code_hash = models.CharField(max_length=128)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveIntegerField(default=0)
+
+    @staticmethod
+    def make_code_hash(user_id, email, code):
+        return salted_hmac('authentication.worker_email_change', f'{user_id}:{email}:{code}').hexdigest()
+
+    def check_code(self, code):
+        return constant_time_compare(self.code_hash, self.make_code_hash(self.user_id, self.email, code))
+
+
 class WorkerProfile(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', 'Đang hoàn thiện'
@@ -104,6 +119,10 @@ class WorkerProfile(models.Model):
         blank=True,
         null=True,
     )
+    requested_service = models.ForeignKey(
+        'services.Service', on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    service_request_token = models.UUIDField(null=True, blank=True, editable=False)
     approved_at = models.DateTimeField(blank=True, null=True)
     rejection_reason = models.TextField(blank=True, null=True)
     rejected_fields = models.JSONField(
@@ -135,6 +154,51 @@ class WorkerProfile(models.Model):
 
     def __str__(self):
         return f"Hồ sơ nhân viên: {self.user}"
+
+
+class WorkerProfileReviewEvent(models.Model):
+    class Action(models.TextChoices):
+        SUBMITTED = 'SUBMITTED', 'Gửi hồ sơ'
+        RESUBMITTED = 'RESUBMITTED', 'Gửi lại hồ sơ'
+        APPROVED = 'APPROVED', 'Duyệt hồ sơ'
+        REJECTED = 'REJECTED', 'Từ chối hồ sơ'
+        SUSPENDED = 'SUSPENDED', 'Tạm khóa hồ sơ'
+        REACTIVATED = 'REACTIVATED', 'Kích hoạt lại'
+        REVOKED = 'REVOKED', 'Thu hồi phê duyệt'
+        CONTACT_UPDATED = 'CONTACT_UPDATED', 'Sửa số điện thoại'
+        SERVICE_REQUESTED = 'SERVICE_REQUESTED', 'Yêu cầu đổi dịch vụ'
+        SERVICE_APPROVED = 'SERVICE_APPROVED', 'Duyệt đổi dịch vụ'
+        SERVICE_REJECTED = 'SERVICE_REJECTED', 'Từ chối đổi dịch vụ'
+
+    profile = models.ForeignKey(WorkerProfile, on_delete=models.CASCADE, related_name='review_events')
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='+')
+    actor_name = models.CharField(max_length=301)
+    action = models.CharField(max_length=20, choices=Action.choices)
+    previous_status = models.CharField(max_length=20, choices=WorkerProfile.Status.choices)
+    new_status = models.CharField(max_length=20, choices=WorkerProfile.Status.choices)
+    reason = models.TextField(blank=True, default='')
+    rejected_fields = models.JSONField(blank=True, default=dict)
+    changes = models.JSONField(blank=True, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'worker_profile_review_events'
+        ordering = ['-created_at', '-id']
+        indexes = [models.Index(fields=['profile', '-created_at', '-id'], name='worker_review_timeline_idx')]
+
+    @classmethod
+    def record(cls, *, profile, actor, action, previous_status, reason='', rejected_fields=None, changes=None):
+        return cls.objects.create(
+            profile=profile,
+            actor=actor,
+            actor_name=actor.get_full_name() or actor.username,
+            action=action,
+            previous_status=previous_status,
+            new_status=profile.status,
+            reason=reason or '',
+            rejected_fields=rejected_fields or {},
+            changes=changes or {},
+        )
 
 
 class WorkerVerificationDocument(models.Model):

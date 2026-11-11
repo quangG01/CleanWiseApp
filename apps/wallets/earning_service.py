@@ -1,13 +1,10 @@
-from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.bookings.models import BookingSchedule
+from apps.bookings.models import Booking
 from apps.payments.models import Payment
 
 from . import wallet_service
@@ -15,7 +12,6 @@ from .models import WalletTransaction, WorkerEarning
 
 # Hoa hồng của app: 10% trên mọi dịch vụ.
 COMMISSION_RATE = Decimal('0.10')
-EARNING_HOLD_HOURS = getattr(settings, 'EARNING_HOLD_HOURS', 24)
 
 _VND = Decimal('1')
 
@@ -25,7 +21,7 @@ def _round_vnd(value):
 
 
 def _detect_payment_method(booking):
-    """Có Payment CASH -> tiền mặt; còn lại là trả trước online (app giữ tiền)."""
+    """Có Payment CASH -> tiền mặt; còn lại là trả trước online."""
     if Payment.objects.filter(booking=booking, method=Payment.Method.CASH).exists():
         return WorkerEarning.PaymentMethod.CASH
     return WorkerEarning.PaymentMethod.ONLINE
@@ -111,13 +107,11 @@ def release_cash_commission(*, assignment):
 
 @transaction.atomic
 def record_schedule_earning(*, schedule, booking, worker):
-    """
-    Gọi trong check_out. Idempotent.
-    ONLINE: chỉ ghi sổ, tiền vào ví sau EARNING_HOLD_HOURS (release_held_earnings).
-    CASH: xử lý hoa hồng như cũ.
-    """
-    existing = WorkerEarning.objects.filter(schedule=schedule).first()
+    """Ghi tiền công khi hoàn thành buổi và cộng ví ngay với đơn online đã thanh toán."""
+    booking = Booking.objects.select_for_update().get(pk=booking.pk)
+    existing = WorkerEarning.objects.select_for_update().filter(schedule=schedule).first()
     if existing:
+        _credit_online_earning(existing, booking)
         return existing
 
     gross = calculate_gross_amount(schedule, booking)
@@ -139,7 +133,9 @@ def record_schedule_earning(*, schedule, booking, worker):
         completed_at=schedule.actual_end,
     )
 
-    if method == WorkerEarning.PaymentMethod.CASH and commission > 0:
+    if method == WorkerEarning.PaymentMethod.ONLINE:
+        _credit_online_earning(earning, booking)
+    elif commission > 0:
         assignment = schedule.assignments.filter(worker=worker, status='ACCEPTED').first()
         reserved = getattr(assignment, 'commission_reserved', None)
 
@@ -166,39 +162,38 @@ def record_schedule_earning(*, schedule, booking, worker):
     return earning
 
 
-def _has_open_complaint(earning):
-    from apps.complaints.models import Complaint
-    return Complaint.objects.filter(
-        booking_id=earning.booking_id,
-        status__in=(Complaint.Status.PENDING, Complaint.Status.IN_REVIEW),
-    ).filter(Q(schedule_id=earning.schedule_id) | Q(schedule__isnull=True)).exists()
+def _credit_online_earning(earning, booking):
+    if (earning.payment_method != WorkerEarning.PaymentMethod.ONLINE
+            or earning.wallet_credited_at or earning.voided_at
+            or booking.payment_status != Booking.PaymentStatus.PAID):
+        return
+    if earning.worker_amount > 0:
+        wallet_service.credit_wallet(
+            user=earning.worker,
+            amount=earning.worker_amount,
+            type=WalletTransaction.Type.EARNING,
+            booking=booking,
+            note=f'Thu nhập buổi {earning.schedule.sequence_no} - {booking.booking_code}',
+            idempotency_key=f'earning:{earning.id}',
+        )
+    earning.wallet_credited_at = timezone.now()
+    earning.save(update_fields=['wallet_credited_at'])
 
 
-def release_held_earnings():
-    """Cộng ví các khoản ONLINE đã qua thời gian chờ và không có khiếu nại đang mở."""
-    cutoff = timezone.now() - timedelta(hours=EARNING_HOLD_HOURS)
-    ids = list(
-        WorkerEarning.objects.filter(
-            payment_method=WorkerEarning.PaymentMethod.ONLINE,
-            wallet_credited_at__isnull=True,
-            completed_at__lte=cutoff,
-        ).values_list('id', flat=True)
-    )
-    for earning_id in ids:
+def settle_pending_online_earnings(*, booking_id=None):
+    """Ghi có khoản cũ còn tồn hoặc khoản hoàn thành trước khi xác nhận thanh toán."""
+    pending = WorkerEarning.objects.filter(
+        payment_method=WorkerEarning.PaymentMethod.ONLINE,
+        wallet_credited_at__isnull=True,
+        voided_at__isnull=True,
+        booking__payment_status=Booking.PaymentStatus.PAID,
+    ).order_by('pk')
+    if booking_id is not None:
+        pending = pending.filter(booking_id=booking_id)
+    for earning_id, earning_booking_id in list(pending.values_list('id', 'booking_id')):
         with transaction.atomic():
-            earning = WorkerEarning.objects.select_for_update().select_related(
-                'worker', 'booking', 'schedule',
+            booking = Booking.objects.select_for_update().get(pk=earning_booking_id)
+            earning = WorkerEarning.objects.select_for_update(of=('self',)).select_related(
+                'worker', 'schedule',
             ).get(pk=earning_id)
-            if earning.wallet_credited_at or earning.voided_at or _has_open_complaint(earning):
-                continue
-            if earning.worker_amount > 0:
-                wallet_service.credit_wallet(
-                    user=earning.worker,
-                    amount=earning.worker_amount,
-                    type=WalletTransaction.Type.EARNING,
-                    booking=earning.booking,
-                    note=f'Thu nhập buổi {earning.schedule.sequence_no} - {earning.booking.booking_code}',
-                    idempotency_key=f'earning:{earning.id}',
-                )
-            earning.wallet_credited_at = timezone.now()
-            earning.save(update_fields=['wallet_credited_at'])
+            _credit_online_earning(earning, booking)

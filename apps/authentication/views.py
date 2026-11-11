@@ -1,5 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import ValidationError
+from rest_framework.generics import get_object_or_404
+from rest_framework.pagination import CursorPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from drf_spectacular.types import OpenApiTypes 
@@ -50,8 +52,10 @@ from .serializers import (
     WorkerRegisterSerializer,
     WorkerProfileUpdateSerializer,
     AdminWorkerStatusUpdateSerializer,
+    AdminWorkerContactUpdateSerializer,
+    WorkerProfileReviewEventSerializer,
 )
-from .models import PasswordResetOTP, WorkerProfile
+from .models import PasswordResetOTP, WorkerProfile, WorkerProfileReviewEvent
 from .tasks import send_otp_email
 from .worker_profile import get_worker_profile_completeness
 from apps.common.permissions import IsAdminRole, IsAdminOrCustomerRole, IsWorkerRole
@@ -242,7 +246,7 @@ class WorkerProfileView(generics.GenericAPIView):
     def get_object(self):
         return (
             WorkerProfile.objects
-            .select_related('user', 'approved_by', 'registered_service')
+            .select_related('user', 'approved_by', 'registered_service', 'requested_service')
             .prefetch_related('user__verification_documents', 'user__working_areas')
             .get(user=self.request.user)
         )
@@ -298,9 +302,19 @@ class WorkerProfileSubmitView(generics.GenericAPIView):
                 'completion_percent': completeness['completion_percent'],
             })
 
+        actions = WorkerProfileReviewEvent.Action
+        action = actions.SUBMITTED
+        if profile.review_events.filter(action__in=(
+            actions.SUBMITTED, actions.RESUBMITTED, actions.REJECTED, actions.REVOKED,
+        )).exists():
+            action = actions.RESUBMITTED
         profile.status = WorkerProfile.Status.PENDING
         profile.rejection_reason = None
         profile.save(update_fields=['status', 'rejection_reason', 'updated_at'])
+        WorkerProfileReviewEvent.record(
+            profile=profile, actor=request.user, action=action,
+            previous_status=WorkerProfile.Status.DRAFT,
+        )
 
         return Response({
             'message': 'Gửi hồ sơ chờ duyệt thành công.',
@@ -320,12 +334,14 @@ class AdminWorkerProfileListView(generics.ListAPIView):
         requested_status = self.request.query_params.get("status", "ALL").upper()
         queryset = (
             WorkerProfile.objects
-            .select_related("user", "approved_by", "registered_service")
+            .select_related("user", "approved_by", "registered_service", "requested_service")
             .prefetch_related("user__verification_documents")
             .order_by("-created_at")
         )
         if requested_status == "ALL":
             return queryset
+        if requested_status == "SERVICE_CHANGE":
+            return queryset.filter(requested_service__isnull=False)
         if requested_status not in WorkerProfile.Status.values:
             raise ValidationError({"status": "Trạng thái không hợp lệ."})
         return queryset.filter(status=requested_status)
@@ -350,6 +366,38 @@ class AdminWorkerStatusUpdateView(generics.GenericAPIView):
             "message": "Cập nhật trạng thái hồ sơ nhân viên thành công.",
             "data": WorkerProfileUpdateSerializer(profile).data,
         }, status=status.HTTP_200_OK)
+
+
+class AdminWorkerContactUpdateView(generics.GenericAPIView):
+    permission_classes = [IsAdminRole]
+    serializer_class = AdminWorkerContactUpdateSerializer
+    queryset = WorkerProfile.objects.filter(user__role=User.Role.WORKER)
+
+    @extend_schema(responses=WorkerProfileUpdateSerializer, summary='Sửa số điện thoại nhân viên')
+    def patch(self, request, *args, **kwargs):
+        serializer = self.get_serializer(self.get_object(), data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+        return Response({
+            'message': 'Đã cập nhật số điện thoại nhân viên.',
+            'data': WorkerProfileUpdateSerializer(profile).data,
+        })
+
+
+class WorkerProfileReviewHistoryPagination(CursorPagination):
+    page_size = 20
+    ordering = ('-created_at', '-id')
+
+
+@extend_schema(tags=['Admin - Worker Profiles'], summary='Lịch sử duyệt hồ sơ nhân viên')
+class AdminWorkerProfileReviewHistoryView(generics.ListAPIView):
+    permission_classes = [IsAdminRole]
+    serializer_class = WorkerProfileReviewEventSerializer
+    pagination_class = WorkerProfileReviewHistoryPagination
+
+    def get_queryset(self):
+        profile = get_object_or_404(WorkerProfile.objects.only('pk'), pk=self.kwargs['pk'])
+        return profile.review_events.all()
 
 
 #========================================================================================================================

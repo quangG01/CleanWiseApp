@@ -20,6 +20,7 @@ from apps.common.permissions import (
 )
 
 from apps.notifications.realtime import push_complaint_changed
+from apps.worker.discipline_service import APPEAL_CODE
 
 from .permissions import IsComplaintOwnerOrAdmin
 
@@ -68,7 +69,7 @@ class ComplaintIssueTypeListView(generics.ListAPIView):
     def get_queryset(self):
         role = get_user_role(self.request.user)
 
-        queryset = ComplaintIssueType.objects.filter(
+        queryset = ComplaintIssueType.objects.exclude(code=APPEAL_CODE).filter(
             is_active=True,
             applies_to__in=[
                 role,
@@ -203,7 +204,7 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
 
         if schedule_filter:
             queryset = queryset.filter(
-                schedule_id=schedule_filter
+                schedule_id=schedule_filter, discipline_case__isnull=True,
             )
 
         return queryset
@@ -216,6 +217,12 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         files = request.FILES.getlist("attachments")
+        # Multipart text parts are kept in POST, separate from uploaded files.
+        if any(request.POST.getlist("attachments")):
+            return Response(
+                {"attachments": ["Không đọc được tệp đính kèm. Vui lòng chọn lại ảnh."]},
+                status=400,
+            )
 
         if len(files) > MAX_ATTACHMENTS:
             return Response(
@@ -400,6 +407,8 @@ class ComplaintPreviewView(APIView):
             ),
             pk=pk,
         )
+        if complaint.discipline_case_id:
+            raise ValidationError({'outcome': 'Khiếu nại điểm tín nhiệm chỉ xử lý điểm và hồ sơ.'})
 
         outcome = request.query_params.get(
             "outcome",
@@ -409,6 +418,7 @@ class ComplaintPreviewView(APIView):
         if outcome not in (
             Complaint.Outcome.REFUND_CUSTOMER,
             Complaint.Outcome.PAY_WORKER,
+            Complaint.Outcome.RECOVER_WORKER_EARNING,
         ):
             raise ValidationError(
                 {

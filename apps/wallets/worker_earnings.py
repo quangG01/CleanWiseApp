@@ -102,7 +102,9 @@ class WorkerEarningSummaryView(APIView):
             completed_jobs=Count('id'),
             gross_amount=_sum('gross_amount'),
             income=_sum('worker_amount'),
-            online_earned=_sum('worker_amount', filter=Q(payment_method=WorkerEarning.PaymentMethod.ONLINE)),
+            online_earned=_sum('worker_amount', filter=Q(
+                payment_method=WorkerEarning.PaymentMethod.ONLINE, wallet_credited_at__isnull=False,
+            )),
             cash_commission=_sum('commission_amount', filter=Q(payment_method=WorkerEarning.PaymentMethod.CASH)),
         )
 

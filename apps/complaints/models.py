@@ -57,6 +57,7 @@ class Complaint(models.Model):
         NONE = '', 'Không xử lý tiền'
         REFUND_CUSTOMER = 'REFUND_CUSTOMER', 'Hoàn tiền khách'
         PAY_WORKER = 'PAY_WORKER', 'Trả tiền nhân viên'
+        RECOVER_WORKER_EARNING = 'RECOVER_WORKER_EARNING', 'Thu hồi tiền công nhân viên'
 
     code = models.CharField(max_length=30, unique=True, null=True, blank=True, editable=False)
     schedule = models.ForeignKey(
@@ -65,6 +66,10 @@ class Complaint(models.Model):
     )
     booking = models.ForeignKey(
         'bookings.Booking', on_delete=models.DO_NOTHING, related_name='complaints',
+    )
+    discipline_case = models.ForeignKey(
+        'worker.WorkerDisciplineCase', on_delete=models.PROTECT, null=True, blank=True,
+        related_name='appeals',
     )
 
     # Người GỬI khiếu nại — khách hàng hoặc nhân viên.
