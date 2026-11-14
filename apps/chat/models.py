@@ -7,8 +7,11 @@ class ChatConversation(models.Model):
         ACTIVE = 'ACTIVE', 'Đang mở'
         CLOSED = 'CLOSED', 'Đã đóng'
 
-    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='customer_chat_conversations')
-    worker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='worker_chat_conversations')
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='customer_chat_conversations', null=True)
+    worker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='worker_chat_conversations', null=True)
+    administrator = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='support_chat_conversations', null=True,
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -19,10 +22,25 @@ class ChatConversation(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['customer', 'worker'], name='chat_conversation_pair_unique'),
             models.CheckConstraint(condition=~models.Q(customer=models.F('worker')), name='chat_conversation_distinct_users'),
+            models.CheckConstraint(condition=(
+                models.Q(administrator__isnull=True, customer__isnull=False, worker__isnull=False)
+                | models.Q(administrator__isnull=False, customer__isnull=False, worker__isnull=True)
+                | models.Q(administrator__isnull=False, customer__isnull=True, worker__isnull=False)
+            ), name='chat_conversation_participant_shape'),
+            models.CheckConstraint(condition=(
+                ~models.Q(administrator=models.F('customer')) & ~models.Q(administrator=models.F('worker'))
+            ), name='chat_support_distinct_users'),
+            models.UniqueConstraint(fields=['administrator', 'customer'], condition=models.Q(worker__isnull=True),
+                                    name='chat_support_customer_unique'),
+            models.UniqueConstraint(fields=['administrator', 'worker'], condition=models.Q(customer__isnull=True),
+                                    name='chat_support_worker_unique'),
         ]
 
     def __str__(self):
-        return f'{self.customer} - {self.worker}'
+        return ' - '.join(str(user) for user in (self.administrator, self.customer, self.worker) if user)
+
+    def other_participant(self, user_id):
+        return next(user for user in (self.administrator, self.customer, self.worker) if user and user.pk != user_id)
 
 
 class ChatConversationAssignment(models.Model):

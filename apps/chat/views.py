@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db.models import F, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
@@ -17,6 +18,9 @@ from .serializers import (
 from .service import can_send, display_name, mark_messages_read, send_text_message
 from .policy import policy_status
 from apps.common.throttling import WriteScopedThrottleMixin
+from apps.common.permissions import IsAdminRole
+from .queries import participant_filter
+from .service import participant_conversation
 
 
 def visible_messages(conversation, user):
@@ -29,17 +33,9 @@ def received_unread_messages(conversation, user):
 
 def total_unread_messages(user):
     return ChatMessage.objects.filter(
-        Q(conversation__customer=user) | Q(conversation__worker=user),
+        participant_filter(user, 'conversation__'),
         is_read=False,
     ).filter(unread_message_filter(user)).count()
-
-
-def get_participant_conversation(conversation_id, user):
-    return get_object_or_404(
-        ChatConversation.objects.select_related('customer', 'worker'),
-        Q(customer=user) | Q(worker=user),
-        pk=conversation_id,
-    )
 
 
 def assignment_summary(assignment):
@@ -61,7 +57,7 @@ def assignment_summary(assignment):
 
 def conversation_summary(conversation, user):
     moderation = policy_status(user)
-    other = conversation.worker if user.id == conversation.customer_id else conversation.customer
+    other = conversation.other_participant(user.pk)
     avatar = other.avatar
     if other.id == conversation.worker_id:
         avatar = getattr(getattr(other, 'worker_profile', None), 'avatar', None) or avatar
@@ -78,9 +74,9 @@ def conversation_summary(conversation, user):
         'updated_at': conversation.updated_at,
         'other_user': {
             'id': other.id,
-            'name': display_name(other),
+            'name': 'CleanWise · CSKH' if other.pk == conversation.administrator_id else display_name(other),
             'avatar': avatar,
-            'role': other.role,
+            'role': other.Role.ADMIN if other.pk == conversation.administrator_id else other.role,
         },
         'last_message': last.message if last else None,
         'last_message_at': last.created_at if last else None,
@@ -124,11 +120,12 @@ class ConversationListView(generics.GenericAPIView):
         last_visible = ChatMessage.objects.filter(conversation_id=OuterRef('pk')).filter(
             visible_message_filter(request.user)
         ).order_by('-id')
-        queryset = ChatConversation.objects.filter(
-            Q(customer=request.user) | Q(worker=request.user)
-        ).select_related('customer', 'worker', 'worker__worker_profile').annotate(
+        queryset = ChatConversation.objects.filter(participant_filter(request.user)).select_related(
+            'customer', 'worker', 'administrator', 'worker__worker_profile',
+        ).annotate(
             last_visible_at=Subquery(last_visible.values('created_at')[:1]),
         ).order_by(Coalesce(F('last_visible_at'), F('updated_at')).desc(), '-id')
+        queryset = queryset.filter(Q(administrator__isnull=True) | Q(last_visible_at__isnull=False))
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request, view=self)
         results = [conversation_summary(conversation, request.user) for conversation in page]
@@ -146,7 +143,7 @@ class ConversationListView(generics.GenericAPIView):
 
 class ConversationDetailView(generics.GenericAPIView):
     def get(self, request, conversation_id):
-        conversation = get_participant_conversation(conversation_id, request.user)
+        conversation = participant_conversation(conversation_id, request.user)
         links = conversation.assignment_links.select_related(
             'assignment__schedule__booking__service',
         ).order_by('-assignment__assigned_at', '-assignment_id')
@@ -166,7 +163,7 @@ class MessageListView(generics.GenericAPIView):
         params = self.get_serializer(data=request.data)
         params.is_valid(raise_exception=True)
         values = params.validated_data
-        conversation = get_participant_conversation(values['conversation_id'], request.user)
+        conversation = participant_conversation(values['conversation_id'], request.user)
         messages = visible_messages(conversation, request.user).order_by('-id')
         if values.get('cursor') is not None:
             messages = messages.filter(id__lt=values['cursor'])
@@ -201,3 +198,20 @@ class MessageReadView(generics.GenericAPIView):
     def post(self, request):
         count = mark_messages_read(request.user, request.data)
         return Response({'message': 'Đánh dấu đã đọc thành công.', 'data': {'marked_read': count}})
+
+
+class SupportConversationView(generics.GenericAPIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, user_id):
+        user_model = get_user_model()
+        user = get_object_or_404(
+            user_model.objects.exclude(pk=request.user.pk),
+            pk=user_id,
+            role__in=(user_model.Role.CUSTOMER, user_model.Role.WORKER),
+        )
+        participant = 'customer' if user.role == user_model.Role.CUSTOMER else 'worker'
+        conversation, _ = ChatConversation.objects.get_or_create(
+            administrator=request.user, **{participant: user},
+        )
+        return Response({'data': conversation_summary(conversation, request.user)})

@@ -35,11 +35,13 @@ def publish_message(message_id):
         recipients = (
             [message.recipient_id]
             if message.message_type == ChatMessage.MessageType.SYSTEM
-            else [message.conversation.customer_id, message.conversation.worker_id]
+            else [message.conversation.customer_id, message.conversation.worker_id, message.conversation.administrator_id]
         )
         payload = dict(ChatMessageSerializer(message).data)
         layer = get_channel_layer()
         for user_id in recipients:
+            if user_id is None:
+                continue
             async_to_sync(layer.group_send)(
                 user_group(user_id), {'type': 'chat.message', 'payload': payload},
             )

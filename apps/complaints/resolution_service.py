@@ -54,7 +54,7 @@ def _clawed(schedule):
     return _sum_tx(f'clawback:schedule:{schedule.id}:', TX.Direction.DEBIT)
 
 
-def _net_refunded(schedule):
+def net_schedule_refunded(schedule):
     """Khách đã được hoàn bao nhiêu cho buổi này (đã trừ phần thu hồi)."""
     return _sum_tx(f'refund:schedule:{schedule.id}:', TX.Direction.CREDIT) - _clawed(schedule)
 
@@ -108,7 +108,7 @@ def _refund_customer(*, complaint, admin, charge_worker):
     booking, schedule = complaint.booking, complaint.schedule
     _validate_customer_refund(booking, schedule)
 
-    cap = refund_service.per_session_refund_amount(booking) - _net_refunded(schedule)
+    cap = refund_service.per_session_refund_amount(booking) - net_schedule_refunded(schedule)
     if cap <= 0:
         raise serializers.ValidationError({'outcome': 'Buổi này đã được hoàn đủ cho khách.'})
 
@@ -183,7 +183,7 @@ def _pay_worker(*, complaint, admin):
 
     owed = (
         max(ZERO, refund_service.per_session_refund_amount(booking) - _clawed(schedule))
-        if cash else _net_refunded(schedule)
+        if cash else net_schedule_refunded(schedule)
     )
     taken = short = ZERO
     if owed > 0:
@@ -246,7 +246,7 @@ def preview_outcome(*, complaint, outcome, charge_worker=True):
     if outcome == Complaint.Outcome.REFUND_CUSTOMER:
         _validate_customer_refund(booking, schedule)
         remaining = (booking.total_amount or ZERO) - (booking.refunded_amount or ZERO)
-        refund = min(session_paid - _net_refunded(schedule), remaining)
+        refund = min(session_paid - net_schedule_refunded(schedule), remaining)
         if refund <= 0:
             raise serializers.ValidationError({'outcome': 'Buổi này đã được hoàn đủ cho khách.'})
 
@@ -284,7 +284,7 @@ def preview_outcome(*, complaint, outcome, charge_worker=True):
         else:
             payout = earning.worker_amount
 
-        owed = max(ZERO, session_paid - _clawed(schedule)) if cash else _net_refunded(schedule)
+        owed = max(ZERO, session_paid - _clawed(schedule)) if cash else net_schedule_refunded(schedule)
         take = min(owed, _balance(booking.customer))
         if owed > take:
             notes.append('Ví khách không đủ để thu hồi hết, nền tảng chịu phần thiếu.')

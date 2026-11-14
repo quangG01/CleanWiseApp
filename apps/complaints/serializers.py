@@ -21,6 +21,8 @@ from .models import (
     Complaint,
     ComplaintAttachment,
     ComplaintIssueType,
+    ComplaintEvent,
+    ComplaintProposal,
 )
 
 AUTO_CANCEL_COMPLAINT_HOURS = getattr(settings, 'AUTO_CANCEL_COMPLAINT_HOURS', 72)
@@ -56,7 +58,8 @@ class ComplaintAttachmentSerializer(serializers.ModelSerializer):
 class ComplaintCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Complaint
-        fields = ['id', 'code', 'booking', 'schedule', 'issue_type', 'content', 'discipline_case']
+        fields = ['id', 'code', 'booking', 'schedule', 'issue_type', 'content', 'discipline_case',
+                  'requested_resolution']
         read_only_fields = ['id', 'code']
 
     def validate_booking(self, booking):
@@ -121,6 +124,8 @@ class ComplaintCreateSerializer(serializers.ModelSerializer):
         schedule = attrs.get('schedule')
         issue_type = attrs['issue_type']
         worked_claim = issue_type.code == WORKED_AUTO_CANCELLED_CODE
+        if attrs.get('requested_resolution') and role != 'CUSTOMER':
+            raise serializers.ValidationError({'requested_resolution': 'Chỉ áp dụng cho khiếu nại của khách.'})
         discipline_case = attrs.get('discipline_case')
 
         if schedule and schedule.booking_id != booking.id:
@@ -240,6 +245,7 @@ class ComplaintListSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source='get_status_display', read_only=True)
     reporter_name = serializers.CharField(source='reporter.get_full_name', read_only=True)
     worker_name = serializers.CharField(source='worker.get_full_name', read_only=True, default=None)
+    workflow_status = serializers.CharField(read_only=True, default=None)
 
     class Meta:
         model = Complaint
@@ -248,12 +254,42 @@ class ComplaintListSerializer(serializers.ModelSerializer):
             'reporter_role', 'issue_type', 'issue_type_code', 'issue_type_name',
             'stage', 'stage_label', 'status',
             'reporter_name', 'worker', 'worker_name',
-            'status_label', 'created_at',
+            'status_label', 'created_at', 'workflow_status',
         ]
         
         
+class ComplaintEventSerializer(serializers.ModelSerializer):
+    label = serializers.CharField(source='get_kind_display')
+
+    class Meta:
+        model = ComplaintEvent
+        fields = ['id', 'kind', 'label', 'message', 'is_public', 'created_at']
+
+
+class ComplaintProposalSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(source='get_status_display')
+    service_action_label = serializers.CharField(source='get_service_action_display')
+    refund_scope_label = serializers.CharField(source='get_refund_scope_display')
+    worker_name = serializers.CharField(source='worker.get_full_name', default=None)
+    voucher_code = serializers.CharField(source='voucher.code', default=None)
+    refund_transaction_code = serializers.CharField(source='refund_transaction.code', default=None)
+    fulfillment_booking = serializers.IntegerField(source='fulfilled_schedule.booking_id', default=None)
+    fulfillment_booking_code = serializers.CharField(source='fulfilled_schedule.booking.booking_code', default=None)
+
+    class Meta:
+        model = ComplaintProposal
+        fields = [
+            'id', 'status', 'status_label', 'message', 'service_action', 'service_action_label',
+            'scheduled_start', 'worker', 'worker_name', 'fulfilled_schedule', 'refund_scope',
+            'refund_scope_label', 'refund_amount', 'refund_transaction_code', 'voucher_code',
+            'fulfillment_booking', 'fulfillment_booking_code',
+        ]
+
+
 class ComplaintDetailSerializer(serializers.ModelSerializer):
     booking_code = serializers.CharField(source='booking.booking_code', read_only=True)
+    customer_id = serializers.IntegerField(source='booking.customer_id', read_only=True)
+    customer_name = serializers.CharField(source='booking.customer.get_full_name', read_only=True)
     schedule_sequence_no = serializers.IntegerField(
         source='schedule.sequence_no', read_only=True, default=None,
     )
@@ -270,11 +306,19 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
     my_amount = serializers.SerializerMethodField()
     booking_is_cash = serializers.SerializerMethodField()
     service_used = serializers.SerializerMethodField()
+    events = serializers.SerializerMethodField()
+    proposal = serializers.SerializerMethodField()
+    assigned_to_name = serializers.SerializerMethodField()
+    can_manage_workflow = serializers.SerializerMethodField()
+    requested_resolution_label = serializers.CharField(source='get_requested_resolution_display')
+    scheduled_start = serializers.DateTimeField(source='schedule.scheduled_start', default=None)
+    actual_start = serializers.DateTimeField(source='schedule.actual_start', default=None)
+    schedule_status = serializers.CharField(source='schedule.status', default=None)
 
     class Meta:
         model = Complaint
         fields = [
-            'id', 'code', 'reporter', 'reporter_role', 'reporter_name',
+            'id', 'code', 'reporter', 'reporter_role', 'reporter_name', 'customer_id', 'customer_name',
             'worker', 'worker_name',
             'booking', 'booking_code', 'booking_is_cash', 'service_used', 'schedule', 'schedule_sequence_no',
             'issue_type', 'issue_type_code', 'issue_type_name',
@@ -285,8 +329,32 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
             'outcome', 'refund_amount', 'my_amount',
             'customer_delta', 'worker_delta', 'shortfall',
             'created_at', 'attachments', 'discipline_case',
+            'requested_resolution', 'requested_resolution_label', 'assigned_to', 'assigned_to_name', 'assigned_at',
+            'next_update_at', 'events', 'proposal', 'scheduled_start', 'actual_start', 'can_manage_workflow',
+            'schedule_status',
         ]
         read_only_fields = fields
+
+    def get_events(self, obj):
+        request = self.context.get('request')
+        events = obj.events.all()
+        if not (request and (get_user_role(request.user) == 'ADMIN' or request.user.is_superuser)):
+            events = events.filter(is_public=True)
+        return ComplaintEventSerializer(events, many=True).data
+
+    def get_proposal(self, obj):
+        proposal = obj.proposals.select_related(
+            'worker', 'voucher', 'refund_transaction', 'fulfilled_schedule__booking',
+        ).first()
+        return ComplaintProposalSerializer(proposal).data if proposal else None
+
+    def get_assigned_to_name(self, obj):
+        return (obj.assigned_to.get_full_name() or obj.assigned_to.username) if obj.assigned_to_id else None
+
+    def get_can_manage_workflow(self, obj):
+        request = self.context.get('request')
+        return bool(request and obj.assigned_to_id and
+                    (request.user.pk == obj.assigned_to_id or request.user.is_superuser))
 
     def get_booking_is_cash(self, obj):
         return any(p.method == 'CASH' for p in obj.booking.payments.all())
@@ -308,6 +376,9 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
         if not (request and get_user_role(request.user) == 'ADMIN'):
             for key in ('customer_delta', 'worker_delta', 'shortfall'):
                 data.pop(key, None)
+        if not (request and (get_user_role(request.user) == 'ADMIN' or request.user.is_superuser)):
+            data.pop('customer_id', None)
+            data.pop('customer_name', None)
         return data
     
     
@@ -332,6 +403,8 @@ class ComplaintResolveSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         c = self.instance
+        if c.reporter_role == Complaint.ReporterRole.CUSTOMER and (c.assigned_to_id or c.proposals.exists()):
+            raise serializers.ValidationError('Hãy xử lý hồ sơ khách hàng qua quy trình CSKH.')
         if c.status in (
             Complaint.Status.RESOLVED, Complaint.Status.REJECTED, Complaint.Status.CANCELLED,
         ):
