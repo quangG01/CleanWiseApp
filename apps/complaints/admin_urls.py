@@ -2,6 +2,7 @@
 
 from django.urls import path
 from apps.worker.discipline_views import AdminDisciplineDetailView, AdminDisciplineView
+from .workflow_views import AdminComplaintWorkflowView
 
 from .views import (
     ComplaintDetailView,
@@ -12,6 +13,7 @@ from .views import (
 
 
 urlpatterns = [
+    path('complaints/<int:pk>/workflow/', AdminComplaintWorkflowView.as_view(), name='admin-complaint-workflow'),
     path('worker-discipline/', AdminDisciplineView.as_view(), name='admin-discipline-list'),
     path('worker-discipline/<int:pk>/', AdminDisciplineDetailView.as_view(), name='admin-discipline-detail'),
     path(

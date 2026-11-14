@@ -1,7 +1,6 @@
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.utils.crypto import salted_hmac
-from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -14,7 +13,7 @@ from .moderation import detect_violation
 from .redaction import redact_contacts
 from .policy import ChatPolicyError, policy_status, locked_detail, record_violation
 from .realtime import publish_conversation, publish_message, publish_read, publish_moderation
-from .queries import unread_message_filter
+from .queries import participant_filter, unread_message_filter
 from .serializers import MessageReadInputSerializer, MessageSendInputSerializer
 
 
@@ -25,6 +24,10 @@ def display_name(user):
 def can_send(conversation):
     if conversation.status != ChatConversation.Status.ACTIVE:
         return False
+    if conversation.administrator_id:
+        other = conversation.customer or conversation.worker
+        admin = conversation.administrator
+        return other.is_active and admin.is_active and (admin.role == 'ADMIN' or admin.is_superuser)
     return conversation.assignment_links.filter(
         assignment__status=BookingAssignment.Status.ACCEPTED,
         assignment__schedule__status__in=(BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS),
@@ -61,8 +64,8 @@ def ensure_chat_for_assignment(assignment):
 
 def participant_conversation(conversation_id, user):
     return get_object_or_404(
-        ChatConversation.objects.select_related('customer', 'worker'),
-        Q(customer=user) | Q(worker=user), pk=conversation_id,
+        ChatConversation.objects.select_related('customer', 'worker', 'administrator'),
+        participant_filter(user), pk=conversation_id,
     )
 
 
@@ -83,6 +86,8 @@ def send_text_message(user, data):
 def _send_text_transaction(user, values):
     conversation = participant_conversation(values['conversation_id'], user)
     if not can_send(conversation):
+        if conversation.administrator_id:
+            raise PermissionDenied('Cuộc trò chuyện hỗ trợ hiện không nhận tin nhắn.')
         raise PermissionDenied('Hiện không có lịch phân công còn hiệu lực để gửi tin.')
     # Serialize every send by this user, even across different conversations.
     get_user_model().objects.select_for_update().get(pk=user.pk)
@@ -136,6 +141,6 @@ def mark_messages_read(user, data):
     last_read_id = unread.order_by('-id').values_list('id', flat=True).first()
     count = unread.update(is_read=True)
     if last_read_id is not None:
-        other_id = conversation.worker_id if user.id == conversation.customer_id else conversation.customer_id
+        other_id = conversation.other_participant(user.pk).pk
         transaction.on_commit(lambda: publish_read(conversation.id, user.id, last_read_id, other_id))
     return count

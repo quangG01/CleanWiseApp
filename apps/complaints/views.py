@@ -5,13 +5,13 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from django.db import transaction
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.conf import settings
 from apps.common.cloudinary_storage import upload_image
 
-from .models import Complaint, ComplaintAttachment, ComplaintIssueType
+from .models import Complaint, ComplaintAttachment, ComplaintIssueType, ComplaintProposal
 
 from apps.common.permissions import (
     IsAdminRole,
@@ -139,6 +139,11 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
             "schedule",
         ).prefetch_related("attachments")
 
+        queryset = queryset.annotate(workflow_status=Subquery(
+            ComplaintProposal.objects.filter(complaint_id=OuterRef('pk'))
+            .order_by('-pk').values('status')[:1],
+        ))
+
         schedule_filter = self.request.query_params.get("schedule")
 
         user = self.request.user
@@ -153,10 +158,14 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
             reporter_role_filter = self.request.query_params.get(
                 "reporter_role"
             )
+            workflow_filter = self.request.query_params.get("workflow_status")
             worker_filter = self.request.query_params.get("worker")
 
             if status_filter:
                 queryset = queryset.filter(status=status_filter)
+
+            if workflow_filter in (ComplaintProposal.Status.SENT, ComplaintProposal.Status.ACCEPTED):
+                queryset = queryset.filter(status=Complaint.Status.IN_REVIEW, workflow_status=workflow_filter)
 
             if stage_filter:
                 queryset = queryset.filter(stage=stage_filter)
@@ -486,11 +495,12 @@ class ComplaintAttachmentUploadView(
         IsCustomerOrWorkerRole,
     ]
 
+    @transaction.atomic
     def perform_create(self, serializer):
         from rest_framework.exceptions import ValidationError
 
         complaint = get_object_or_404(
-            Complaint,
+            Complaint.objects.select_for_update(),
             pk=self.kwargs["pk"],
             reporter=self.request.user,
         )
@@ -538,3 +548,4 @@ class ComplaintAttachmentUploadView(
             public_id=up["public_id"],
             file_type=f.content_type or "",
         )
+        push_complaint_changed(complaint.pk)

@@ -12,3 +12,9 @@ celerybeat-schedule*
 .venv/
 staticfiles/
 *.log
+
+myenv/
+.local/
+exports/
+*.apk
+package-lock.json

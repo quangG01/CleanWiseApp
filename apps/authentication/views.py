@@ -338,6 +338,11 @@ class AdminWorkerProfileListView(generics.ListAPIView):
             .prefetch_related("user__verification_documents")
             .order_by("-created_at")
         )
+        user_id = self.request.query_params.get("user_id")
+        if user_id is not None:
+            if not user_id.isascii() or not user_id.isdecimal() or len(user_id) > 18:
+                raise ValidationError({"user_id": "ID nhân viên không hợp lệ."})
+            queryset = queryset.filter(user_id=int(user_id))
         if requested_status == "ALL":
             return queryset
         if requested_status == "SERVICE_CHANGE":
@@ -611,6 +616,8 @@ class CustomTokenRefreshView(TokenRefreshView):
         serializer = TokenRefreshSerializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
+        except User.DoesNotExist as e:
+            raise InvalidToken('Tài khoản không còn tồn tại. Vui lòng đăng nhập lại.') from e
         except TokenError as e:
             raise InvalidToken(e.args[0])
 

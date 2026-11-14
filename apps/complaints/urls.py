@@ -1,6 +1,7 @@
 # apps/complaints/urls.py
 
 from django.urls import path
+from .workflow_views import CustomerComplaintWorkflowView
 
 from .views import (
     ComplaintCancelView,
@@ -12,6 +13,7 @@ from .views import (
 
 
 urlpatterns = [
+    path('complaints/<int:pk>/workflow/', CustomerComplaintWorkflowView.as_view(), name='customer-complaint-workflow'),
     path(
         'complaint-issue-types/',
         ComplaintIssueTypeListView.as_view(),
