@@ -72,6 +72,7 @@ def send_schedule_reminders_task():
                 
 @shared_task
 def notify_preferred_expired_task():
+    from apps.bookings.realtime import publish_booking_changed
     from apps.notifications.services import notify_customer_preferred_expired
     from .assignment_service import OPEN_BOOKING_STATUSES
 
@@ -98,6 +99,7 @@ def notify_preferred_expired_task():
         ).update(preferred_expiry_notified_at=now)
         if claimed and schedule.booking_id not in seen:
             seen.add(schedule.booking_id)
+            publish_booking_changed(schedule.booking_id)
             notify_customer_preferred_expired(schedule.booking, schedule.preferred_worker)
 
 

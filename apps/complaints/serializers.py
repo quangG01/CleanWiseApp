@@ -17,6 +17,7 @@ from apps.worker import discipline_service
 from apps.worker.models import WorkerDisciplineCase
 
 from . import resolution_service
+from .attachments import validate_complaint_image
 from .models import (
     Complaint,
     ComplaintAttachment,
@@ -47,12 +48,7 @@ class ComplaintAttachmentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'file', 'file_type', 'created_at']
 
     def validate_file(self, value):
-        allowed = ('image/jpeg', 'image/png', 'image/webp')
-        if value.content_type not in allowed:
-            raise serializers.ValidationError('Chỉ chấp nhận file ảnh (jpeg/png/webp).')
-        if value.size > 5 * 1024 * 1024:
-            raise serializers.ValidationError('Ảnh tối đa 5MB.')
-        return value
+        return validate_complaint_image(value)
 
 
 class ComplaintCreateSerializer(serializers.ModelSerializer):
@@ -307,6 +303,9 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
     booking_is_cash = serializers.SerializerMethodField()
     service_used = serializers.SerializerMethodField()
     events = serializers.SerializerMethodField()
+    supplement = serializers.SerializerMethodField()
+    worker_statement = serializers.SerializerMethodField()
+    redo_earnings = serializers.SerializerMethodField()
     proposal = serializers.SerializerMethodField()
     assigned_to_name = serializers.SerializerMethodField()
     can_manage_workflow = serializers.SerializerMethodField()
@@ -331,7 +330,7 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
             'created_at', 'attachments', 'discipline_case',
             'requested_resolution', 'requested_resolution_label', 'assigned_to', 'assigned_to_name', 'assigned_at',
             'next_update_at', 'events', 'proposal', 'scheduled_start', 'actual_start', 'can_manage_workflow',
-            'schedule_status',
+            'schedule_status', 'supplement', 'worker_statement', 'redo_earnings',
         ]
         read_only_fields = fields
 
@@ -341,6 +340,28 @@ class ComplaintDetailSerializer(serializers.ModelSerializer):
         if not (request and (get_user_role(request.user) == 'ADMIN' or request.user.is_superuser)):
             events = events.filter(is_public=True)
         return ComplaintEventSerializer(events, many=True).data
+
+    def get_supplement(self, obj):
+        from .workflow import supplement_status
+
+        return supplement_status(obj) if obj.reporter_role == Complaint.ReporterRole.CUSTOMER else None
+
+    def get_worker_statement(self, obj):
+        request = self.context.get('request')
+        if not request or not (get_user_role(request.user) == 'ADMIN' or request.user.is_superuser):
+            return None
+        from .worker_statement import WorkerStatementSerializer
+
+        statement = getattr(obj, 'worker_statement', None)
+        return WorkerStatementSerializer(statement).data if statement else None
+
+    def get_redo_earnings(self, obj):
+        request = self.context.get('request')
+        if not request or not (get_user_role(request.user) == 'ADMIN' or request.user.is_superuser):
+            return None
+        from .workflow import redo_earnings
+
+        return redo_earnings(obj)
 
     def get_proposal(self, obj):
         proposal = obj.proposals.select_related(

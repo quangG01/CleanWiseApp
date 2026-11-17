@@ -1,6 +1,7 @@
 # apps/complaints/worker_urls.py
 
 from django.urls import path
+from .worker_statement import WorkerStatementListView, WorkerStatementReplyView
 
 from .views import (
     ComplaintCancelView,
@@ -12,6 +13,8 @@ from .views import (
 
 
 urlpatterns = [
+    path('complaint-statements/', WorkerStatementListView.as_view(), name='worker-complaint-statements'),
+    path('complaint-statements/<int:pk>/reply/', WorkerStatementReplyView.as_view(), name='worker-complaint-statement-reply'),
     path(
         'complaint-issue-types/',
         ComplaintIssueTypeListView.as_view(),

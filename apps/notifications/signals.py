@@ -139,9 +139,9 @@ def handle_worker_profile_status_change(sender, instance, created, **kwargs):
         name = f'{instance.user.last_name} {instance.user.first_name}'.strip() or instance.user.username
         admins = get_user_model().objects.filter(Q(role='ADMIN') | Q(is_superuser=True), is_active=True)
         for admin in admins:
-            Notification.objects.create(user=admin, title='Hồ sơ mới chờ duyệt',
+            notification = Notification.objects.create(user=admin, title='Hồ sơ mới chờ duyệt',
                 message=f'{name} vừa gửi hồ sơ xét duyệt.', related_worker=instance)
-            push_unread_count(admin.id)
+            push_unread_count(admin.id, notification=notification)
     push_profile_review_changed(instance.pk)
     if new_status == WorkerProfile.Status.ACTIVE:
         notify_worker_profile_approved(instance)

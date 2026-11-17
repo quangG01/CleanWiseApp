@@ -1,3 +1,6 @@
+from django.contrib.auth import get_user_model
+from django.db.models import Q
+from django.utils.text import Truncator
 from django.utils import timezone
 from django.db import transaction
 
@@ -27,13 +30,15 @@ def display_name(user) -> str:
 
 def create_notification(user, title, message, type=Notification.Type.SYSTEM,
                         related_booking=None, related_schedule=None, navigation_source='mine',
-                        target=''):
+                        target='', *, related_customer=None, related_complaint=None):
     target = target or ('booking' if related_booking else 'none')
     notif = Notification.objects.create(
         user=user, title=title, message=message, type=type, navigation_source=navigation_source,
         related_booking=related_booking, related_schedule=related_schedule, target=target,
+        related_customer=related_customer,
+        related_complaint=related_complaint,
     )
-    push_unread_count(user.id)
+    push_unread_count(user.id, notification=notif)
     return notif
 
 
@@ -484,8 +489,6 @@ def notify_withdraw_result(withdraw):
 
 
 def notify_admins_withdraw_review(withdraw_id, note):
-    from django.contrib.auth import get_user_model
-
     admins = get_user_model().objects.filter(role='ADMIN', is_active=True)
     for admin in admins:
         create_notification(
@@ -495,14 +498,26 @@ def notify_admins_withdraw_review(withdraw_id, note):
         )
 
 
+def notify_admins_customer_complaint(complaint):
+    user_model = get_user_model()
+    admins = user_model.objects.filter(Q(role=user_model.Role.ADMIN) | Q(is_superuser=True), is_active=True)
+    title = Truncator(f'Khiếu nại mới từ {display_name(complaint.reporter)}').chars(150)
+    for admin in admins:
+        create_notification(
+            admin, title, f'Mã hồ sơ {complaint.code}',
+            type=Notification.Type.COMPLAINT, target='complaint',
+            related_booking=complaint.booking, related_complaint=complaint,
+        )
+
+
 def notify_admin_announcement(users, title, message):
     notifs = Notification.objects.bulk_create([
         Notification(user=user, title=title, message=message, type=Notification.Type.SYSTEM)
         for user in users
     ])
-    for user in users:
-        send_push_to_user(user, title, message)
-        push_unread_count(user.id)
+    for notification in notifs:
+        send_push_to_user(notification.user, title, message)
+        push_unread_count(notification.user_id, notification=notification)
     return notifs
 
 

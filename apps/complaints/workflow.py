@@ -16,12 +16,13 @@ from apps.payments.models import Payment
 from apps.vouchers.models import Voucher
 from apps.vouchers.voucher_service import assign_voucher_to_customer
 from apps.wallets import earning_service, refund_service
-from apps.wallets.models import WalletTransaction
+from apps.wallets.models import WalletTransaction, WorkerEarning
 from apps.worker.models import BookingAssignment
-from apps.worker.invitation_service import send_invitation
 
-from .models import Complaint, ComplaintEvent as Event, ComplaintProposal as Proposal
-from .resolution_service import apply_outcome, net_schedule_refunded
+from .attachments import MAX_COMPLAINT_ATTACHMENTS, uploaded_complaint_images
+from .models import Complaint, ComplaintAttachment, ComplaintEvent as Event, ComplaintProposal as Proposal
+from .resolution_service import apply_outcome, net_schedule_refunded, preview_outcome
+from .worker_statement import request_statement
 
 
 def record(complaint, actor, kind, message, *, public=True):
@@ -85,13 +86,14 @@ def create_proposal(complaint, data):
     start = data.get('scheduled_start')
     if action:
         require(start and start > timezone.now(), 'Nhập lịch thực hiện trong tương lai.')
-        require(worker and worker.role == get_user_model().Role.WORKER and worker.is_active,
-                'Chọn tài khoản nhân viên đang hoạt động.')
         require(complaint.schedule_id, 'Phương án dịch vụ cần gắn với buổi bị khiếu nại.')
         if action == Proposal.ServiceAction.REDO:
+            worker = None
             require(complaint.schedule.status == BookingSchedule.Status.COMPLETED,
                     'Chỉ tạo buổi làm lại cho buổi đã hoàn thành.')
         else:
+            require(worker and worker.role == get_user_model().Role.WORKER and worker.is_active,
+                    'Chọn tài khoản nhân viên đang hoạt động.')
             require(complaint.schedule.status == BookingSchedule.Status.PENDING,
                     'Chỉ đổi lịch hoặc nhân viên cho buổi chưa bắt đầu.')
     else:
@@ -108,7 +110,7 @@ def create_proposal(complaint, data):
     )
 
 
-def schedule_redo(complaint, proposal, actor):
+def schedule_redo(complaint, proposal, actor, data):
     require(proposal.status == Proposal.Status.ACCEPTED and proposal.service_action == Proposal.ServiceAction.REDO,
             'Khách chưa đồng ý phương án làm lại.')
     if proposal.fulfilled_schedule_id:
@@ -119,9 +121,28 @@ def schedule_redo(complaint, proposal, actor):
     require(start > timezone.now() + timedelta(minutes=30), 'Lịch làm lại cần cách hiện tại hơn 30 phút.')
     gross = earning_service.calculate_gross_amount(original, source)
     require(gross > 0, 'Không xác định được tiền công của buổi gốc.')
+    if data.get('recover_worker_earning'):
+        statement = getattr(complaint, 'worker_statement', None)
+        require(statement and statement.status in ('SUBMITTED', 'EXPIRED'),
+                'Cần nhận giải trình hoặc chờ hết hạn trước khi thu hồi.')
+        apply_outcome(complaint=complaint, admin=actor, outcome=Complaint.Outcome.RECOVER_WORKER_EARNING)
+        complaint.save(update_fields=['outcome', 'worker_delta', 'shortfall'])
+        record(complaint, actor, Event.Kind.VERIFY,
+               f'Căn cứ thu hồi tiền công buổi gốc: {data["recovery_basis"]}', public=False)
+        if not complaint.worker_delta:
+            create_notification_with_push(
+                complaint.worker, 'Kết quả xem xét tiền công',
+                f'Khiếu nại {complaint.code}: chưa trừ tiền vì số dư ví không đủ.',
+                type=Notification.Type.PAYMENT, target='wallet',
+            )
+    local_start = timezone.localtime(start)
+    service_data = {**source.service_data}
+    for key, value in {'date': local_start.date().isoformat(), 'start_time': local_start.strftime('%H:%M')}.items():
+        if key in service_data:
+            service_data[key] = value
     booking = Booking.objects.create(
         booking_code=_generate_booking_code(), customer=source.customer, service=source.service,
-        address=source.address, delivery_address=source.delivery_address, service_data=source.service_data,
+        address=source.address, delivery_address=source.delivery_address, service_data=service_data,
         note=f'Làm lại miễn phí theo khiếu nại {complaint.code}.',
         payment_status=Booking.PaymentStatus.PAID, subtotal_amount=0, total_amount=0,
         price_breakdown={
@@ -137,12 +158,36 @@ def schedule_redo(complaint, proposal, actor):
         booking=booking, schedule=schedule, actor=actor,
         event_type=BookingActivity.EventType.BOOKING_CREATED, message=booking.note,
     )
-    send_invitation(schedule_id=schedule.pk, worker_id=proposal.worker_id, admin_user=actor)
     proposal.fulfilled_schedule = schedule
-    proposal.save(update_fields=['fulfilled_schedule'])
+    proposal.worker = None
+    proposal.save(update_fields=['fulfilled_schedule', 'worker'])
     record(complaint, actor, Event.Kind.ACK,
-           f'Đã tạo đơn làm lại {booking.booking_code}. Đang chờ nhân viên nhận lịch.')
-    notify(complaint, 'Đã tạo buổi làm lại', f'Đơn làm lại miễn phí {booking.booking_code} đang chờ nhân viên xác nhận.')
+           f'Đã tạo đơn làm lại {booking.booking_code}. CSKH đang sắp xếp nhân viên.')
+    notify(complaint, 'Đã tạo buổi làm lại', f'Đơn làm lại miễn phí {booking.booking_code} đang được sắp xếp nhân viên.')
+
+
+def redo_earnings(complaint):
+    proposal = complaint.proposals.first()
+    if not proposal or proposal.service_action != Proposal.ServiceAction.REDO or not complaint.schedule_id:
+        return None
+    earning = WorkerEarning.objects.filter(schedule_id=proposal.fulfilled_schedule_id).first()
+    gross = earning_service.calculate_gross_amount(complaint.schedule, complaint.booking)
+    expected = earning.worker_amount if earning else gross - earning_service.calculate_commission(gross)
+    recovered = max(Decimal(0), -complaint.worker_delta)
+    statement = getattr(complaint, 'worker_statement', None)
+    preview = None
+    if not proposal.fulfilled_schedule_id and statement and statement.status in ('SUBMITTED', 'EXPIRED'):
+        try:
+            preview = preview_outcome(complaint=complaint, outcome=Complaint.Outcome.RECOVER_WORKER_EARNING)
+        except serializers.ValidationError:
+            pass
+    return {
+        'expected': str(expected), 'recovered': str(recovered), 'shortfall': str(complaint.shortfall),
+        'paid': str(earning.worker_amount if earning and earning.wallet_credited_at else Decimal(0)),
+        'platform_cost': str(max(Decimal(0), expected - recovered)),
+        'recoverable': str(-Decimal(preview['worker_delta'])) if preview else None,
+        'recovery_shortfall': preview['shortfall'] if preview else None,
+    }
 
 
 def confirm_service(complaint, proposal):
@@ -158,14 +203,19 @@ def confirm_service(complaint, proposal):
             and schedule.booking.service_id == complaint.booking.service_id
             and schedule.scheduled_start == proposal.scheduled_start,
             'Buổi thực hiện phải khớp khách, dịch vụ và lịch đã xác nhận.')
-    require(BookingAssignment.objects.filter(
-        schedule=schedule, worker_id=proposal.worker_id, status=BookingAssignment.Status.ACCEPTED,
-    ).exists(), 'Nhân viên được đề xuất chưa nhận buổi này.')
+    assignments = BookingAssignment.objects.filter(schedule=schedule, status=BookingAssignment.Status.ACCEPTED)
     if redo:
+        assignment = assignments.first()
+        require(assignment, 'Buổi làm lại chưa có nhân viên nhận.')
         require(schedule.status == BookingSchedule.Status.COMPLETED and schedule.pk != complaint.schedule_id
                 and schedule.booking.total_amount == Decimal(0),
                 'Buổi làm lại phải hoàn thành và có giá bằng 0.')
+        require(WorkerEarning.objects.filter(
+            schedule=schedule, worker_id=assignment.worker_id, wallet_credited_at__isnull=False,
+        ).exists(), 'Chưa ghi nhận tiền công cho nhân viên làm lại.')
+        proposal.worker_id = assignment.worker_id
     else:
+        require(assignments.filter(worker_id=proposal.worker_id).exists(), 'Nhân viên được đề xuất chưa nhận buổi này.')
         require(schedule.pk == complaint.schedule_id
                 and schedule.status in (BookingSchedule.Status.PENDING, BookingSchedule.Status.IN_PROGRESS,
                                         BookingSchedule.Status.COMPLETED),
@@ -184,6 +234,8 @@ def finish(complaint, proposal, actor, data):
             'Nhập mã hoặc căn cứ xác nhận đã hoàn tiền mặt.')
     notes = [message]
     if data.get('recover_worker_earning'):
+        require(proposal.service_action != Proposal.ServiceAction.REDO,
+                'Thu hồi tiền công làm lại phải được quyết định khi tạo buổi.')
         apply_outcome(complaint=complaint, admin=actor, outcome=Complaint.Outcome.RECOVER_WORKER_EARNING)
     if proposal.refund_scope == Proposal.RefundScope.CASH:
         record(complaint, actor, Event.Kind.VERIFY, f'Chứng từ tiền mặt: {data["cash_reference"]}', public=False)
@@ -213,7 +265,7 @@ def finish(complaint, proposal, actor, data):
         )
         notes.append(f'Voucher {proposal.voucher.code} đã có trong Voucher của tôi. Chọn voucher khi đặt dịch vụ.')
     proposal.status = Proposal.Status.COMPLETED
-    proposal.save(update_fields=['status', 'fulfilled_schedule', 'refund_transaction', 'issued_voucher'])
+    proposal.save(update_fields=['status', 'fulfilled_schedule', 'worker', 'refund_transaction', 'issued_voucher'])
     close(complaint, actor, Complaint.Status.RESOLVED, '\n'.join(notes))
 
 
@@ -250,9 +302,12 @@ def handle_admin(complaint, actor, data):
     if action in ('COMPLETE', 'SCHEDULE_REDO'):
         require(proposal and proposal.pk == data.get('proposal_id'), 'Phương án đã thay đổi. Tải lại hồ sơ.')
         if action == 'SCHEDULE_REDO':
-            schedule_redo(complaint, proposal, actor)
+            schedule_redo(complaint, proposal, actor, data)
         else:
             finish(complaint, proposal, actor, data)
+        return
+    if action == 'REQUEST_WORKER':
+        request_statement(complaint, message, data['worker_due_at'])
         return
     if action == 'REQUEST':
         record(complaint, actor, Event.Kind.REQUEST, message)
@@ -261,9 +316,9 @@ def handle_admin(complaint, actor, data):
     if action == 'ACK':
         next_update = data.get('next_update_at')
         require(next_update or complaint.next_update_at or complaint.events.filter(kind=Event.Kind.ACK).exists(),
-                'Nhập mốc hẹn cập nhật khi phản hồi lần đầu.')
+                'Chọn thời gian phản hồi dự kiến.')
         if next_update:
-            require(next_update > timezone.now(), 'Mốc cập nhật phải ở trong tương lai.')
+            require(next_update > timezone.now(), 'Thời gian phản hồi phải ở trong tương lai.')
             complaint.next_update_at = next_update
             complaint.save(update_fields=['next_update_at'])
         record(complaint, actor, Event.Kind.ACK, message)
@@ -292,6 +347,47 @@ def handle_admin(complaint, actor, data):
     notify(complaint, 'Có phương án xử lý khiếu nại', 'Mở hồ sơ để xem và phản hồi phương án.')
 
 
+def supplement_status(complaint):
+    request = complaint.events.filter(kind=Event.Kind.REQUEST).order_by('-pk').first()
+    if request is None:
+        return None
+    next_event = complaint.events.filter(
+        pk__gt=request.pk, kind__in=(Event.Kind.REPLY, Event.Kind.CLOSE, Event.Kind.REJECT),
+    ).order_by('pk').first()
+    reply = next_event if next_event and next_event.kind == Event.Kind.REPLY else None
+    status = 'CLOSED'
+    if reply:
+        status = 'SUBMITTED'
+    elif next_event is None and complaint.status == Complaint.Status.IN_REVIEW:
+        status = 'PENDING'
+    return {
+        'request_id': request.pk,
+        'message': request.message,
+        'status': status,
+        'submitted_at': reply.created_at if reply else None,
+    }
+
+
+def submit_supplement(complaint, actor, data):
+    # The workflow view locks the complaint before checking or consuming the request.
+    supplement = supplement_status(complaint)
+    require(
+        supplement and supplement['status'] == 'PENDING' and supplement['request_id'] == data.get('request_id'),
+        'Yêu cầu bổ sung đã thay đổi hoặc đã được gửi. Vui lòng tải lại hồ sơ.',
+    )
+    attachments = data.get('attachments', [])
+    require(
+        not attachments or complaint.attachments.count() + len(attachments) <= MAX_COMPLAINT_ATTACHMENTS,
+        f'Tối đa {MAX_COMPLAINT_ATTACHMENTS} ảnh cho một khiếu nại.',
+    )
+    with uploaded_complaint_images(attachments) as uploads:
+        ComplaintAttachment.objects.bulk_create([
+            ComplaintAttachment(complaint=complaint, **upload) for upload in uploads
+        ])
+        record(complaint, actor, Event.Kind.REPLY,
+               data.get('message') or f'Đã bổ sung {len(attachments)} ảnh minh chứng.')
+
+
 def handle_customer(complaint, actor, data):
     action = data['action']
     message = data.get('message', '')
@@ -305,7 +401,7 @@ def handle_customer(complaint, actor, data):
         return
     require(complaint.status == Complaint.Status.IN_REVIEW, 'Hồ sơ chưa được tiếp nhận hoặc đã đóng.')
     if action == 'REPLY':
-        record(complaint, actor, Event.Kind.REPLY, message)
+        submit_supplement(complaint, actor, data)
         return
     proposal = complaint.proposals.first()
     require(proposal and proposal.pk == data.get('proposal_id') and proposal.status == Proposal.Status.SENT,

@@ -1,4 +1,5 @@
 from .models import BookingActivity
+from .realtime import publish_booking_changed
 
 
 def record_booking_activity(
@@ -6,7 +7,7 @@ def record_booking_activity(
     old_data=None, new_data=None, metadata=None,
 ):
     """Ghi audit có chủ đích từ service để luôn giữ được actor và lý do."""
-    return BookingActivity.objects.create(
+    activity = BookingActivity.objects.create(
         booking=booking,
         schedule=schedule,
         actor=actor if getattr(actor, 'is_authenticated', False) else None,
@@ -16,3 +17,5 @@ def record_booking_activity(
         new_data=new_data,
         metadata=metadata or {},
     )
+    publish_booking_changed(activity.booking_id)
+    return activity

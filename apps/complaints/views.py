@@ -20,6 +20,7 @@ from apps.common.permissions import (
 )
 
 from apps.notifications.realtime import push_complaint_changed
+from apps.notifications.services import notify_admins_customer_complaint
 from apps.worker.discipline_service import APPEAL_CODE
 
 from .permissions import IsComplaintOwnerOrAdmin
@@ -271,6 +272,9 @@ class ComplaintListCreateView(generics.ListCreateAPIView):
                     file_type=f.content_type or "",
                 )
 
+            if complaint.reporter_role == Complaint.ReporterRole.CUSTOMER:
+                notify_admins_customer_complaint(complaint)
+
         # Báo realtime SAU khi đã lưu xong ảnh để admin thấy đủ ảnh.
         push_complaint_changed(complaint.id)
 
@@ -504,6 +508,11 @@ class ComplaintAttachmentUploadView(
             pk=self.kwargs["pk"],
             reporter=self.request.user,
         )
+
+        if complaint.reporter_role == Complaint.ReporterRole.CUSTOMER:
+            raise ValidationError({
+                "file": "Vui lòng gửi ảnh cùng phản hồi cho yêu cầu bổ sung trong hồ sơ.",
+            })
 
         if complaint.status not in (
             Complaint.Status.PENDING,

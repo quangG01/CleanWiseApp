@@ -6,8 +6,9 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.contrib.auth.models import AnonymousUser
 from django.http import Http404
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from apps.bookings.realtime import booking_watch_group
 
 from .realtime import user_group
 from .moderation import ChatContentBlocked
@@ -16,6 +17,17 @@ from .service import can_send, mark_messages_read, participant_conversation, sen
 
 
 logger = logging.getLogger(__name__)
+
+
+@database_sync_to_async
+def can_watch_booking(worker, booking_id):
+    from apps.bookings.models import Booking
+    from apps.worker.assignment_service import worker_can_view_booking_schedules
+
+    if worker.role != worker.Role.WORKER:
+        return False
+    booking = Booking.objects.select_related('service', 'address').filter(pk=booking_id).first()
+    return booking is not None and worker_can_view_booking_schedules(worker, booking)
 
 
 @database_sync_to_async
@@ -42,6 +54,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         self.user = None
         self.group_name = None
+        self.watched_booking_id = None
         self.expiry_task = None
         self.typing_conversations = {}
         await self.accept()
@@ -53,6 +66,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             self.expiry_task.cancel()
         if self.group_name:
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        if self.watched_booking_id is not None:
+            await self.channel_layer.group_discard(booking_watch_group(self.watched_booking_id), self.channel_name)
         if self.user:
             for conversation_id, recipient_id in self.typing_conversations.items():
                 await self._publish_typing(conversation_id, recipient_id, False)
@@ -114,6 +129,18 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 await self._publish_typing(conversation_id, recipient_id, is_typing)
             elif action == 'ping':
                 await self.send_json({'type': 'pong'})
+            elif action == 'booking.watch':
+                booking_id = content.get('booking_id')
+                if type(booking_id) is not int or not 0 < booking_id <= 2**53 - 1:
+                    raise ValidationError({'booking_id': 'ID đơn dịch vụ không hợp lệ.'})
+                if self.watched_booking_id is not None:
+                    await self.channel_layer.group_discard(booking_watch_group(self.watched_booking_id), self.channel_name)
+                    self.watched_booking_id = None
+                if not await can_watch_booking(self.user, booking_id):
+                    raise PermissionDenied('Bạn không thể theo dõi đơn này.')
+                await self.channel_layer.group_add(booking_watch_group(booking_id), self.channel_name)
+                self.watched_booking_id = booking_id
+                await self.send_json({'type': 'booking.watch.ready', 'booking_id': booking_id})
             else:
                 await self.send_json({'type': 'error', 'code': 'unknown_action'})
         except Http404:
@@ -159,3 +186,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         
     async def notification_unread(self, event):
         await self.send_json({'type': 'notification.unread', **event['payload']})
+
+    async def booking_changed(self, event):
+        if self.watched_booking_id == event['booking_id']:
+            await self.send_json({'type': 'booking.changed', 'booking_id': self.watched_booking_id})
