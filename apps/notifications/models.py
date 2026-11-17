@@ -8,6 +8,7 @@ class Notification(models.Model):
         PAYMENT = 'PAYMENT', 'Thanh toán'
         ASSIGNMENT = 'ASSIGNMENT', 'Phân công'
         COMPLAINT = 'COMPLAINT', 'Khiếu nại'
+        CHAT = 'CHAT', 'Tin nhắn'
         SYSTEM = 'SYSTEM', 'Hệ thống'
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.DO_NOTHING, related_name='notifications')
@@ -20,6 +21,12 @@ class Notification(models.Model):
         related_name='+', blank=True, null=True,
     )
     related_worker = models.ForeignKey('authentication.WorkerProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    related_customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='+', blank=True, null=True,
+    )
+    related_complaint = models.ForeignKey(
+        'complaints.Complaint', on_delete=models.SET_NULL, related_name='+', blank=True, null=True,
+    )
     navigation_source = models.CharField(max_length=20, default='mine')
     target = models.CharField(max_length=20, blank=True, default='')
     is_read = models.BooleanField(default=False)

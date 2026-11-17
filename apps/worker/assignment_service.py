@@ -57,15 +57,15 @@ def _notify_admins(*, title, message, related_booking=None):
     from apps.notifications.realtime import push_unread_count
 
     admins = list(User.objects.filter(role='ADMIN', is_active=True))
-    Notification.objects.bulk_create([
+    notifications = Notification.objects.bulk_create([
         Notification(
             user=admin, title=title, message=message,
             type=Notification.Type.ASSIGNMENT, related_booking=related_booking,
         )
         for admin in admins
     ])
-    for admin in admins:
-        transaction.on_commit(lambda a=admin: push_unread_count(a.id))
+    for notification in notifications:
+        push_unread_count(notification.user_id, notification=notification)
 
 
 def _get_worker_profile(worker):
@@ -182,6 +182,8 @@ _CITY_PREFIX_RE = re.compile(r'^(thành phố|tp\.?|tỉnh)\s+', re.IGNORECASE)
 
 def _norm(value):
     v = (value or '').strip().lower()
+    if v in {'tp.hcm', 'tp. hcm', 'tp hcm', 'hcm'}:
+        return 'hồ chí minh'
     v = _CITY_PREFIX_RE.sub('', v)
     return v.strip()
 
@@ -699,6 +701,9 @@ def list_available_schedules_for_worker(
     )
     queryset = queryset.filter(~Exists(live_invites) | Exists(live_invites.filter(worker=worker)))
     queryset = queryset.filter(
+        ~Q(booking__price_breakdown__has_key='complaint_code') | Exists(live_invites.filter(worker=worker)),
+    )
+    queryset = queryset.filter(
         Q(preferred_worker__isnull=True)
         | Q(preferred_worker=worker)
         | Q(preferred_worker_expires_at__isnull=True)
@@ -880,6 +885,18 @@ def list_my_schedules(worker, schedule_status=None, booking_id=None, tab=None):
     ).order_by('-booking_anchor', 'booking_id', '-scheduled_start')
     
 
+def worker_can_view_booking_schedules(worker, booking):
+    profile = _get_worker_profile(worker)
+    if profile is None or profile.status != 'ACTIVE' or not profile.registered_service_id:
+        return False
+    if (booking.service.section_code == profile.registered_service.section_code
+            and _covers(_worker_area_index(worker), booking.address)):
+        return True
+    return BookingAssignment.objects.filter(
+        schedule__booking=booking, worker=worker, status=BookingAssignment.Status.ACCEPTED,
+    ).exists()
+
+
 def list_booking_schedules_for_worker(worker, *, booking_id):
     run_lazy_expiry()
 
@@ -891,15 +908,7 @@ def list_booking_schedules_for_worker(worker, *, booking_id):
         Booking.objects.select_related('service', 'address'), pk=booking_id,
     )
 
-    same_section = booking.service.section_code == profile.registered_service.section_code
-    in_area = _covers(_worker_area_index(worker), booking.address)
-    already_assigned = BookingAssignment.objects.filter(
-        schedule__booking=booking, worker=worker, status=BookingAssignment.Status.ACCEPTED,
-    ).exists()
-
-    if not already_assigned and (
-        not (same_section and in_area)
-    ):
+    if not worker_can_view_booking_schedules(worker, booking):
         return BookingSchedule.objects.none()
 
     mine = BookingAssignment.objects.filter(
@@ -935,6 +944,8 @@ def _accept_or_create_assignment(schedule, worker, skip_notify=False, invitation
         return finish_invitation(invitation, 'ACCEPTED', worker)
     if active_invitation(schedule):
         raise serializers.ValidationError({'schedule': 'Buổi đang chờ các nhân viên được mời phản hồi.'})
+    if 'complaint_code' in (schedule.booking.price_breakdown or {}):
+        raise serializers.ValidationError({'schedule': 'Cần lời mời của CSKH để nhận buổi làm lại.'})
     assignment = BookingAssignment(
         schedule=schedule, worker=worker, status='ACCEPTED', responded_at=now,
     )

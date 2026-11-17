@@ -2,10 +2,13 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.utils.crypto import salted_hmac
 from django.shortcuts import get_object_or_404
+from django.utils.text import Truncator
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
 from apps.bookings.models import Booking, BookingSchedule
+from apps.notifications.models import Notification
+from apps.notifications.services import create_notification
 from apps.worker.models import BookingAssignment
 
 from .models import ChatConversation, ChatConversationAssignment, ChatMessage, ChatRestriction, ChatSendAttempt
@@ -129,6 +132,15 @@ def _send_text_transaction(user, values):
                                        fingerprint=fingerprint, message=message, outcome=outcome)
     ChatConversation.objects.filter(pk=conversation.pk).update(updated_at=timezone.now())
     transaction.on_commit(lambda: publish_message(message.id))
+    if conversation.administrator_id and conversation.customer_id == user.pk:
+        create_notification(
+            user=conversation.administrator,
+            title=Truncator(f'Tin nhắn mới từ {display_name(user)}').chars(150),
+            message='',
+            type=Notification.Type.CHAT,
+            related_customer=user,
+            target='support_chat',
+        )
     return message, outcome
 
 

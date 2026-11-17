@@ -185,6 +185,36 @@ class ComplaintEvent(models.Model):
         ordering = ['created_at', 'pk']
 
 
+class ComplaintWorkerStatement(models.Model):
+    complaint = models.OneToOneField(Complaint, on_delete=models.CASCADE, related_name='worker_statement')
+    worker = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='complaint_statements')
+    request_message = models.TextField()
+    due_at = models.DateTimeField()
+    response = models.TextField(blank=True, default='')
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def status(self):
+        from django.utils import timezone
+
+        if self.submitted_at:
+            return 'SUBMITTED'
+        if self.complaint.status != Complaint.Status.IN_REVIEW:
+            return 'CLOSED'
+        return 'OPEN' if self.due_at > timezone.now() else 'EXPIRED'
+
+
+class WorkerStatementAttachment(models.Model):
+    statement = models.ForeignKey(ComplaintWorkerStatement, on_delete=models.CASCADE, related_name='attachments')
+    file = models.URLField(max_length=500)
+    public_id = models.CharField(max_length=255)
+    file_type = models.CharField(max_length=30)
+
+    class Meta:
+        ordering = ['pk']
+
+
 class ComplaintProposal(models.Model):
     class Status(models.TextChoices):
         SENT = 'SENT', 'Chờ khách phản hồi'

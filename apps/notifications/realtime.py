@@ -9,7 +9,7 @@ from apps.chat.realtime import user_group
 logger = logging.getLogger(__name__)
 
 
-def push_unread_count(user_id):
+def push_unread_count(user_id, *, notification=None):
     """Đẩy số chưa đọc tới mọi socket của user, sau khi transaction commit."""
 
     def _send():
@@ -19,11 +19,22 @@ def push_unread_count(user_id):
         if layer is None:
             return
         count = Notification.objects.filter(user_id=user_id, is_read=False).count()
+        payload = {"unread_count": count}
+        admin_payload = payload
+        if notification is not None:
+            admin_payload = {
+                **payload,
+                "notification": {
+                    "id": notification.pk,
+                    "title": notification.title,
+                    "target": notification.target,
+                },
+            }
         try:
-            for group in (user_group(user_id), f"admin_notifications_{user_id}"):
-                async_to_sync(layer.group_send)(group, {
-                    "type": "notification.unread", "payload": {"unread_count": count},
-                })
+            send = async_to_sync(layer.group_send)
+            user_payload = admin_payload if notification and notification.target == "worker_statement" else payload
+            send(user_group(user_id), {"type": "notification.unread", "payload": user_payload})
+            send(f"admin_notifications_{user_id}", {"type": "notification.unread", "payload": admin_payload})
         except Exception:
             logger.warning("push_unread_count failed", exc_info=True)
 
