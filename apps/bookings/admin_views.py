@@ -566,3 +566,21 @@ class AdminInvitationWithdrawView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         withdraw_invitation(schedule_id=pk, actor=request.user, reason=serializer.validated_data['reason'])
         return Response({'message': 'Đã thu hồi lời mời.', 'data': None})
+
+
+class AdminScheduleReassignView(generics.GenericAPIView):
+    permission_classes = [IsAdminRole]
+
+    @idempotent
+    def post(self, request, pk):
+        from .admin_serializers import AdminReassignWorkersSerializer
+        from .admin_services import reassign_workers_by_admin
+        serializer = AdminReassignWorkersSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with distributed_lock(f'schedule:{pk}'):
+            invitations = reassign_workers_by_admin(
+                schedule_id=pk, actor=request.user, **serializer.validated_data,
+            )
+        return Response({'message': 'Đã gửi lời mời thay nhân viên.', 'data': {
+            'invitation_ids': [item.pk for item in invitations],
+        }}, status=status.HTTP_201_CREATED)
