@@ -1,4 +1,5 @@
 from django.urls import path
+from .discipline_views import CancellationPreviewView, MyDisciplineView
 
 from .views import (
     WorkerInvitationResponseView,
@@ -33,6 +34,10 @@ urlpatterns = [
     path('schedules/<int:schedule_id>/claim/', WorkerClaimScheduleView.as_view(), name='worker-schedule-claim'),
     path('bookings/<int:booking_id>/claim/', WorkerClaimBookingPackageView.as_view(), name='worker-booking-claim-package'),
     path('assignments/<int:assignment_id>/cancel/', WorkerCancelAssignmentView.as_view(), name='worker-assignment-cancel'),
+    path('assignments/<int:assignment_id>/report-absence/', WorkerCancelAssignmentView.as_view(),
+         {'report_late': True}, name='worker-assignment-report-absence'),
+    path('assignments/<int:assignment_id>/cancel-preview/', CancellationPreviewView.as_view(), name='worker-cancel-preview'),
+    path('discipline/', MyDisciplineView.as_view(), name='worker-discipline'),
     path('areas/', WorkerActiveAreaListView.as_view(), name='worker-active-area-list'),
     path('working-areas/', WorkerWorkingAreaView.as_view(), name='worker-working-area'),
     path('schedules/<int:schedule_id>/check-in/', WorkerCheckInView.as_view(), name='worker-schedule-check-in'),

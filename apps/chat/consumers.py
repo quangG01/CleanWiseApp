@@ -23,7 +23,7 @@ def typing_recipient(user, conversation_id):
     conversation = participant_conversation(conversation_id, user)
     if not can_send(conversation) or policy_status(user)['is_locked']:
         return None
-    return conversation.worker_id if conversation.customer_id == user.id else conversation.customer_id
+    return conversation.other_participant(user.pk).pk
 
 
 @database_sync_to_async

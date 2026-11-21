@@ -3,6 +3,11 @@ from django.db.models import Q
 from .models import ChatMessage
 
 
+def participant_filter(user, prefix=''):
+    return (Q(**{f'{prefix}customer': user}) | Q(**{f'{prefix}worker': user})
+            | Q(**{f'{prefix}administrator': user}))
+
+
 def assignment_notice_filter():
     """Legacy assignment notices remain stored but are no longer chat content."""
     return Q(

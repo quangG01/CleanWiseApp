@@ -19,13 +19,16 @@ from apps.notifications.services import (
 from apps.vouchers.voucher_service import mark_user_voucher_used
 
 from .models import BookingAssignment
-from .assignment_service import OPEN_BOOKING_STATUSES
+from .assignment_service import (
+    CHECKOUT_GRACE_MINUTES,
+    OPEN_BOOKING_STATUSES,
+    get_checkout_deadline,
+)
 from apps.wallets import earning_service
 import math
 
 CHECKIN_EARLY_MINUTES = getattr(settings, 'CHECKIN_EARLY_MINUTES', 30)
 CHECKIN_LATE_MINUTES = getattr(settings, 'CHECKIN_LATE_MINUTES', 30)
-CHECKOUT_GRACE_MINUTES = getattr(settings, 'CHECKOUT_GRACE_MINUTES', 30)
 
 CHECKIN_MAX_DISTANCE_METERS = getattr(settings, 'CHECKIN_MAX_DISTANCE_METERS', 300)
 # GPS sai số quá lớn thì không đủ tin cậy để so khoảng cách.
@@ -149,6 +152,19 @@ def check_in(*, schedule_id, worker, latitude, longitude, accuracy=None):
     return schedule
 
 
+def validate_checkout_window(schedule, *, now):
+    if now < schedule.scheduled_end:
+        available_at = timezone.localtime(schedule.scheduled_end).strftime('%H:%M %d/%m/%Y')
+        raise serializers.ValidationError({
+            'schedule': f'Chưa đến giờ check-out. Bạn có thể check-out từ {available_at}.',
+        })
+    if now > get_checkout_deadline(schedule):
+        raise serializers.ValidationError({
+            'schedule': f'Đã quá {CHECKOUT_GRACE_MINUTES} phút so với giờ kết thúc dự kiến, '
+                        f'không thể tự check-out. Hệ thống sẽ tự động hoàn thành buổi làm này.'
+        })
+
+
 @transaction.atomic
 def check_out(*, schedule_id, worker, completion_note=None):
     schedule = _get_my_accepted_schedule(schedule_id=schedule_id, worker=worker)
@@ -158,14 +174,8 @@ def check_out(*, schedule_id, worker, completion_note=None):
         raise serializers.ValidationError({'schedule': 'Buổi làm việc chưa được Check-in hoặc đã hoàn thành.'})
 
     now = timezone.now()
-    checkout_deadline = schedule.scheduled_end + timedelta(minutes=CHECKOUT_GRACE_MINUTES)
-    if now > checkout_deadline:
-        raise serializers.ValidationError({
-            'schedule': f'Đã quá {CHECKOUT_GRACE_MINUTES} phút so với giờ kết thúc dự kiến, '
-                        f'không thể tự check-out. Hệ thống sẽ tự động hoàn thành buổi làm này.'
-        })
+    validate_checkout_window(schedule, now=now)
 
-    
     before_count = schedule.images.filter(image_type=BookingScheduleImage.ImageType.BEFORE).count()
     after_count = schedule.images.filter(image_type=BookingScheduleImage.ImageType.AFTER).count()
     if before_count == 0:

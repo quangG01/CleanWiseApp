@@ -1,0 +1,912 @@
+[
+  {
+    "model": "services.service",
+    "pk": 12,
+    "fields": {
+      "code": "HOME_CLEANING_HOURLY",
+      "section_code": "HOME_CLEANING",
+      "name": "Dọn dẹp nhà - Ca lẻ",
+      "description": "Dịch vụ dọn dẹp nhà theo số giờ, phù hợp với nhu cầu vệ sinh định kỳ hoặc phát sinh.",
+      "form_schema": {
+        "fields": [
+          {
+            "key": "date",
+            "type": "DATE",
+            "label": "Chọn ngày",
+            "required": true,
+            "min_days_from_now": 1
+          },
+          {
+            "key": "start_time",
+            "type": "TIME",
+            "label": "Chọn giờ làm",
+            "required": true
+          },
+          {
+            "key": "duration",
+            "type": "SINGLE_SELECT",
+            "label": "Thời gian làm việc",
+            "options": [
+              {
+                "label": "2 giờ",
+                "value": "2_HOURS",
+                "description": "Tối đa 55m² hoặc 2 phòng"
+              },
+              {
+                "label": "3 giờ",
+                "value": "3_HOURS",
+                "description": "Tối đa 85m² hoặc 3 phòng"
+              },
+              {
+                "label": "4 giờ",
+                "value": "4_HOURS",
+                "description": "Tối đa 105m² hoặc 4 phòng"
+              }
+            ],
+            "required": true
+          },
+          {
+            "key": "additional_services",
+            "type": "MULTI_SELECT",
+            "label": "Dịch vụ thêm",
+            "options": [
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789566738/cleanwise/dich_vu_nau_an_c5co7e.jpg",
+                "label": "Nấu ăn",
+                "value": "COOKING"
+              },
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789566738/cleanwise/dich_vu_ui_do_uj2ztu.jpg",
+                "label": "Ủi đồ",
+                "value": "IRONING"
+              },
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789566738/cleanwise/dich_vu_vat_nuoi_gwabb9.jpg",
+                "label": "Nhà có vật nuôi",
+                "value": "PET_HOME"
+              },
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789566737/cleanwise/dich_vu_lau_kinh_oxx2lj.jpg",
+                "label": "Lau kính",
+                "value": "WINDOW_CLEANING"
+              }
+            ],
+            "required": false
+          },
+          {
+            "key": "task_checklist_anchor",
+            "type": "TASK_CHECKLIST",
+            "label": ""
+          },
+          {
+            "key": "note",
+            "type": "TEXTAREA",
+            "label": "Ghi chú cho người thực hiện",
+            "required": false,
+            "placeholder": "Ví dụ: ưu tiên vệ sinh phòng ngủ..."
+          }
+        ],
+        "version": 6,
+        "address_count": 1,
+        "task_checklist": "Lau bụi và lau tất cả các bề mặt\nLau công tắc, tay nắm cửa và các điểm tiếp xúc thường xuyên\nQuét dọn và lau sàn nhà\nHút bụi thảm, sofa và các khu vực có thảm\nDọn dẹp, sắp xếp lại giường ngủ gọn gàng\nVệ sinh bồn cầu, bồn rửa mặt và gương phòng tắm\nRửa chén bát, lau bếp và mặt bàn bếp\nThu gom và đổ rác trong nhà"
+      },
+      "pricing_config": {
+        "currency": "VND",
+        "base_prices": {
+          "2_HOURS": 150000,
+          "3_HOURS": 210000,
+          "4_HOURS": 280000
+        },
+        "pricing_type": "FIXED",
+        "additional_services": {
+          "COOKING": 50000,
+          "IRONING": 40000,
+          "PET_HOME": 20000,
+          "WINDOW_CLEANING": 50000
+        }
+      },
+      "is_active": true,
+      "created_at": "2026-09-16 05:57:07.954256+00",
+      "updated_at": "2026-09-18 07:19:34.921489+00",
+      "icon": null
+    }
+  },
+  {
+    "model": "services.service",
+    "pk": 13,
+    "fields": {
+      "code": "HOME_CLEANING_MONTHLY",
+      "section_code": "HOME_CLEANING",
+      "name": "Dọn dẹp nhà - Gói tháng",
+      "description": "Dịch vụ dọn dẹp định kỳ theo các ngày trong tuần và thời hạn gói đăng ký.",
+      "form_schema": {
+        "fields": [
+          {
+            "key": "weekdays",
+            "type": "WEEKDAY_MULTI_SELECT",
+            "label": "Ngày thực hiện hàng tuần",
+            "options": [
+              {
+                "label": "Thứ 2",
+                "value": "MON"
+              },
+              {
+                "label": "Thứ 3",
+                "value": "TUE"
+              },
+              {
+                "label": "Thứ 4",
+                "value": "WED"
+              },
+              {
+                "label": "Thứ 5",
+                "value": "THU"
+              },
+              {
+                "label": "Thứ 6",
+                "value": "FRI"
+              },
+              {
+                "label": "Thứ 7",
+                "value": "SAT"
+              },
+              {
+                "label": "CN",
+                "value": "SUN"
+              }
+            ],
+            "required": true,
+            "min_selections": 1
+          },
+          {
+            "key": "start_time",
+            "type": "TIME",
+            "label": "Giờ bắt đầu",
+            "required": true
+          },
+          {
+            "key": "duration",
+            "type": "SINGLE_SELECT",
+            "label": "Thời gian mỗi buổi",
+            "options": [
+              {
+                "label": "2 giờ",
+                "value": "2_HOURS",
+                "description": "Tối đa 55m² hoặc 2 phòng"
+              },
+              {
+                "label": "3 giờ",
+                "value": "3_HOURS",
+                "description": "Tối đa 85m² hoặc 3 phòng"
+              },
+              {
+                "label": "4 giờ",
+                "value": "4_HOURS",
+                "description": "Tối đa 105m² hoặc 4 phòng"
+              }
+            ],
+            "required": true
+          },
+          {
+            "key": "package_duration",
+            "type": "SINGLE_SELECT",
+            "label": "Thời hạn gói",
+            "display": "grid",
+            "options": [
+              {
+                "label": "1 tháng",
+                "value": "1_MONTH"
+              },
+              {
+                "label": "2 tháng",
+                "value": "2_MONTHS"
+              },
+              {
+                "label": "3 tháng",
+                "value": "3_MONTHS"
+              },
+              {
+                "label": "6 tháng",
+                "value": "6_MONTHS"
+              }
+            ],
+            "required": true
+          },
+          {
+            "key": "additional_services",
+            "type": "MULTI_SELECT",
+            "label": "Dịch vụ thêm",
+            "options": [
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789566738/cleanwise/dich_vu_nau_an_c5co7e.jpg",
+                "label": "Nấu ăn",
+                "value": "COOKING"
+              },
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789566738/cleanwise/dich_vu_ui_do_uj2ztu.jpg",
+                "label": "Ủi đồ",
+                "value": "IRONING"
+              },
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789566738/cleanwise/dich_vu_vat_nuoi_gwabb9.jpg",
+                "label": "Nhà có vật nuôi",
+                "value": "PET_HOME"
+              }
+            ],
+            "required": false
+          },
+          {
+            "key": "note",
+            "type": "TEXTAREA",
+            "label": "Ghi chú",
+            "required": false
+          }
+        ],
+        "version": 5,
+        "address_count": 1,
+        "schedule_type": "RECURRING_WEEKLY"
+      },
+      "pricing_config": {
+        "currency": "VND",
+        "base_prices": {
+          "2_HOURS": 150000,
+          "3_HOURS": 210000,
+          "4_HOURS": 280000
+        },
+        "pricing_type": "FIXED",
+        "pricing_unit": "PER_SESSION",
+        "additional_services": {
+          "COOKING": 50000,
+          "IRONING": 40000,
+          "PET_HOME": 20000
+        },
+        "package_discount_percent": {
+          "1_MONTH": 0,
+          "2_MONTHS": 5,
+          "3_MONTHS": 10,
+          "6_MONTHS": 20
+        }
+      },
+      "is_active": true,
+      "created_at": "2026-09-16 05:57:07.954256+00",
+      "updated_at": "2026-09-18 07:19:34.921489+00",
+      "icon": null
+    }
+  },
+  {
+    "model": "services.service",
+    "pk": 14,
+    "fields": {
+      "code": "AIR_CONDITIONER_CLEANING",
+      "section_code": "APPLIANCE_CLEANING",
+      "name": "Vệ sinh máy lạnh",
+      "description": "Vệ sinh máy lạnh tại nhà. Khách hàng chọn loại máy, công suất và số lượng thiết bị.",
+      "form_schema": {
+        "fields": [
+          {
+            "key": "date",
+            "type": "DATE",
+            "label": "Chọn ngày",
+            "required": true,
+            "min_days_from_now": 1
+          },
+          {
+            "key": "start_time",
+            "type": "TIME",
+            "label": "Chọn giờ làm",
+            "required": true
+          },
+          {
+            "key": "air_conditioners",
+            "type": "REPEATABLE_GROUP",
+            "label": "Danh sách máy lạnh",
+            "required": true,
+            "min_items": 1,
+            "item_fields": [
+              {
+                "key": "machine_type",
+                "type": "SINGLE_SELECT",
+                "label": "Loại máy",
+                "options": [
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789580927/cleanwise/may_lanh_treo_tuong_gxmecl.jpg",
+                    "label": "Máy treo tường",
+                    "value": "WALL_MOUNTED"
+                  },
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789580928/cleanwise/may_lanh_tu_dung_vfqjpv.jpg",
+                    "label": "Máy tủ đứng",
+                    "value": "FLOOR_STANDING"
+                  },
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789580928/cleanwise/may_lanh_am_tran_trvab7.jpg",
+                    "label": "Máy âm trần",
+                    "value": "CEILING_CASSETTE"
+                  },
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789580927/cleanwise/may_lanh_ap_tran_beusyy.jpg",
+                    "label": "Máy áp trần",
+                    "value": "CEILING_SUSPENDED"
+                  },
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789580928/cleanwise/may_lanh_giau_tran_ntrtbp.jpg",
+                    "label": "Máy giấu trần",
+                    "value": "DUCTED"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "key": "capacity",
+                "type": "SINGLE_SELECT",
+                "label": "Công suất",
+                "options": [
+                  {
+                    "when": {
+                      "machine_type": "WALL_MOUNTED"
+                    },
+                    "items": [
+                      {
+                        "label": "Dưới 2 HP",
+                        "value": "UNDER_2HP"
+                      },
+                      {
+                        "label": "Từ 2 HP trở lên",
+                        "value": "FROM_2HP"
+                      }
+                    ]
+                  },
+                  {
+                    "when": {
+                      "machine_type": "FLOOR_STANDING"
+                    },
+                    "items": [
+                      {
+                        "label": "Tủ đứng",
+                        "value": "STANDARD"
+                      }
+                    ]
+                  },
+                  {
+                    "when": {
+                      "machine_type": "CEILING_CASSETTE"
+                    },
+                    "items": [
+                      {
+                        "label": "Dưới 3 HP",
+                        "value": "UNDER_3HP"
+                      },
+                      {
+                        "label": "Từ 3 HP trở lên",
+                        "value": "FROM_3HP"
+                      }
+                    ]
+                  },
+                  {
+                    "when": {
+                      "machine_type": "CEILING_SUSPENDED"
+                    },
+                    "items": [
+                      {
+                        "label": "Áp trần",
+                        "value": "STANDARD"
+                      }
+                    ]
+                  },
+                  {
+                    "when": {
+                      "machine_type": "DUCTED"
+                    },
+                    "items": [
+                      {
+                        "label": "Giấu trần",
+                        "value": "STANDARD"
+                      }
+                    ]
+                  }
+                ],
+                "required": true,
+                "options_by": "machine_type"
+              },
+              {
+                "key": "quantity",
+                "max": 20,
+                "min": 1,
+                "type": "QUANTITY",
+                "label": "Số lượng",
+                "required": true
+              },
+              {
+                "key": "pump_gas",
+                "type": "BOOLEAN",
+                "label": "Bơm gas",
+                "required": false,
+                "description": "Bơm gas chỉ bơm tối đa 30PSI/lần"
+              }
+            ]
+          },
+          {
+            "key": "note",
+            "type": "TEXTAREA",
+            "label": "Ghi chú",
+            "required": false,
+            "placeholder": "Ví dụ: máy ở phòng ngủ tầng 2..."
+          }
+        ],
+        "version": 3,
+        "address_count": 1
+      },
+      "pricing_config": {
+        "currency": "VND",
+        "unit_prices": {
+          "DUCTED": {
+            "STANDARD": 300000
+          },
+          "WALL_MOUNTED": {
+            "FROM_2HP": 200000,
+            "UNDER_2HP": 150000
+          },
+          "FLOOR_STANDING": {
+            "STANDARD": 250000
+          },
+          "CEILING_CASSETTE": {
+            "FROM_3HP": 350000,
+            "UNDER_3HP": 250000
+          },
+          "CEILING_SUSPENDED": {
+            "STANDARD": 250000
+          }
+        },
+        "pricing_type": "FIXED",
+        "pump_gas_price": 50000
+      },
+      "is_active": true,
+      "created_at": "2026-09-16 05:57:07.954256+00",
+      "updated_at": "2026-09-18 07:19:34.921489+00",
+      "icon": null
+    }
+  },
+  {
+    "model": "services.service",
+    "pk": 15,
+    "fields": {
+      "code": "HOME_MOVING",
+      "section_code": "MOVING",
+      "name": "Dịch vụ chuyển nhà",
+      "description": "Dịch vụ chuyển đồ từ địa chỉ cũ đến địa chỉ mới, phù hợp cho căn hộ và nhà phố.",
+      "form_schema": {
+        "fields": [
+          {
+            "key": "date",
+            "type": "DATE",
+            "label": "Chọn ngày",
+            "required": true,
+            "min_days_from_now": 1
+          },
+          {
+            "key": "start_time",
+            "type": "TIME",
+            "label": "Chọn giờ làm",
+            "required": true
+          },
+          {
+            "key": "house_type",
+            "type": "SINGLE_SELECT",
+            "label": "Loại nhà",
+            "options": [
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789581931/cleanwise/chuyen_nha_chung_cu_nqbckt.webp",
+                "label": "Chung cư / Căn hộ",
+                "value": "APARTMENT"
+              },
+              {
+                "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789581931/cleanwise/nha_pho_biet_thu_rn7wsu.webp",
+                "label": "Nhà phố / Biệt thự",
+                "value": "TOWNHOUSE"
+              }
+            ],
+            "required": true
+          },
+          {
+            "key": "house_size",
+            "type": "SINGLE_SELECT",
+            "label": "Quy mô nhà",
+            "options": [
+              {
+                "when": {
+                  "house_type": "APARTMENT"
+                },
+                "items": [
+                  {
+                    "label": "Nhỏ hơn 15m²",
+                    "value": "A_UNDER_15"
+                  },
+                  {
+                    "label": "15m² - 25m²",
+                    "value": "A_15_25"
+                  },
+                  {
+                    "label": "25m² - 35m²",
+                    "value": "A_25_35"
+                  },
+                  {
+                    "label": "35m² - 45m² (1 phòng ngủ)",
+                    "value": "A_35_45"
+                  },
+                  {
+                    "label": "45m² - 65m² (2 phòng ngủ)",
+                    "value": "A_45_65"
+                  },
+                  {
+                    "label": "65m² - 95m² (3 phòng ngủ)",
+                    "value": "A_65_95"
+                  }
+                ]
+              },
+              {
+                "when": {
+                  "house_type": "TOWNHOUSE"
+                },
+                "items": [
+                  {
+                    "label": "Nhà trệt - tối đa 50m²",
+                    "value": "GROUND_50"
+                  },
+                  {
+                    "label": "1 trệt 1 lầu - tối đa 100m²",
+                    "value": "ONE_FLOOR_100"
+                  },
+                  {
+                    "label": "1 trệt 2 lầu - tối đa 150m²",
+                    "value": "TWO_FLOORS_150"
+                  },
+                  {
+                    "label": "1 trệt 3 lầu - tối đa 200m²",
+                    "value": "THREE_FLOORS_200"
+                  },
+                  {
+                    "label": "1 trệt 4 lầu - tối đa 250m²",
+                    "value": "FOUR_FLOORS_250"
+                  }
+                ]
+              }
+            ],
+            "required": true,
+            "options_by": "house_type"
+          },
+          {
+            "key": "stairs",
+            "type": "SINGLE_SELECT",
+            "label": "Vận chuyển bằng thang bộ",
+            "options": [
+              {
+                "label": "Không",
+                "value": "NONE"
+              },
+              {
+                "label": "1 tầng",
+                "value": "ONE_FLOOR"
+              },
+              {
+                "label": "2 tầng",
+                "value": "TWO_FLOORS"
+              },
+              {
+                "label": "3 tầng",
+                "value": "THREE_FLOORS"
+              },
+              {
+                "label": "4 tầng trở lên",
+                "value": "FOUR_PLUS_FLOORS"
+              }
+            ],
+            "required": true
+          },
+          {
+            "key": "note",
+            "type": "TEXTAREA",
+            "label": "Ghi chú",
+            "required": false
+          }
+        ],
+        "version": 5,
+        "addresses": [
+          {
+            "key": "pickup_address",
+            "label": "Địa chỉ chuyển đi",
+            "required": true
+          },
+          {
+            "key": "delivery_address",
+            "label": "Địa chỉ chuyển đến",
+            "required": true
+          }
+        ],
+        "address_count": 2
+      },
+      "pricing_config": {
+        "currency": "VND",
+        "base_prices": {
+          "A_15_25": 1200000,
+          "A_25_35": 1600000,
+          "A_35_45": 2000000,
+          "A_45_65": 2800000,
+          "A_65_95": 3800000,
+          "GROUND_50": 1500000,
+          "A_UNDER_15": 800000,
+          "ONE_FLOOR_100": 2500000,
+          "TWO_FLOORS_150": 3500000,
+          "FOUR_FLOORS_250": 5500000,
+          "THREE_FLOORS_200": 4500000
+        },
+        "pricing_type": "FORMULA",
+        "stairs_surcharge": {
+          "NONE": 0,
+          "ONE_FLOOR": 100000,
+          "TWO_FLOORS": 200000,
+          "THREE_FLOORS": 350000,
+          "FOUR_PLUS_FLOORS": 500000
+        }
+      },
+      "is_active": true,
+      "created_at": "2026-09-16 06:00:08.923987+00",
+      "updated_at": "2026-09-18 07:19:34.921489+00",
+      "icon": null
+    }
+  },
+  {
+    "model": "services.service",
+    "pk": 16,
+    "fields": {
+      "code": "UPHOLSTERY_CLEANING",
+      "section_code": "UPHOLSTERY_CLEANING",
+      "name": "Vệ sinh Sofa - Nệm - Rèm - Thảm",
+      "description": "Dịch vụ vệ sinh chuyên sâu cho sofa, nệm, rèm và thảm tại nhà.",
+      "form_schema": {
+        "fields": [
+          {
+            "key": "date",
+            "type": "DATE",
+            "label": "Chọn ngày",
+            "required": true,
+            "min_days_from_now": 1
+          },
+          {
+            "key": "start_time",
+            "type": "TIME",
+            "label": "Chọn giờ làm",
+            "required": true
+          },
+          {
+            "key": "items",
+            "type": "REPEATABLE_GROUP",
+            "label": "Hạng mục cần vệ sinh",
+            "required": true,
+            "min_items": 1,
+            "item_fields": [
+              {
+                "key": "category",
+                "type": "SINGLE_SELECT",
+                "label": "Loại hạng mục",
+                "options": [
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582059/cleanwise/sofa_klqrjo.jpg",
+                    "label": "Sofa",
+                    "value": "SOFA"
+                  },
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582059/cleanwise/nem_dzms8z.jpg",
+                    "label": "Nệm",
+                    "value": "MATTRESS"
+                  },
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582058/cleanwise/rem_io9qgg.jpg",
+                    "label": "Rèm",
+                    "value": "CURTAIN"
+                  },
+                  {
+                    "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582058/cleanwise/tham_ryn4m0.jpg",
+                    "label": "Thảm",
+                    "value": "CARPET"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "key": "size",
+                "type": "SINGLE_SELECT",
+                "label": "Loại / Kích thước",
+                "options": [
+                  {
+                    "when": {
+                      "category": "SOFA"
+                    },
+                    "items": [
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582352/cleanwise/sofa_1_ghe_xspmcd.jpg",
+                        "label": "Sofa 01 ghế",
+                        "value": "ONE_SEAT",
+                        "description": "Sofa 1 ghế dài, 2-3 chỗ ngồi"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582351/cleanwise/sofa_2_ghe_vf44ps.webp",
+                        "label": "Sofa 02 ghế",
+                        "value": "TWO_SEAT",
+                        "description": "2 ghế dài, mỗi ghế 2-3 chỗ ngồi / bộ chữ L"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582351/cleanwise/ghe-sofa-chu-u-1_z66exg.jpg",
+                        "label": "Sofa 03 ghế",
+                        "value": "THREE_SEAT",
+                        "description": "2 ghế dài, có 2-3 chỗ ngồi và 1 ghế tựa / bộ chữ U"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582351/cleanwise/ghe-sofa-1-nguoi_28_syl9u9.jpg",
+                        "label": "Ghế sofa đơn",
+                        "value": "ARMCHAIR",
+                        "description": "Ghế sofa tựa 1 chỗ ngồi"
+                      }
+                    ]
+                  },
+                  {
+                    "when": {
+                      "category": "MATTRESS"
+                    },
+                    "items": [
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582682/cleanwise/nem_lon_b8hloy.jpg",
+                        "label": "Nhỏ hơn 1.5m",
+                        "value": "UNDER_1_5M",
+                        "description": "Nệm kích thước nhỏ hơn 1.5m"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582682/cleanwise/nem_nho_uas0ri.webp",
+                        "label": "Từ 1.5m đến 1.8m",
+                        "value": "FROM_1_5_TO_1_8M",
+                        "description": "Nệm kích thước từ 1.5m đến 1.8m"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789582682/cleanwise/nem_vua_bcadep.jpg",
+                        "label": "Lớn hơn 2m",
+                        "value": "OVER_2M",
+                        "description": "Nệm kích thước lớn hơn 2m"
+                      }
+                    ]
+                  },
+                  {
+                    "when": {
+                      "category": "CURTAIN"
+                    },
+                    "items": [
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583154/cleanwise/remdoilon_javnj4.jpg",
+                        "label": "Rèm đôi lớn",
+                        "value": "CURTAIN_DOUBLE_LARGE",
+                        "description": "Rèm đôi 1 lớp cho khung cửa rộng 2,5m - 4m (Giặt khô)"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583154/cleanwise/remdoinho_zpoljy.jpg",
+                        "label": "Rèm đôi nhỏ",
+                        "value": "CURTAIN_DOUBLE_SMALL",
+                        "description": "Rèm đôi 1 lớp cho khung cửa rộng 1m - 2,5m (Giặt khô)"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583154/cleanwise/remcuadon_z0dxqb.jpg",
+                        "label": "Rèm cửa đơn",
+                        "value": "CURTAIN_SINGLE",
+                        "description": "Rèm đơn 1 lớp cho khung cửa rộng dưới 1m (Giặt khô)"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583154/cleanwise/remcuasoroman_lu2qop.jpg",
+                        "label": "Rèm cửa sổ Roman",
+                        "value": "CURTAIN_ROMAN",
+                        "description": "Rèm xếp lớp hoặc rèm cuốn Roman (Giặt khô)"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583153/cleanwise/rem10kg_gsvtti.jpg",
+                        "label": "Nhỏ hơn 10kg",
+                        "value": "WATER_UNDER_10KG",
+                        "description": "Giặt nước - Khối lượng dưới 10kg"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583153/cleanwise/rem10_15kg_iopsig.jpg",
+                        "label": "Từ 10 - 15kg",
+                        "value": "WATER_10_TO_15KG",
+                        "description": "Giặt nước - Khối lượng từ 10 - 15kg"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583154/cleanwise/remtren15kg_cqp7kf.jpg",
+                        "label": "Trên 15kg",
+                        "value": "WATER_OVER_15KG",
+                        "description": "Giặt nước - Khối lượng trên 15kg"
+                      }
+                    ]
+                  },
+                  {
+                    "when": {
+                      "category": "CARPET"
+                    },
+                    "items": [
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583331/cleanwise/thamnho_yehwzu.jpg",
+                        "label": "Thảm nhỏ (S)",
+                        "value": "SMALL_S",
+                        "description": "Kích thước nhỏ hơn 1.5m"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583331/cleanwise/tham_vua_eax0zz.webp",
+                        "label": "Thảm cỡ vừa (M)",
+                        "value": "MEDIUM_M",
+                        "description": "Kích thước từ 1.5m - 2m"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583330/cleanwise/tham_co_lon_xe2mve.webp",
+                        "label": "Thảm cỡ lớn (L)",
+                        "value": "LARGE_L",
+                        "description": "Kích thước từ 2m - 2.5m"
+                      },
+                      {
+                        "image": "https://res.cloudinary.com/du8bwqxpw/image/upload/v1789583330/cleanwise/tham_co_dai_xlssto.jpg",
+                        "label": "Thảm cỡ đại (XL)",
+                        "value": "XLARGE_XL",
+                        "description": "Kích thước từ 2.5m - 3m"
+                      }
+                    ]
+                  }
+                ],
+                "required": true,
+                "options_by": "category"
+              },
+              {
+                "key": "quantity",
+                "max": 50,
+                "min": 1,
+                "type": "QUANTITY",
+                "label": "Số lượng",
+                "required": true
+              }
+            ]
+          },
+          {
+            "key": "note",
+            "type": "TEXTAREA",
+            "label": "Ghi chú",
+            "required": false
+          }
+        ],
+        "version": 6,
+        "address_count": 1
+      },
+      "pricing_config": {
+        "currency": "VND",
+        "unit_prices": {
+          "SOFA": {
+            "ARMCHAIR": 60000,
+            "ONE_SEAT": 80000,
+            "TWO_SEAT": 140000,
+            "THREE_SEAT": 190000
+          },
+          "CARPET": {
+            "LARGE_L": 260000,
+            "SMALL_S": 100000,
+            "MEDIUM_M": 180000,
+            "XLARGE_XL": 350000
+          },
+          "CURTAIN": {
+            "STANDARD": 120000
+          },
+          "MATTRESS": {
+            "OVER_2M": 260000,
+            "UNDER_1_5M": 150000,
+            "FROM_1_5_TO_1_8M": 200000
+          }
+        },
+        "pricing_type": "UNIT"
+      },
+      "is_active": true,
+      "created_at": "2026-09-16 06:00:08.923987+00",
+      "updated_at": "2026-09-18 07:19:34.921489+00",
+      "icon": null
+    }
+  }
+]

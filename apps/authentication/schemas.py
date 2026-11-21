@@ -221,7 +221,7 @@ ADMIN_WORKER_PROFILE_LIST_SCHEMA = extend_schema_view(
             'Mặc định (`status=ALL` hoặc bỏ trống) trả về toàn bộ hồ sơ nhân viên, '
             'dùng cho tab "Toàn bộ nhân viên".\n\n'
             'Truyền `status=PENDING` để lấy danh sách hồ sơ đang chờ duyệt, '
-            'dùng cho tab "Chờ duyệt". Các giá trị khác: `DRAFT`, `ACTIVE`, `REJECTED`, `SUSPENDED`.'
+            'dùng cho tab "Chờ duyệt". Dùng `SERVICE_CHANGE` để lọc yêu cầu đổi dịch vụ.'
         ),
         parameters=[
             OpenApiParameter(
@@ -230,7 +230,7 @@ ADMIN_WORKER_PROFILE_LIST_SCHEMA = extend_schema_view(
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description='Lọc theo trạng thái hồ sơ. Mặc định ALL (toàn bộ).',
-                enum=['ALL', 'DRAFT', 'PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED'],
+                enum=['ALL', 'DRAFT', 'PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED', 'SERVICE_CHANGE'],
             ),
         ],
         tags=['Worker - Admin'],

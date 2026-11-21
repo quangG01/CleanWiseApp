@@ -7,8 +7,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
-import math
-from django.db.models import Case, Count, Exists, FloatField, IntegerField, Max, Min, OuterRef, Q, Subquery, Value, When
+from django.db.models import Case, Count, Exists, F, FloatField, IntegerField, Max, Min, OuterRef, Q, Subquery, When
 from apps.bookings.activity_service import record_booking_activity
 from apps.bookings.models import Booking, BookingActivity, BookingSchedule
 from apps.notifications.models import Notification
@@ -20,9 +19,10 @@ from apps.vouchers.voucher_service import (
 from apps.wallets import earning_service, refund_service
 
 from .constants import CHECKIN_MISSED_GRACE_MINUTES, MIN_CANCEL_HOURS, AUTO_CANCEL_NOTE
+from . import discipline_service
 from .models import BookingAssignment, CustomerFavoriteWorker, WorkerWorkingArea
 
-from django.db.models.functions import Coalesce
+from django.db.models.functions import ACos, Cast, Coalesce, Cos, Greatest, Least, Radians, Sin
 
 User = get_user_model()
 
@@ -42,13 +42,6 @@ PREFERRED_WORKER_START_BUFFER = timedelta(minutes=30)
 
 
 # ---------------------------------------------------------------- helpers
-def _haversine_km(lat1, lng1, lat2, lng2):
-    r = 6371
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp, dl = p2 - p1, math.radians(lng2 - lng1)
-    h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(h))
-
 def _lock_booking_of_schedule(schedule_id):
     booking_id = get_object_or_404(
         BookingSchedule.objects.only('booking_id'), pk=schedule_id,
@@ -104,9 +97,19 @@ def _exclusive_to_other(booking, worker):
     ).exclude(preferred_worker=worker).exists()
 
 
-def validate_preferred_worker(*, customer, worker_id, service, address):
+def can_receive_preferred_request(worker):
+    return worker.is_active and (
+        not discipline_service.enforced() or discipline_service.summary(worker.pk)['can_claim']
+    )
+
+
+def validate_preferred_worker(*, customer, worker_id, service, address, schedules=None):
+    workers = User.objects
+    if schedules is not None:
+        # Serialize the final check with claim_schedule and claim_booking_package.
+        workers = workers.select_for_update(no_key=True, of=('self',))
     worker = (
-        User.objects
+        workers
         .select_related('worker_profile', 'worker_profile__registered_service')
         .filter(
             pk=worker_id, role='WORKER', is_active=True,
@@ -132,6 +135,12 @@ def validate_preferred_worker(*, customer, worker_id, service, address):
         raise serializers.ValidationError(
             {'preferred_worker_id': 'Nhân viên này không hoạt động tại khu vực của bạn.'}
         )
+    if not can_receive_preferred_request(worker):
+        raise serializers.ValidationError({'preferred_worker_id': 'Nhân viên hiện không thể nhận việc mới.'})
+    if workers_with_schedule_conflicts([worker.id], schedules):
+        raise serializers.ValidationError(
+            {'preferred_worker_id': 'Nhân viên đã bận trong lịch bạn chọn. Vui lòng chọn lại.'}
+        )
     return worker
 
 
@@ -145,7 +154,7 @@ def activate_preferred_worker_request(booking):
         ).order_by('scheduled_start')
     )
     if not schedules:
-        return
+        return False
 
     now = timezone.now()
     for schedule in schedules:
@@ -161,6 +170,12 @@ def activate_preferred_worker_request(booking):
         schedules[0].preferred_worker,
         schedules[0].preferred_worker_expires_at,
     )
+    return True
+
+
+def open_booking_for_workers(booking):
+    if not activate_preferred_worker_request(booking):
+        transaction.on_commit(lambda: _notify_workers_available_booking(booking.pk), robust=True)
 
 _CITY_PREFIX_RE = re.compile(r'^(thành phố|tp\.?|tỉnh)\s+', re.IGNORECASE)
 
@@ -218,19 +233,40 @@ def _annotate_available_sessions(queryset, available_ids):
     return queryset.annotate(available_sessions=Subquery(counts))
 
 
+def _assignment_time_overlap(start, end):
+    return Q(schedule__scheduled_start__lt=end, schedule__scheduled_end__gt=start)
+
+
+def _active_assignments():
+    return BookingAssignment.objects.filter(
+        status=BookingAssignment.Status.ACCEPTED,
+        schedule__status__in=ACTIVE_SCHEDULE_STATUSES,
+    )
+
+
+def workers_with_schedule_conflicts(worker_ids, schedules):
+    if not worker_ids or not schedules:
+        return set()
+    overlaps = Q()
+    for schedule in schedules:
+        overlaps |= _assignment_time_overlap(schedule['scheduled_start'], schedule['scheduled_end'])
+    return set(
+        _active_assignments().filter(overlaps, worker_id__in=worker_ids)
+        .order_by().values_list('worker_id', flat=True).distinct()
+    )
+
+
 def _has_time_conflict(worker, schedule):
-    return BookingSchedule.objects.filter(
-        assignments__worker=worker,
-        assignments__status=BookingAssignment.Status.ACCEPTED,
-        status__in=ACTIVE_SCHEDULE_STATUSES,
-        scheduled_start__lt=schedule.scheduled_end,
-        scheduled_end__gt=schedule.scheduled_start,
-    ).exclude(pk=schedule.pk).exists()
+    return _active_assignments().filter(
+        _assignment_time_overlap(schedule.scheduled_start, schedule.scheduled_end),
+        worker=worker,
+    ).exclude(schedule=schedule).exists()
 
 
 def validate_worker_for_schedule(*, schedule, worker):
     """Validation dùng chung cho admin gán việc và danh sách ứng viên."""
     profile = _get_claimable_profile(worker)
+    discipline_service.ensure_can_claim(worker.id)
     booking = schedule.booking
     if booking.status not in OPEN_BOOKING_STATUSES:
         raise serializers.ValidationError({'schedule': 'Đơn dịch vụ không còn nhận nhân viên.'})
@@ -327,6 +363,8 @@ def list_available_workers_for_schedule(*, schedule_id, search=None, group='suit
             reasons.append('Trùng lịch')
         if not cash_eligible:
             reasons.append('Không đủ số dư')
+        if discipline_service.enforced() and not discipline_service.summary(worker.pk)['can_claim']:
+            reasons.append('Đang bị giới hạn nhận việc mới')
         if reasons and (group == 'suitable' or (
             group == 'all' and worker.id not in favorite_ids and worker.id != schedule.preferred_worker_id)):
             continue
@@ -339,6 +377,35 @@ def list_available_workers_for_schedule(*, schedule_id, search=None, group='suit
         worker.cash_balance_eligible = cash_eligible
         workers.append(worker)
     return workers
+
+
+def _notify_workers_available_booking(booking_id):
+    from apps.notifications.services import notify_worker_available_job
+
+    now = timezone.now()
+    assignments = BookingAssignment.objects.filter(schedule_id=OuterRef('pk'))
+    reserved = assignments.filter(
+        Q(status=BookingAssignment.Status.ACCEPTED)
+        | Q(status=BookingAssignment.Status.PENDING, expired_at__gt=now)
+    )
+    schedules = BookingSchedule.objects.filter(
+        booking_id=booking_id, booking__status__in=OPEN_BOOKING_STATUSES,
+        status=BookingSchedule.Status.PENDING, scheduled_start__gt=now,
+    ).exclude(
+        Q(preferred_worker__isnull=False, preferred_worker_expires_at__gt=now)
+        | Exists(reserved)
+    ).select_related('booking').order_by('scheduled_start', 'pk')
+    notified = set()
+    for schedule in schedules:
+        try:
+            workers = list_available_workers_for_schedule(schedule_id=schedule.pk)
+        except serializers.ValidationError:
+            # The booking may have changed after the creation/payment transaction.
+            continue
+        for worker in workers:
+            if worker.pk not in notified:
+                notify_worker_available_job(schedule, worker)
+                notified.add(worker.pk)
 
 
 def _sync_booking_status_after_claim(booking):
@@ -357,6 +424,10 @@ def _sync_booking_status_after_claim(booking):
 
 def get_cancel_deadline(schedule):
     return schedule.scheduled_start - timedelta(hours=MIN_CANCEL_HOURS)
+
+
+def get_checkout_deadline(schedule):
+    return schedule.scheduled_end + timedelta(minutes=CHECKOUT_GRACE_MINUTES)
 
 
 @transaction.atomic
@@ -390,6 +461,7 @@ def handle_missed_checkins():
         assignment.response_note = AUTO_CANCEL_NOTE
         assignment.responded_at = now
         assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
+        discipline_service.record_missed(assignment, now)
         schedule.cancel_reason = (
             f'Nhân viên không check-in trong {CHECKIN_MISSED_GRACE_MINUTES} phút sau giờ hẹn.'
         )
@@ -578,7 +650,7 @@ def run_lazy_expiry(*, checkouts=False):
     expire_unclaimed_schedules()
     from apps.bookings.expiry_service import expire_unpaid_bookings
     expire_unpaid_bookings()
-    earning_service.release_held_earnings()
+    earning_service.settle_pending_online_earnings()
     if checkouts:
         handle_missed_checkouts()
 
@@ -586,8 +658,8 @@ def run_lazy_expiry(*, checkouts=False):
 
 
 def list_available_schedules_for_worker(
-    worker, *, booking_id=None, date_from=None, date_to=None,
-    group_by_booking=False, sort='time', lat=None, lng=None,
+    worker, *, booking_id=None, date_from=None, date_to=None, group_by_booking=False,
+    sort='time', origin=None,
 ):
     run_lazy_expiry()
 
@@ -675,7 +747,14 @@ def list_available_schedules_for_worker(
         'booking', 'booking__service', 'booking__address',
         'booking__delivery_address', 'booking__customer',
     )
-    ordering = ['scheduled_start', 'id']
+    result = _annotate_total_sessions(result).annotate(
+        admin_invited=Exists(BookingAssignment.objects.filter(schedule=OuterRef('pk'), worker=worker, status='PENDING', expired_at__gt=timezone.now())),
+        preferred_rank=Case(
+            When(preferred_worker=worker, preferred_worker_expires_at__gt=timezone.now(), then=0),
+            default=1, output_field=IntegerField(),
+        ),
+    )
+    ordering = ['-admin_invited', 'preferred_rank']
     if sort == 'area':
         result = result.annotate(in_my_area=Exists(
             WorkerWorkingArea.objects.filter(
@@ -683,29 +762,26 @@ def list_available_schedules_for_worker(
                 area__ward_code=OuterRef('booking__address__ward_code'),
             )
         ))
-        ordering = ['-in_my_area', 'scheduled_start', 'id']
-    elif sort == 'distance' and lat is not None and lng is not None:
-        whens = []
-        for s in matched:  # đổi thành all_matched nếu biến của bạn tên vậy
-            a = s.booking.address
-            if a.latitude is not None and a.longitude is not None:
-                km = _haversine_km(lat, lng, float(a.latitude), float(a.longitude))
-                whens.append(When(pk=s.id, then=Value(km)))
-        result = result.annotate(dist_km=Case(
-            *whens, default=Value(1e9), output_field=FloatField(),
+        ordering.append('-in_my_area')
+    elif origin is not None:
+        latitude, longitude = origin
+        address_lat = Radians(Cast('booking__address__latitude', FloatField()))
+        address_lng = Cast('booking__address__longitude', FloatField())
+        cos_angle = (
+            Sin(Radians(latitude)) * Sin(address_lat)
+            + Cos(Radians(latitude)) * Cos(address_lat) * Cos(Radians(address_lng - longitude))
+        )
+        result = result.annotate(distance_km=Case(
+            When(
+                booking__address__latitude__range=(-90, 90),
+                booking__address__longitude__range=(-180, 180),
+                then=6371.0 * ACos(Least(1.0, Greatest(-1.0, cos_angle))),
+            ),
+            output_field=FloatField(),
         ))
-        ordering = ['dist_km', 'scheduled_start', 'id']
+        ordering.append(F('distance_km').asc(nulls_last=True))
 
-    return _annotate_total_sessions(result).annotate(
-        admin_invited=Exists(BookingAssignment.objects.filter(
-            schedule=OuterRef('pk'), worker=worker,
-            status='PENDING', expired_at__gt=timezone.now(),
-        )),
-        preferred_rank=Case(
-            When(preferred_worker=worker, preferred_worker_expires_at__gt=timezone.now(), then=0),
-            default=1, output_field=IntegerField(),
-        ),
-    ).order_by('-admin_invited', 'preferred_rank', *ordering)
+    return result.order_by(*ordering, 'scheduled_start', 'id')
 
 
 MY_TABS = ('upcoming', 'today', 'completed', 'cancelled')
@@ -872,7 +948,7 @@ def _accept_or_create_assignment(schedule, worker, skip_notify=False, invitation
 @transaction.atomic
 def claim_schedule(*, schedule_id, worker, invitation_id=None):
     profile = _get_claimable_profile(worker)
-    User.objects.select_for_update().get(pk=worker.pk)
+    User.objects.select_for_update(no_key=True).get(pk=worker.pk)
     _lock_booking_of_schedule(schedule_id)
     schedule = get_object_or_404(
         BookingSchedule.objects.select_for_update(of=('self',))
@@ -888,6 +964,7 @@ def claim_schedule(*, schedule_id, worker, invitation_id=None):
             return existing
         raise serializers.ValidationError({'schedule': 'Buổi làm việc này đã có người nhận.'})
 
+    discipline_service.ensure_can_claim(worker.pk, lock=True)
     if booking.status not in OPEN_BOOKING_STATUSES:
         raise serializers.ValidationError({'schedule': 'Đơn dịch vụ không còn nhận nhân viên.'})
     if not _is_bookable(booking):
@@ -934,13 +1011,14 @@ def claim_schedule(*, schedule_id, worker, invitation_id=None):
 @transaction.atomic
 def claim_booking_package(*, booking_id, worker, schedule_ids=None):
     profile = _get_claimable_profile(worker)
-    User.objects.select_for_update().get(pk=worker.pk)
+    User.objects.select_for_update(no_key=True).get(pk=worker.pk)
 
     booking = get_object_or_404(
         Booking.objects.select_for_update(of=('self',)).select_related('service', 'address'),
         pk=booking_id,
     )
 
+    discipline_service.ensure_can_claim(worker.pk, lock=True)
     if booking.status not in OPEN_BOOKING_STATUSES:
         raise serializers.ValidationError({'booking': 'Đơn dịch vụ không còn nhận nhân viên.'})
     if not _is_bookable(booking):
@@ -1039,14 +1117,15 @@ def claim_booking_package(*, booking_id, worker, schedule_ids=None):
 
 
 @transaction.atomic
-def cancel_assignment(*, assignment_id, worker, reason):
+def cancel_assignment(*, assignment_id, worker, reason, report_late=False,
+                      expected_deduction=None, expected_score=None):
     reason = (reason or '').strip()
     if not reason:
         raise serializers.ValidationError({'reason': 'Vui lòng nhập lý do hủy.'})
 
     assignment_lookup = get_object_or_404(
         BookingAssignment.objects.filter(
-            pk=assignment_id, worker=worker, status=BookingAssignment.Status.ACCEPTED,
+            pk=assignment_id, worker=worker,
         ),
     )
     _lock_booking_of_schedule(assignment_lookup.schedule_id)
@@ -1055,9 +1134,19 @@ def cancel_assignment(*, assignment_id, worker, reason):
     )
     assignment = get_object_or_404(
         BookingAssignment.objects.select_for_update(of=('self',)),
-        pk=assignment_id, worker=worker, status=BookingAssignment.Status.ACCEPTED,
+        pk=assignment_id, worker=worker,
     )
+    if assignment.status == BookingAssignment.Status.CANCELLED:
+        from .models import WorkerDisciplineCase
+
+        kind = WorkerDisciplineCase.Kind.LATE if report_late else WorkerDisciplineCase.Kind.CANCEL
+        if WorkerDisciplineCase.objects.filter(assignment=assignment, kind=kind, reason=reason).exists():
+            return assignment
+    if assignment.status != BookingAssignment.Status.ACCEPTED:
+        raise serializers.ValidationError({'assignment': 'Bạn không còn được phân công buổi này.'})
+
     booking = schedule.booking
+    discipline_service.lock_worker(worker.pk)
     now = timezone.now()
 
 
@@ -1066,8 +1155,10 @@ def cancel_assignment(*, assignment_id, worker, reason):
     if booking.status not in OPEN_BOOKING_STATUSES:
         raise serializers.ValidationError({'assignment': 'Đơn dịch vụ đã kết thúc hoặc đã hủy.'})
 
-    hours_before = _hours_between(now, schedule.scheduled_start)
-    if hours_before < MIN_CANCEL_HOURS:
+    remaining = schedule.scheduled_start - now
+    if report_late and not timedelta(0) < remaining < timedelta(hours=MIN_CANCEL_HOURS):
+        raise serializers.ValidationError({'assignment': 'Chỉ báo vắng khi còn dưới 6 tiếng và buổi chưa đến giờ làm.'})
+    if not report_late and remaining < timedelta(hours=MIN_CANCEL_HOURS):
         raise serializers.ValidationError({
             'assignment': (
                 f'Chỉ được tự hủy trước giờ làm ít nhất {MIN_CANCEL_HOURS} tiếng. '
@@ -1075,10 +1166,18 @@ def cancel_assignment(*, assignment_id, worker, reason):
             ),
         })
 
+    preview = discipline_service.cancellation_preview(assignment, now)
+    if (expected_deduction is not None and expected_deduction != preview['deduction']) or (
+        expected_score is not None and expected_score != preview['projected_score']
+    ):
+        raise serializers.ValidationError({'discipline': 'Điểm dự kiến đã thay đổi. Vui lòng tải lại trước khi xác nhận.'})
+
     assignment.status = BookingAssignment.Status.CANCELLED
     assignment.response_note = reason
     assignment.responded_at = now
     assignment.save(update_fields=['status', 'response_note', 'responded_at', 'updated_at'])
+    discipline_service.record_cancellation(assignment, reason=reason, late=report_late, now=now,
+                                           deduction=preview['deduction'])
 
     earning_service.release_cash_commission(assignment=assignment)
 
@@ -1098,6 +1197,9 @@ def cancel_assignment(*, assignment_id, worker, reason):
         old_data={'assignment_id': assignment.id, 'status': BookingAssignment.Status.ACCEPTED},
         new_data={'status': BookingAssignment.Status.CANCELLED, 'reason': reason},
     )
+    if report_late:
+        _notify_admins(title='Nhân viên báo vắng sát giờ', message=f'Cần tìm người thay cho đơn {booking.booking_code}.',
+                       related_booking=booking)
 
     return assignment
 

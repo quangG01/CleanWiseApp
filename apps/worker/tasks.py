@@ -109,8 +109,9 @@ def expire_unpaid_bookings_task():
 
 @shared_task
 def release_held_earnings_task():
-    from apps.wallets.earning_service import release_held_earnings
-    release_held_earnings()
+    # Keep the registered name for jobs already queued by older deployments.
+    from apps.wallets.earning_service import settle_pending_online_earnings
+    settle_pending_online_earnings()
     
     
 

@@ -13,8 +13,10 @@ from apps.common.idempotency import idempotent
 from apps.worker.assignment_service import run_lazy_expiry
 
 from rest_framework.throttling import ScopedRateThrottle
+from drf_spectacular.utils import extend_schema, inline_serializer
 from apps.common.distributed_lock import distributed_lock
 
+from .booking_service import get_favorite_worker_availability
 from .schemas import (
     BOOKING_CUSTOMER_SCHEMA,
     BOOKING_DETAIL_CUSTOMER_SCHEMA,
@@ -23,6 +25,8 @@ from .models import Booking
 from .serializers import (
     BookingCreateSerializer,
     BookingDetailSerializer,
+    BookingFavoriteWorkerAvailabilityRequestSerializer,
+    BookingFavoriteWorkerAvailabilitySerializer,
     BookingListSerializer,
 )
 
@@ -168,6 +172,27 @@ class BookingListCreateView(generics.GenericAPIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class BookingFavoriteWorkerAvailabilityView(generics.GenericAPIView):
+    permission_classes = [IsCustomerRole]
+    serializer_class = BookingFavoriteWorkerAvailabilityRequestSerializer
+
+    @extend_schema(
+        summary='Kiểm tra lịch rảnh của nhân viên yêu thích khi đặt dịch vụ',
+        tags=['Booking - Customer'],
+        responses=inline_serializer(
+            name='BookingFavoriteWorkerAvailabilityResponse',
+            fields={'data': BookingFavoriteWorkerAvailabilitySerializer()},
+        ),
+    )
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        availability = get_favorite_worker_availability(
+            customer=request.user, **serializer.validated_data,
+        )
+        return Response({'data': BookingFavoriteWorkerAvailabilitySerializer(availability).data})
 
 
 @BOOKING_DETAIL_CUSTOMER_SCHEMA

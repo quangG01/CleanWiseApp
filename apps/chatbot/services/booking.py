@@ -9,11 +9,9 @@ from rest_framework import serializers
 
 from apps.addresses.models import CustomerAddress
 from apps.bookings.booking_service import (
-    _validate_payment_method, _validate_schedules, calculate_booking_price,
+    _validate_payment_method, build_booking_schedules, calculate_booking_price,
     create_booking, get_package_discount_percent, is_computable_pricing,
 )
-from apps.bookings.schedule_builder import build_schedules
-from apps.bookings.service_data_validation import validate_service_data
 from apps.payments.models import Payment
 from apps.services.models import Service
 from apps.vouchers.voucher_service import validate_and_calculate_voucher
@@ -41,9 +39,7 @@ def prepare_booking(*, customer_id, conversation_id, run_id, service_id, address
     elif delivery_address_id:
         raise serializers.ValidationError({'delivery_address_id': 'Dịch vụ này không cần địa chỉ thứ hai.'})
 
-    validate_service_data(service.form_schema, service_data)
-    schedules = build_schedules(service.form_schema, service_data)
-    _validate_schedules(schedules)
+    schedules = build_booking_schedules(service, service_data)
     _validate_payment_method(payment_method, form_schema=service.form_schema, sessions_count=len(schedules))
 
     if not is_computable_pricing(service.pricing_config):

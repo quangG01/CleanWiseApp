@@ -24,3 +24,7 @@ celerybeat-schedule*
 
 # Isolated local previews
 .local/
+
+/installed-cleanwise-base.apk
+/package-lock.json
+/exports/

@@ -16,6 +16,7 @@ CHAT_ALLOWED_LINK_HOSTS = tuple(host.strip().lower() for host in os.environ.get(
 CHAT_VIOLATION_WINDOW_DAYS = 30
 CHAT_WARNING_LIMIT = 3
 CHAT_LOCK_DAYS = (1, 3, 7)
+WORKER_DISCIPLINE_ENFORCED = os.environ.get('WORKER_DISCIPLINE_ENFORCED', '1') == '1'
 PASSWORD_RESET_OTP_TTL_MINUTES = int(os.environ.get("PASSWORD_RESET_OTP_TTL_MINUTES", 10))
 PASSWORD_RESET_OTP_MAX_ATTEMPTS = int(os.environ.get("PASSWORD_RESET_OTP_MAX_ATTEMPTS", 5))
 FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
@@ -388,7 +389,7 @@ CELERY_BEAT_SCHEDULE = {
         'options': {'expires': 55},
     },
 
-    'release-held-earnings': {
+    'settle-pending-online-earnings': {
         'task': 'apps.worker.tasks.release_held_earnings_task',
         'schedule': 600.0,
         'options': {'expires': 590},
@@ -442,6 +443,6 @@ PAYOUT_METHOD_COOLDOWN_HOURS = int(os.environ.get("PAYOUT_METHOD_COOLDOWN_HOURS"
 # Khung giờ nhận lịch: giờ BẮT ĐẦU phải nằm trong khoảng này
 BOOKING_OPEN_TIME = time(8, 0)
 BOOKING_LAST_START_TIME = time(18, 0)
-BOOKING_MIN_LEAD_MINUTES = 120
+BOOKING_MIN_ADVANCE_MINUTES = 120
 
 WITHDRAW_OTP_REQUIRED = os.environ.get('WITHDRAW_OTP_REQUIRED', '1') == '1'

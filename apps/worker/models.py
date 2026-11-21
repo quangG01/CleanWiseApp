@@ -106,6 +106,42 @@ class BookingAssignment(models.Model):
         return f'{self.schedule} - {self.worker}'
 
 
+class WorkerDisciplineCase(models.Model):
+    class Kind(models.TextChoices):
+        CANCEL = 'CANCEL', 'Hủy nhận việc'
+        LATE = 'LATE', 'Báo vắng sát giờ'
+        NO_SHOW = 'NO_SHOW', 'Không check-in'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Chờ xác minh'
+        CONFIRMED = 'CONFIRMED', 'Đã xác nhận'
+        WAIVED = 'WAIVED', 'Đã miễn điểm'
+
+    class Sanction(models.TextChoices):
+        NONE = '', 'Không xử lý hồ sơ'
+        SUSPENDED = 'SUSPENDED', 'Tạm khóa hồ sơ'
+        PROPOSED = 'PROPOSED', 'Chờ duyệt cấm'
+        BANNED = 'BANNED', 'Cấm hồ sơ'
+
+    assignment = models.OneToOneField(BookingAssignment, on_delete=models.PROTECT, related_name='discipline_case')
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    deduction = models.PositiveSmallIntegerField()
+    reason = models.TextField(blank=True)
+    occurred_at = models.DateTimeField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
+    sanction = models.CharField(max_length=12, choices=Sanction.choices, blank=True, default='')
+    sanction_at = models.DateTimeField(null=True, blank=True)
+    sanction_until = models.DateTimeField(null=True, blank=True)
+    sanction_note = models.TextField(blank=True)
+    proposed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)
+
+    class Meta:
+        ordering = ['-occurred_at', '-pk']
+
+
 class CustomerFavoriteWorker(models.Model):
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL,

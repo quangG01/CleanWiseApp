@@ -178,7 +178,7 @@ def withdraw_invitation(*, schedule_id, actor, reason):
 @transaction.atomic
 def respond_invitation(*, invitation_id, worker, accept):
     from .assignment_service import User, _lock_booking_of_schedule, claim_schedule
-    User.objects.select_for_update().get(pk=worker.pk)
+    User.objects.select_for_update(no_key=True).get(pk=worker.pk)
     ref = get_object_or_404(BookingAssignment, pk=invitation_id, worker=worker, assigned_by__isnull=False)
     _lock_booking_of_schedule(ref.schedule_id)
     invitation = BookingAssignment.objects.select_for_update().get(pk=ref.pk)

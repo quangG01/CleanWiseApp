@@ -31,7 +31,7 @@ SERVICE_LIST_SCHEMA = extend_schema_view(
 SERVICE_DETAIL_SCHEMA = extend_schema_view(
     get=extend_schema(
         summary='Chi tiết dịch vụ (khách hàng)',
-        description='Trả về form_schema và pricing_config để FE dựng form đặt lịch.',
+        description='Trả về form_schema, pricing_config và booking_policy để app dựng form đặt lịch.',
         tags=['Services'],
         responses={200: ServiceDetailSerializer},
     ),
