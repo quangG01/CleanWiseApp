@@ -304,3 +304,24 @@ def complete_schedule_by_admin(*, schedule_id, actor, reason, completion_note=No
         metadata={'manual': True},
     )
     return schedule
+
+
+@transaction.atomic
+def reassign_workers_by_admin(*, schedule_id, actor, assignment_id, worker_ids, reason, response_minutes=15):
+    """Cancel the current assignment and invite replacements in one transaction."""
+    from apps.worker.assignment_service import _lock_booking_of_schedule
+    from apps.worker.invitation_service import send_invitations
+
+    _lock_booking_of_schedule(schedule_id)
+    schedule = get_object_or_404(BookingSchedule.objects.select_for_update(), pk=schedule_id)
+    if schedule.status != BookingSchedule.Status.PENDING:
+        raise serializers.ValidationError({'schedule': 'Chỉ đổi nhân viên cho buổi chưa bắt đầu.'})
+    current = schedule.assignments.select_for_update().filter(status=BookingAssignment.Status.ACCEPTED).first()
+    if not current or current.pk != assignment_id:
+        raise serializers.ValidationError({'assignment': 'Phân công đã thay đổi. Vui lòng tải lại đơn.'})
+    if current.worker_id in worker_ids:
+        raise serializers.ValidationError({'worker_ids': 'Hãy chọn nhân viên khác người đang phụ trách.'})
+    unassign_worker_by_admin(schedule_id=schedule_id, actor=actor, reason=reason)
+    # Any eligibility/invitation failure rolls back removal, commission and notifications.
+    return send_invitations(schedule_id=schedule_id, worker_ids=worker_ids,
+                            admin_user=actor, response_minutes=response_minutes)

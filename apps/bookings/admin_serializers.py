@@ -377,3 +377,9 @@ class AdminAvailableWorkerSerializer(AdminWorkerSummarySerializer):
             'cash_balance_eligible', 'bio', 'experience_years', 'gender',
             'registered_service', 'working_areas',
         ]
+
+
+class AdminReassignWorkersSerializer(AdminReasonSerializer):
+    assignment_id = serializers.IntegerField(min_value=1)
+    worker_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False, max_length=100)
+    response_minutes = serializers.ChoiceField(choices=[15, 30, 60], default=15)

@@ -1,6 +1,5 @@
 from datetime import timedelta
 from secrets import randbelow
-from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -55,28 +54,10 @@ class WorkerServiceRequestView(generics.GenericAPIView):
             'reason': decision.reason if decision else '',
         }})
 
-    @transaction.atomic
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        profile = get_object_or_404(WorkerProfile.objects.select_for_update(), user=request.user)
-        service = serializer.validated_data['service_id']
-        if profile.status != WorkerProfile.Status.ACTIVE:
-            raise ValidationError({'service_id': 'Hồ sơ phải đang hoạt động để yêu cầu đổi dịch vụ.'})
-        if profile.requested_service_id:
-            raise ValidationError({'service_id': 'Bạn đã có yêu cầu đổi dịch vụ đang chờ duyệt.'})
-        current = profile.registered_service
-        if current and current.section_code == service.section_code:
-            raise ValidationError({'service_id': 'Hãy chọn nhóm dịch vụ khác nhóm hiện tại.'})
-
-        profile.requested_service = service
-        profile.service_request_token = uuid4()
-        profile.save(update_fields=['requested_service', 'service_request_token', 'updated_at'])
-        _record_service(
-            profile, request.user, WorkerProfileReviewEvent.Action.SERVICE_REQUESTED,
-            current.name if current else None, service.name,
-        )
-        return _profile_response(profile)
+        raise ValidationError({
+            'service_id': 'Nhân viên làm việc cố định theo dịch vụ đã đăng ký. Không hỗ trợ đổi dịch vụ.',
+        })
 
 
 class AdminWorkerServiceReviewSerializer(serializers.Serializer):
@@ -85,6 +66,8 @@ class AdminWorkerServiceReviewSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=1000, required=False)
 
     def validate(self, attrs):
+        if attrs['decision'] == 'APPROVE':
+            raise ValidationError({'decision': 'Không hỗ trợ đổi dịch vụ đã đăng ký của nhân viên.'})
         if attrs['decision'] == 'REJECT' and not attrs.get('reason'):
             raise ValidationError({'reason': 'Vui lòng nhập lý do từ chối.'})
         return attrs
@@ -104,18 +87,14 @@ class AdminWorkerServiceReviewView(generics.GenericAPIView):
             raise ConcurrentUpdateError('Yêu cầu đổi dịch vụ đã thay đổi. Vui lòng tải lại hồ sơ.')
         proposed = profile.requested_service
         current = profile.registered_service
-        approving = data['decision'] == 'APPROVE'
-        if approving:
-            if profile.status != WorkerProfile.Status.ACTIVE or not proposed.is_active:
-                raise ValidationError({'decision': 'Hồ sơ và dịch vụ được đề xuất phải đang hoạt động.'})
-            profile.registered_service = proposed
-
+        # Approval is disabled by serializer policy. Keep rejection available
+        # only to close historical requests without changing the assigned service.
         profile.requested_service = None
         profile.service_request_token = None
-        profile.save(update_fields=['registered_service', 'requested_service', 'service_request_token', 'updated_at'])
+        profile.save(update_fields=['requested_service', 'service_request_token', 'updated_at'])
         actions = WorkerProfileReviewEvent.Action
         _record_service(
-            profile, request.user, actions.SERVICE_APPROVED if approving else actions.SERVICE_REJECTED,
+            profile, request.user, actions.SERVICE_REJECTED,
             current.name if current else None, proposed.name, data.get('reason', ''),
         )
         return _profile_response(profile)
