@@ -33,17 +33,29 @@ def _parse_period(request):
     return period
 
 
-def _resolve_period(period):
-    """Tuần: thứ 2 -> chủ nhật của tuần hiện tại. Tháng: ngày 1 -> ngày cuối tháng."""
+def _parse_offset(request):
+    """offset <= 0: 0 = ky hien tai, -1 = ky truoc, ..."""
+    raw = request.query_params.get('offset', '0')
+    try:
+        offset = int(raw)
+    except (TypeError, ValueError):
+        raise ValidationError({'offset': 'offset ph\u1ea3i l\u00e0 s\u1ed1 nguy\u00ean.'})
+    if offset > 0 or offset < -120:
+        raise ValidationError({'offset': 'offset ph\u1ea3i t\u1eeb -120 \u0111\u1ebfn 0.'})
+    return offset
+
+
+def _resolve_period(period, offset=0):
+    """Tuan: thu 2 -> chu nhat. Thang: ngay 1 -> ngay cuoi thang. offset=-1 la ky truoc."""
     today = timezone.localdate()
     if period == 'week':
-        start = today - timedelta(days=today.weekday())
+        start = today - timedelta(days=today.weekday()) + timedelta(weeks=offset)
         end = start + timedelta(days=6)
     else:
-        start = today.replace(day=1)
-        end = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+        year, month = divmod(today.year * 12 + today.month - 1 + offset, 12)
+        start = today.replace(year=year, month=month + 1, day=1)
+        end = start.replace(day=calendar.monthrange(year, month + 1)[1])
     return start, end
-
 
 def _range_bounds(start, end):
     tz = timezone.get_current_timezone()
@@ -91,7 +103,7 @@ class WorkerEarningSummaryView(APIView):
 
     def get(self, request, *args, **kwargs):
         period = _parse_period(request)
-        start, end = _resolve_period(period)
+        start, end = _resolve_period(period, _parse_offset(request))
         lower, upper = _range_bounds(start, end)
 
         # Khoản đã bị thu hồi qua khiếu nại (voided) không tính vào thu nhập.
@@ -152,7 +164,7 @@ class WorkerEarningHistoryView(APIView):
 
     def get(self, request, *args, **kwargs):
         period = _parse_period(request)
-        start, end = _resolve_period(period)
+        start, end = _resolve_period(period, _parse_offset(request))
         lower, upper = _range_bounds(start, end)
 
         queryset = (
