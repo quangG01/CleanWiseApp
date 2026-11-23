@@ -76,7 +76,8 @@ def delete_service_image(image):
     public_id = extract_cloudinary_public_id(image.image)
     if public_id:
         try:
-            result = cloudinary.uploader.destroy(public_id, resource_type='image')
+            ensure_cloudinary_configured()
+            result = cloudinary.uploader.destroy(public_id, resource_type='image', invalidate=True)
             if result.get('result') not in ('ok', 'not found'):
                 raise serializers.ValidationError({'images': 'Không thể xoá ảnh trên Cloudinary.'})
         except serializers.ValidationError:

@@ -857,7 +857,7 @@ def _booking_anchor(worker, statuses, agg):
     )
 
 
-def list_my_schedules(worker, schedule_status=None, booking_id=None, tab=None):
+def list_my_schedules(worker, schedule_status=None, booking_id=None, tab=None, date_from=None, date_to=None):
     run_lazy_expiry(checkouts=True)
 
     queryset = BookingSchedule.objects.filter(_my_assignment_exists(worker)).select_related(
@@ -869,6 +869,10 @@ def list_my_schedules(worker, schedule_status=None, booking_id=None, tab=None):
     if booking_id:
         queryset = queryset.filter(booking_id=booking_id)
     queryset = _annotate_total_sessions(queryset)
+    if date_from:
+        queryset = queryset.filter(scheduled_start__date__gte=date_from)
+    if date_to:
+        queryset = queryset.filter(scheduled_start__date__lte=date_to)
 
     if tab is None:
         return queryset.order_by('scheduled_start')

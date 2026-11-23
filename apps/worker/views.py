@@ -349,7 +349,7 @@ class WorkerMyScheduleListView(generics.GenericAPIView):
         queryset = _prefetch_assignments(
             assignment_service.list_my_schedules(
                 request.user, schedule_status=schedule_status,
-                booking_id=booking_id, tab=tab,
+                booking_id=booking_id, tab=tab, date_from=_parse_date_param(request, "date_from"), date_to=_parse_date_param(request, "date_to"),
             ),
             with_images=True,
         )
